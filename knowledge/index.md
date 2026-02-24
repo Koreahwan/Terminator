@@ -102,6 +102,7 @@
 | XION Chain | Immunefi | Blockchain/DLT (Cosmos SDK, 68K LOC Go+Rust) | ABANDONED — $250K Critical, 2 audits, 9 months old. 3 analysts (auth/chain/contracts), 24 findings. Top 3 HIGH+ 전부 KILLED: (A) ZK AddVKey no gov=by design (test confirms), (B) gnark validates input count, (C) BeginBlocker panic=dead code path. JWT alg confusion=jwx rejects empty. 0 HIGH+. ~4hr/$0. | `targets/xion/` |
 | QNAP QTS 5.2.7 | QNAP Security Bounty | Firmware (x86-64, 56 CGIs, thttpd) | ABANDONED — All HIGH findings DISPROVED/PATCHED/POST-AUTH. CVE-2024-27130 patched (snprintf). authLogin.cgi obfuscated (static analysis blocked). No pre-auth surface. ~10hr/$0. | [qnap_qts_5.2.7.md](challenges/qnap_qts_5.2.7.md) |
 | Synology SRM 1.3.1 | Synology PSIRT | Firmware (ARM32, captiveportal.cgi) | **SUBMITTED (2/23)** — 3 findings: Script Injection (CWE-79) + CSTI (CWE-1336) + Open Redirect (CWE-601). CVSS 6.1 Medium. Pre-auth captive portal, AngularJS 1.5.5 EOL. QEMU+Playwright verified. ~6hr. 응답 ETA: 7일 (3/2). | `targets/synology-srm/disclosure-captiveportal/` |
+| AXIS OS (Q3536-LVE) | Bugcrowd | Firmware (aarch64, D-Bus services) | **READY TO SUBMIT** — Systemic D-Bus Authorization Bypass (CWE-863). 5 services, 17 methods, CVSS 8.1 High. Incomplete patch of CVE-2025-0359/0360. PoC Tier 1 Gold. Critic+Architect+Triager_sim all SUBMIT. ~6hr. | `targets/axis-os/submission/` |
 
 ### H1 Account Status (2026-02-17)
 - **API 제출 차단**: 계정 레벨 403 (모든 프로그램)
@@ -155,3 +156,21 @@
 - **3라운드 리뷰 필수**: V1(팩트) → V2(프레이밍) → V3(기술약점)
 - **Phase 0 Target Intelligence**: GO/NO-GO 게이트 필수
 - See [techniques/bug_bounty_report_quality.md](techniques/bug_bounty_report_quality.md) for complete guidelines.
+
+## Knowledge Tree
+
+Hierarchical knowledge index for LLM-guided retrieval: [knowledge_tree.json](knowledge_tree.json)
+
+Use the tree to find relevant past experience by category:
+- `ctf.pwn.stack` — Stack exploitation challenges
+- `ctf.pwn.heap` — Heap exploitation challenges
+- `ctf.reversing.custom_vm` — Custom VM reverse engineering
+- `bugbounty.web3_defi` — DeFi smart contract findings
+- `bugbounty.firmware` — Firmware device findings
+- `tools_and_infra.protocol_vulns` — Protocol vulnerability patterns
+
+## External Knowledge Repos
+
+Catalog of all cloned reference repositories: [external_repos.md](external_repos.md)
+
+Key repos: ExploitDB (47K+), PoC-in-GitHub (8K+), nuclei-templates (12K+), PayloadsAllTheThings (70+ categories), protocol-vulns-index (460×31)

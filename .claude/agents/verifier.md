@@ -84,6 +84,26 @@ You are the cold, impartial judge. You don't care how clever the exploit is. You
 - Suggested debugging approach
 ```
 
+## Probe-Based Verification (Post-Execution)
+
+After running solve.py 3 times, perform these probe checks to verify the exploit's robustness:
+
+### Recall Probes (verify key facts survived the pipeline)
+- "What is the exact buffer overflow offset?" → Compare with reversal_map.md
+- "What libc version is required?" → Compare with `ldd ./binary` output
+- "What protection bypass method is used?" → Compare with checksec output
+
+### Artifact Probes (verify file consistency)
+- "Does solve.py use the same addresses as chain_report.md?" → Diff check
+- "Are there hardcoded addresses that only work locally?" → Flag for remote adaptation
+
+### Continuation Probes (verify remote readiness)
+- "What will change when switching to remote?" → List: libc offsets, timing, buffering
+- "Is there a fallback if remote libc differs?" → Check if solve.py handles libc detection
+
+Document probe results in the verification report under `## Probe Verification` section.
+If ANY probe reveals inconsistency → downgrade verdict (PASS→RETRY or RETRY→FAIL).
+
 ## Completion Criteria (MANDATORY)
 - Verification report 저장 완료
 - PASS + remote flag 획득 시: `FLAG_FOUND: <flag>` 포함하여 Orchestrator에게 보고

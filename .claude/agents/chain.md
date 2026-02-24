@@ -148,6 +148,9 @@ First agent to achieve local shell wins. Other is terminated.
 - `gdb -q -ex "source ~/gef/gef.py"` (**GEF: rop, got, vmmap, heap chunks, canary, shellcode, xinfo**)
 - `r2` (gadget search)
 - `~/libc-database/` (libc version identification + offset lookup)
+- `~/tools/rp++` (C++ compiled fast ROP gadget finder — ARM/ARM64/Mach-O support, use for firmware targets)
+- `~/tools/linux-exploit-suggester.sh` (kernel version → privesc CVE suggestions)
+- **Heap reference**: `~/tools/how2heap/` (House-of-* examples), `knowledge/techniques/heap_house_of_x.md`
 
 ## Think-Before-Act Protocol (MANDATORY — Devin Pattern)
 
@@ -219,6 +222,15 @@ python3 solve.py  # process('./binary')로 로컬 테스트
 2. 필요한 라이브러리 설치 요청 (예: `libc6:i386`)
 3. **Python-only 검증으로 "완료" 선언 금지** — 이것은 검증이 아니다
 
+## Knowledge DB Lookup (MANDATORY)
+Before starting work, search the Knowledge DB for relevant techniques:
+1. `technique_search("<vulnerability type>", category="<field>")` → top 5 technique docs
+2. `exploit_search("<service version>")` → ExploitDB + nuclei + PoC combined results
+3. Only drill-down with `get_technique_content("<path>")` for documents you need
+4. `challenge_search("<similar challenge>")` → past CTF writeups for reference
+- Do NOT use `cat knowledge/techniques/*.md` (wastes 27-40K tokens)
+- Use `exploit_search` instead of `searchsploit` for ExploitDB lookups
+
 ## Output Format
 ```markdown
 # Chain Report: <challenge_name>
@@ -247,6 +259,30 @@ python3 solve.py  # process('./binary')로 로컬 테스트
 ## solve.py
 - Complete exploit script (with process() + remote() switching)
 ```
+
+## Self-Review Before Reporting (MANDATORY)
+
+Before sending completion report to Orchestrator, answer ALL of these:
+
+1. **Offset verification**: Every address/offset in solve.py matches reversal_map.md AND was verified in GDB?
+2. **Dual-mode ready**: solve.py handles both `process('./binary')` AND `remote(host, port)` switching?
+3. **Phase independence**: Each Phase was tested independently before integration?
+4. **Assumption audit**: All assumptions listed in chain_report.md `## Assumptions` section?
+5. **No vague language**: Zero instances of "should work", "probably", "seems to", "likely" in chain_report.md?
+
+If ANY answer is NO → fix before reporting. Do NOT report "almost done" or "should work with minor fixes".
+
+## Observation Masking (Context Efficiency)
+
+When r2/GDB output exceeds 500 lines, do NOT paste full output into context. Instead:
+
+```
+[Obs elided. Key: "vuln at 0x401234, buf=0x40, canary at rbp-0x8". Full output saved to: chain_debug_log.txt]
+```
+
+- Save full output to a debug log file for reference
+- Extract ONLY key findings (addresses, sizes, gadgets) into inline context
+- This prevents context window saturation on complex binaries
 
 ## Completion Criteria (MANDATORY)
 - `chain_report.md` + `solve.py` 저장 완료

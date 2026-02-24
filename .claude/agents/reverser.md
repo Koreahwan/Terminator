@@ -103,6 +103,9 @@ gdb -batch -ex "set pagination off" \
 - `~/exploitdb/searchsploit <keyword>` (known vulnerability search)
 - `WebSearch` (CTF writeups, technique references)
 - Source code review when available (most efficient)
+- `apktool d <apk>` (Android APK decompilation — smali, resources, manifest)
+- `imhex` (binary pattern language + YARA — firmware headers, custom protocols, packing analysis)
+- **Kernel/Driver reference**: `~/tools/HEVD/` (Windows kernel vuln 16 types), `~/tools/exploit-writeups/` (PS4/kernel chains)
 
 ## pwndbg 2026.02.18 New Features
 - **`nearpc -f <funcname>`**: Decompile entire function with branch visualization (annotated arrows for jumps/loops)
@@ -151,6 +154,15 @@ Skill("dwarf-expert:dwarf-expert")
 Skill("yara-authoring:yara-rule-authoring")
 ```
 **When**: Need to identify binary patterns across multiple files (e.g., custom packer signatures, VM bytecode patterns, obfuscated constants).
+
+## Knowledge DB Lookup (MANDATORY)
+Before starting work, search the Knowledge DB for relevant techniques:
+1. `technique_search("<vulnerability type>", category="<field>")` → top 5 technique docs
+2. `exploit_search("<service version>")` → ExploitDB + nuclei + PoC combined results
+3. Only drill-down with `get_technique_content("<path>")` for documents you need
+4. `challenge_search("<similar challenge>")` → past CTF writeups for reference
+- Do NOT use `cat knowledge/techniques/*.md` (wastes 27-40K tokens)
+- Use `exploit_search` instead of `searchsploit` for ExploitDB lookups
 
 ## Output Format
 ```markdown

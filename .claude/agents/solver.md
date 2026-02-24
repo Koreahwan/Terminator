@@ -45,6 +45,8 @@ Missing ANY → under-constrained → wrong answer. Check twice.
 - Binary as black-box oracle (`subprocess.run`)
 - `~/collisions/` (corkami hash collision reference — MD5, SHA-1 collision techniques for crypto challenges)
 - `knowledge/techniques/gdb_oracle_reverse.md` (GDB Oracle pattern reference)
+- `~/tools/rsactftool` (RSA weak key attacks — Wiener, Boneh-Durfee, Fermat, Pollard etc. for CTF crypto)
+- `~/collisions/` (corkami hash collision reference — MD5, SHA-1 collision techniques)
 
 ## Think-Before-Act Protocol (MANDATORY — Devin Pattern)
 
@@ -106,9 +108,30 @@ First agent to produce correct output wins. Other is terminated.
 4. 근본적으로 다른 접근법으로 전환
 5. 5회 실패 → Orchestrator에게 "외부 writeup 검색 필요" 보고
 
+## Knowledge DB Lookup (MANDATORY)
+Before starting work, search the Knowledge DB for relevant techniques:
+1. `technique_search("<vulnerability type>", category="<field>")` → top 5 technique docs
+2. `exploit_search("<service version>")` → ExploitDB + nuclei + PoC combined results
+3. Only drill-down with `get_technique_content("<path>")` for documents you need
+4. `challenge_search("<similar challenge>")` → past CTF writeups for reference
+- Do NOT use `cat knowledge/techniques/*.md` (wastes 27-40K tokens)
+- Use `exploit_search` instead of `searchsploit` for ExploitDB lookups
+
 ## Output
 - `solve.py` — 실행하면 정답 출력 (또는 binary에 입력하면 "Correct")
 - `solver_report.md` — 접근법, 실패 시도, 최종 방법 기록
+
+## Self-Review Before Reporting (MANDATORY)
+
+Before sending completion report to Orchestrator, answer ALL of these:
+
+1. **Binary-verified**: solve.py output was tested against the ACTUAL binary (not Python reimplementation)?
+2. **Constants cross-checked**: All hardcoded values in solve.py match GDB memory dumps or reversal_map.md?
+3. **Edge cases**: Tested with at least 2 different inputs (if applicable)?
+4. **Format correct**: Output format matches what the binary expects (hex? decimal? raw bytes?)?
+5. **No vague language**: Zero instances of "should work", "probably", "seems to" in solver_report.md?
+
+If ANY answer is NO → fix before reporting.
 
 ## Completion Criteria (MANDATORY)
 - solve.py가 실제 바이너리에서 정답을 출력하면 작업 완료

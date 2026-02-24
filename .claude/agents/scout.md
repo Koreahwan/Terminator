@@ -33,6 +33,12 @@ curl -s "https://markdown.new/<target_url>" | head -500
 - **DNS**: dig, nslookup, host
 - **SSL**: openssl s_client, curl --cert-status
 - **GitHub**: gh CLI (PRs, issues, API, repo analysis)
+- **Port Scanning**: RustScan (`rustscan -a <target>` — 65535 ports in 3 seconds, pipes to nmap)
+- **Subdomain**: amass (`~/gopath/bin/amass enum -d <domain>` — OWASP, 40+ data sources), subfinder
+- **Web OSINT**: web-check (`~/tools/web-check` — Docker, 33 checks: DNS/SSL/tech/mail/security.txt, port 3001)
+- **Typosquatting**: dnstwist (`dnstwist <domain>` — 100+ domain permutations, registration check)
+- **Username OSINT**: sherlock (`sherlock <username>` — 400+ sites username search)
+- **Workflow**: osmedeus (`~/gopath/bin/osmedeus` — YAML recon pipeline engine)
 - **Reference**: ExploitDB at ~/exploitdb, PoC-in-GitHub at ~/PoC-in-GitHub, PayloadsAllTheThings at ~/PayloadsAllTheThings, trickest-cve at ~/trickest-cve
 
 ## Pipeline Execution Order
@@ -472,6 +478,15 @@ print('[Phase 6] phase6_enriched.json written')
 **How analyst uses this**: Each ATT&CK technique ID maps to known exploit patterns. High CVSS + T1190/T1059 = prioritize for exploiter. Include `phase6_enriched.json` in handoff to analyst.
 
 ---
+
+## Knowledge DB Lookup (MANDATORY)
+Before starting work, search the Knowledge DB for relevant techniques:
+1. `technique_search("<vulnerability type>", category="<field>")` → top 5 technique docs
+2. `exploit_search("<service version>")` → ExploitDB + nuclei + PoC combined results
+3. Only drill-down with `get_technique_content("<path>")` for documents you need
+4. `challenge_search("<similar challenge>")` → past CTF writeups for reference
+- Do NOT use `cat knowledge/techniques/*.md` (wastes 27-40K tokens)
+- Use `exploit_search` instead of `searchsploit` for ExploitDB lookups
 
 ## Output Format
 

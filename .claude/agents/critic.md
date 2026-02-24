@@ -102,6 +102,38 @@ Before writing ANY verdict, you MUST perform a structured self-reflection:
 
 **Anti-pattern**: Writing the verdict FIRST, then backfilling evidence to justify it. Always: evidence → conclusion.
 
+## Two-Stage Review Option (Complex Artifacts)
+
+For complex exploits (heap exploitation, multi-stage chains, stripped binaries), the review can be split into two focused passes:
+
+### Stage 1: Fact-Check (addresses, offsets, constants)
+- Cross-reference EVERY numerical value in solve.py against the binary using r2/gdb
+- Verify: buffer sizes, offsets to RIP/canary, gadget addresses, libc offsets
+- Check: checksec output matches claimed protections
+- **This stage catches the #1 cause of exploit failure: wrong offsets**
+
+### Stage 2: Logic Review (exploit chain correctness)
+- Trace the full exploit flow: leak → control → payload
+- Check: Is the leak reliable under ASLR? Does the overwrite target the correct address?
+- Check: ROP chain gadget constraints (stack alignment, register states)
+- Check: Heap feng shui assumptions vs actual allocator behavior
+- **This stage catches design-level flaws that fact-checking alone misses**
+
+When Orchestrator spawns critic with `stage=facts` or `stage=logic`, focus only on that stage.
+Default (no stage specified): perform BOTH stages in sequence.
+
+## Vague Language Detection (AUTO-REJECT Trigger)
+
+The following expressions in ANY artifact trigger automatic MEDIUM severity issue:
+- "should work", "should be correct", "should pass"
+- "probably", "most likely", "presumably"
+- "seems to", "appears to" (without verification evidence)
+- "I think", "I believe" (without GDB/r2 evidence)
+
+These indicate UNVERIFIED ASSUMPTIONS. Each instance must be replaced with either:
+- Verified fact + evidence (e.g., "offset is 0x48, verified: `cyclic -l 0x6161616a` = 72")
+- Explicit assumption (moved to `## Assumptions` section)
+
 ## Review Workflow
 
 1. **Read ALL artifacts** — reversal_map.md, solve.py, trigger_report.md, chain_report.md

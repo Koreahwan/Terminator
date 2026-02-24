@@ -1,0 +1,101 @@
+{
+  "version": "1.0",
+  "description": "Hierarchical knowledge tree for LLM-guided retrieval",
+  "last_updated": "2026-02-24",
+  "tree": {
+    "ctf": {
+      "description": "CTF challenge writeups and techniques",
+      "children": {
+        "pwn": {
+          "description": "Binary exploitation challenges",
+          "children": {
+            "stack": {
+              "description": "Stack-based exploits (BOF, ROP, format string)",
+              "files": ["challenges/pwnablekr_passcode.md", "challenges/pwnablekr_horcruxes.md", "challenges/pwnablekr_asm.md", "challenges/pwnablekr_fd.md", "challenges/pwnablekr_col.md", "challenges/unibitmap.md", "challenges/level9_8.md"],
+              "techniques": ["techniques/efficient_solving.md", "techniques/toddlers_bottle_lessons.md"]
+            },
+            "heap": {
+              "description": "Heap exploitation (UAF, double free, custom allocator)",
+              "files": ["challenges/pwnablekr_hunter.md", "challenges/sand_message.md"],
+              "techniques": ["techniques/custom_allocator_exploitation.md"]
+            },
+            "misc": {
+              "description": "Logic bugs, filter bypass, I/O tricks",
+              "files": ["challenges/pwnablekr_cmd1.md", "challenges/pwnablekr_cmd2.md", "challenges/pwnablekr_random.md", "challenges/pwnablekr_input.md", "challenges/pwnablekr_input2.md", "challenges/pwnablekr_lotto.md", "challenges/pwnablekr_mistake.md", "challenges/pwnablekr_blackjack.md", "challenges/pwnablekr_coin1.md", "challenges/pwnablekr_leg.md", "challenges/pwnablekr_memcpy.md"]
+            }
+          }
+        },
+        "reversing": {
+          "description": "Reverse engineering challenges",
+          "children": {
+            "custom_vm": {
+              "description": "Custom VM/bytecode interpreters",
+              "files": ["challenges/damnida.md", "challenges/conquergent.md"],
+              "techniques": ["techniques/gdb_oracle_reverse.md"]
+            },
+            "crypto": {
+              "description": "Cryptographic challenges (AES, custom ciphers)",
+              "files": ["challenges/too_many_questions.md", "challenges/level10_1_dhcc.md"],
+              "techniques": ["techniques/efficient_solving.md"]
+            },
+            "wasm": {
+              "description": "WebAssembly reverse engineering",
+              "files": ["challenges/ultrushawasm.md"],
+              "techniques": ["techniques/wasm_challenge_lessons.md"]
+            },
+            "large_binary": {
+              "description": "Large/complex binary analysis",
+              "files": ["challenges/m.md"]
+            }
+          }
+        }
+      }
+    },
+    "bugbounty": {
+      "description": "Bug bounty program analysis and findings",
+      "children": {
+        "web3_defi": {
+          "description": "Smart contract and DeFi bug bounty",
+          "files": ["challenges/immunefi_usx.md", "challenges/kiln_defi.md", "challenges/parallel_protocol.md"],
+          "techniques": ["techniques/web3_defi_attack_taxonomy.md", "techniques/web3_audit_methodology.md", "techniques/web3_foundry_fork_poc.md", "techniques/web3_immunefi_top_payouts.md", "techniques/immunefi_submission_form.md", "techniques/immunefi_target_candidates_2026.md", "techniques/moonwell_vibe_coding_hack.md"],
+          "programs": ["bugbounty/immunefi_critical_hunt_2026_02.md"]
+        },
+        "firmware": {
+          "description": "Firmware and embedded device bug bounty",
+          "files": ["challenges/ubiquiti_edgerouter_x.md", "challenges/nordvpn_kill_switch_bypass.md", "challenges/qnap_qts_5.2.7.md"],
+          "techniques": ["techniques/firmware_diff_analysis.md", "contracts/firmware_evidence_bundle.md"],
+          "programs": ["bugbounty/nordsecurity_bbp_scope.md", "bugbounty/nordsecurity_bbp_research.md", "bugbounty/ubiquiti_bbp_retrospective.md", "bugbounty/ubiquiti_overall_process.md"]
+        },
+        "web_app": {
+          "description": "Web application and SDK bug bounty",
+          "files": [],
+          "programs": ["bugbounty/vercel_oss_bbp.md", "bugbounty/vercel_overall_process_report.md", "bugbounty/oppo_bbp.md", "bugbounty/oppo_bbp_lessons.md", "bugbounty/lovable_vdp_analysis.md", "bugbounty/django_bbp_analysis.md"],
+          "techniques": ["techniques/bug_bounty_report_quality.md"]
+        },
+        "methodology": {
+          "description": "Bug bounty methodology and lessons learned",
+          "files": [],
+          "techniques": ["techniques/bugbounty_retrospective_v1.md", "techniques/pipeline_external_review_2026.md", "bugbounty/lessons_learned.md", "bugbounty/signal_free_programs.md", "bugbounty/h1_api_guide.md", "bugbounty/oss_bounty_programs_2026.md"]
+        }
+      }
+    },
+    "tools_and_infra": {
+      "description": "Tools, pipeline, and infrastructure knowledge",
+      "children": {
+        "pipeline": {
+          "description": "Agent pipeline and orchestration",
+          "techniques": ["techniques/pipeline_tools_2026.md", "techniques/prompt_caching_lessons.md", "techniques/competitor_analysis.md", "techniques/ai_security_agents_research.md"]
+        },
+        "offensive_tools": {
+          "description": "Offensive security tools and MCP servers",
+          "techniques": ["techniques/offensive_mcp_servers.md", "techniques/exploit_references.md"]
+        },
+        "protocol_vulns": {
+          "description": "Protocol vulnerability patterns (460 categories × 31 types)",
+          "techniques": ["techniques/protocol_vulns_index_guide.md"],
+          "index": "protocol-vulns-index/README.md"
+        }
+      }
+    }
+  }
+}

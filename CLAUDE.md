@@ -141,6 +141,51 @@ Agent definitions: `.claude/agents/*.md`
 ```
 **Orchestrator가 freeform 메시지 대신 이 형식으로 전달.** 에이전트는 자기 산출물 파일 + SendMessage로 보고.
 
+### Context Positioning Rule (Lost-in-Middle Prevention)
+
+에이전트 프롬프트 구성 시 정보 배치 순서가 성능에 직접 영향:
+
+**프롬프트 구조 (MANDATORY)**:
+```
+[맨 앞] 핵심 산출물 (주소, 오프셋, 취약점 유형, FLAG 조건)
+[중간] 에이전트 정의 (자동 로드)
+[맨 뒤] HANDOFF 상세 (전체 컨텍스트, 이전 실패 내역)
+```
+
+- 컨텍스트 중간에 있는 정보는 **10-40% recall 저하** (Lost-in-Middle 현상)
+- 핵심 주소/오프셋은 HANDOFF 맨 앞 3줄에 배치
+- 이전 에이전트의 실패 내역은 맨 뒤에 배치 (참조용이지 핵심이 아님)
+
+**예시 (chain 에이전트 스폰 시)**:
+```
+[CRITICAL FACTS — READ FIRST]
+- Vulnerability: Stack BOF at 0x401234, offset 0x48 to RIP
+- Protections: NX+PIE+Canary, No RELRO
+- Libc: 2.31, one_gadget at 0xe6c7e
+
+[HANDOFF from @trigger]
+- Finding: trigger_report.md
+- Status: PASS
+- Key Result: Crash at input[72], controlled RIP via overflow
+- Next Action: Build leak→ROP→shell chain
+- Blockers: None
+
+[PREVIOUS FAILURES — REFERENCE ONLY]
+- Attempt 1: ret2libc failed (stack alignment issue)
+```
+
+### Observation Masking Protocol (Context Efficiency)
+
+에이전트가 r2/GDB/strings 등의 대용량 출력을 생성할 때:
+
+| 출력 크기 | 처리 방법 |
+|-----------|-----------|
+| < 100줄 | 전체 인라인 포함 |
+| 100-500줄 | 핵심 발견만 인라인 + 파일 저장 참조 |
+| 500줄+ | **Observation Masking 필수** — `[Obs elided. Key: "..."]` + 파일 저장 |
+
+이 규칙은 chain, solver, reverser, trigger 등 도구를 직접 실행하는 모든 에이전트에 적용.
+
 ### Dual-Approach Parallel (RoboDuck Pattern)
 3회 실패 후 또는 난이도 높은 문제에서 Orchestrator가 선택적으로 사용:
 - chain/solver를 **2개 다른 접근법으로 동시 스폰**
@@ -464,7 +509,9 @@ analyst 대신 N개 병렬 헌터 스폰 (각각 vuln-category 전문):
   ├── analyst (mode=injection)  → eval, exec, SQL, command injection 탐지
   ├── analyst (mode=ssrf)       → fetch, download, redirect, URL 조작 탐지
   ├── analyst (mode=auth)       → 인증 누락, token 예측, 권한 상승 탐지
-  └── analyst (mode=crypto)     → PRNG, weak hash, key management 탐지
+  ├── analyst (mode=crypto)     → PRNG, weak hash, key management 탐지
+  ├── analyst (mode=bizlogic)   → 쿠폰 abuse, race condition, payment tampering, workflow bypass 탐지
+  └── analyst (mode=fileupload) → LFI/RFI, path traversal, file upload→RCE, content-type bypass 탐지
 각 헌터에게 동일한 recon_notes.md + 해당 유형 전용 검색 패턴 제공.
 결과를 vulnerability_candidates.md로 병합 후 confidence score 순 정렬.
 ```
@@ -474,6 +521,8 @@ analyst 대신 N개 병렬 헌터 스폰 (각각 vuln-category 전문):
 - `mode=ssrf`: `grep -rn "fetch\|axios\|request\|download\|url\|redirect" src/`
 - `mode=auth`: `grep -rn "token\|auth\|session\|password\|jwt\|cookie\|secret" src/`
 - `mode=crypto`: `grep -rn "random\|seed\|crypto\|hash\|hmac\|aes\|prng" src/`
+- `mode=bizlogic`: `grep -rn "price\|amount\|quantity\|discount\|coupon\|payment\|checkout\|cart\|order\|balance\|credit\|refund\|race\|mutex\|lock\|atomic" src/`
+- `mode=fileupload`: `grep -rn "upload\|file\|path\|directory\|include\|require\|fopen\|readFile\|writeFile\|multer\|formidable\|busboy\|mimetype\|content-type\|extension" src/`
 
 ### Phase 2: PoC Validation (PoC 먼저, 보고서 나중!)
 3. `exploiter` → 각 후보별 PoC 개발 + 런타임 검증
@@ -527,14 +576,18 @@ analyst 대신 N개 병렬 헌터 스폰 (각각 vuln-category 전문):
 - **ExploitDB**: `~/exploitdb/searchsploit <query>` — 47K+ 익스플로잇 DB
 - **PoC-in-GitHub**: `~/PoC-in-GitHub/<year>/CVE-*.json` — 8K+ GitHub PoC
 - 서비스/버전 발견 시 반드시 searchsploit 조회할 것
+- **Knowledge FTS5 DB**: `python3 tools/knowledge_indexer.py search "<query>"` — 84K+ 문서 BM25 검색 (내부 기법 + 25개 외부 레포 + ExploitDB + nuclei + PoC)
+  - MCP Server: `knowledge-fts` (technique_search, exploit_search, challenge_search, search_all, get_technique_content, knowledge_stats)
+  - CLI: `python3 tools/knowledge_indexer.py {build|search|search-all|search-exploits|stats|get}`
+  - DB: `knowledge/knowledge.db` (93MB, zero-dep SQLite FTS5)
 
 ## Local Security Tools
-- **RE**: radare2 (r2), objdump, strings, readelf, nm, file, wabt 1.0.39 (wasm2wat, wasm-decompile — WASM RE)
+- **RE**: radare2 (r2), objdump, strings, readelf, nm, file, wabt 1.0.39 (wasm2wat, wasm-decompile — WASM RE), ImHex (바이너리 패턴 분석 + YARA), Apktool v2.11.1 (APK 디컴파일)
 - **Debug**: gdb (+ pwndbg + GEF `~/gef/gef.py` 93 commands + mcp-gdb MCP), strace
-- **Exploit**: pwntools, ROPgadget, ropper, z3-solver, capstone, angr, unicorn
-- **Crypto**: pycryptodome, sympy, ~/collisions (corkami hash collision reference)
+- **Exploit**: pwntools, ROPgadget, ropper, z3-solver, capstone, angr, unicorn, rp++ (~/tools/rp++ — ARM64 ROP gadget finder), linux-exploit-suggester (~/tools/linux-exploit-suggester.sh), routersploit (~/tools/routersploit — 임베디드 exploit)
+- **Crypto**: pycryptodome, sympy, ~/collisions (corkami hash collision reference), RSACTFTool (~/tools/rsactftool — RSA 약한키 공격)
 - **Web**: curl, wget, Python requests, sqlmap, SSRFmap (~/SSRFmap — 18+ SSRF 모듈), commix (~/commix — 커맨드 인젝션), fuxploider (~/fuxploider — file upload exploitation)
-- **Web Recon**: ffuf, subfinder, katana, httpx, dalfox, gau, waybackurls, interactsh-client (~/gopath/bin/), arjun, dirsearch
+- **Web Recon**: ffuf, subfinder, katana, httpx, dalfox, gau, waybackurls, interactsh-client (~/gopath/bin/), arjun, dirsearch, RustScan v2.3.0 (초고속 포트 스캔), amass (~/gopath/bin/amass — OWASP 서브도메인), dnstwist (타이포스쿼팅), sherlock (OSINT 사용자명)
 - **Scanning**: nuclei (v3.7.0, ~/nuclei-templates/ — 12K+ 탐지 템플릿), trufflehog (v3.93.3, 800+ 시크릿 타입 탐지+검증)
 - **Code Analysis**: CodeQL (~/tools/codeql/ — semantic taint tracking, variant analysis)
 - **Payloads/References**: PayloadsAllTheThings (~/PayloadsAllTheThings — 70+ 취약점 카테고리), trickest-cve (~/trickest-cve — 154K+ CVE PoC), ExploitDB (~/exploitdb), PoC-in-GitHub (~/PoC-in-GitHub)
@@ -544,7 +597,10 @@ analyst 대신 N개 병렬 헌터 스폰 (각각 vuln-category 전문):
 - **Browser Debug**: chrome-devtools-mcp (26 tools: 네트워크 검사/콘솔/JS 실행/스크린샷)
 - **Vuln Reference**: protocol-vulnerabilities-index (`knowledge/protocol-vulns-index/` — 460 categories × 31 protocol types)
 - **GitHub**: gh CLI (PRs, issues, API — `/usr/bin/gh`)
-- **MCP Servers**: mcp-gdb (GDB), radare2-mcp (r2 디스어셈블/디컴파일), pentest-mcp (nmap/nikto/john), pentest-thinking (공격경로계획), context7 (문서조회), frida-mcp (동적계측), ghidra-mcp (디컴파일)
+- **Workflow/OSINT**: osmedeus (~/gopath/bin/osmedeus — YAML 정찰 워크플로우), web-check (Docker, 33 API 엔드포인트, port 3001)
+- **Knowledge Repos (~/tools/)**: MBE, HEVD, google-ctf, exploit-writeups, how2heap, CTF-All-In-One, linux-kernel-exploitation, awesome-list-systems, paper_collection, owasp-mastg, ad-exploitation
+- **Knowledge DB**: knowledge-fts MCP (84K+ docs — techniques, ExploitDB 47K, nuclei 15K, PoC 18K, HackTricks, GTFOBins, PayloadsAllTheThings)
+- **MCP Servers**: mcp-gdb (GDB), radare2-mcp (r2 디스어셈블/디컴파일), pentest-mcp (nmap/nikto/john), pentest-thinking (공격경로계획), context7 (문서조회), frida-mcp (동적계측), ghidra-mcp (디컴파일), knowledge-fts (기법+익스플로잇 검색)
 
 ### Installed Skill Plugins (Trail of Bits + Sentry + Anthropic)
 에이전트가 `Skill("plugin:skill")` 형태로 호출 가능:

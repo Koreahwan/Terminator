@@ -42,6 +42,7 @@ targets/
 knowledge/bugbounty/
 knowledge/challenges/
 knowledge/contracts/
+knowledge/knowledge.db
 
 # --- Challenge artifacts (temporary, overwritten per challenge) ---
 challenges/

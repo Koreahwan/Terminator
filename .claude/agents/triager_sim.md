@@ -87,6 +87,24 @@ If our report triggers ANY of these signals → flag for rewrite.
 Our reports MUST demonstrate deep, target-specific understanding.
 ```
 
+### Step 5.5: Unverified Language Detection (NEW)
+
+Scan the ENTIRE report for these anti-patterns:
+
+| Expression | Problem | Fix |
+|------------|---------|-----|
+| "should work" | Unverified claim | Replace with tested evidence |
+| "probably" | Uncertainty | Either verify or remove |
+| "seems to" | No evidence | Add concrete test result |
+| "likely" | Speculation | Provide data or remove |
+| "it is important to note" | AI template language | Delete entirely |
+| "comprehensive" | AI filler word | Replace with specific scope |
+| "robust" | AI filler word | Replace with specific mechanism |
+| "leveraging" | AI buzzword | Use "using" |
+
+**Scoring**: Each instance adds +0.5 to AI Slop Score.
+**Threshold**: 3+ instances of unverified language → STRENGTHEN recommendation with "rewrite vague claims with evidence".
+
 ### Step 6: Severity Calibration
 ```
 Compare claimed CVSS with reality:
