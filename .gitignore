@@ -99,6 +99,10 @@ tools/graphrag-security/STATUS.md
 # --- AI Edge runs ---
 aiedge-runs/
 
+# --- Private setup script ---
+setup.sh
+.setup.log
+
 # --- Misc ---
 ref.md
 research/vpn_client_attack_techniques.md
