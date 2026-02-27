@@ -242,6 +242,37 @@ Save to `triager_sim_result.md`:
 - 낙관적: $8,000 × 0.4(LAN) × 0.5(PR:H) × 0.8(Silver) ≈ $1,280
 - **현실적 범위: $250-$1,500**
 
+## Google Report Quality Rating (MANDATORY — predict reward multiplier)
+
+After completing all steps, assign a quality rating that predicts the reward multiplier:
+
+### Rating Criteria (7 dimensions from Google's framework)
+| Dimension | Score (1-3) | Notes |
+|-----------|-------------|-------|
+| Vulnerability Description | _ | 1=vague, 2=clear, 3=root cause+variants |
+| Attack Preconditions | _ | 1=missing, 2=listed, 3=quantified |
+| Impact Analysis | _ | 1=theoretical, 2=demonstrated, 3=quantified ($) |
+| Reproduction Steps/PoC | _ | 1=pseudocode, 2=working script, 3=automated+one-click |
+| Target/Product Info | _ | 1=generic, 2=version+URL, 3=commit hash+build ID |
+| Reproduction Output | _ | 1=none, 2=logs/screenshots, 3=video+annotated |
+| Researcher Responsiveness | _ | (predict based on report completeness) |
+
+### Rating Assignment
+```
+Average Score < 1.5 → LOW QUALITY (0.5x) → automatic STRENGTHEN
+Average Score 1.5-2.4 → GOOD QUALITY (1.0x) → SUBMIT OK
+Average Score ≥ 2.5 → EXCEPTIONAL (1.2x) → SUBMIT + note bonus potential
+Any single dimension = 1 → cap at GOOD (1.0x) regardless of average
+```
+
+### Novelty Bonus Check ($1K-$5K)
+- [ ] Does this introduce a NEW vulnerability class not seen before?
+- [ ] Does this shift security perspective for this product/area?
+- [ ] Is the attack technique novel (not a known pattern)?
+If any YES → note "Novelty Bonus candidate" in output.
+
+**Include in output**: `## Quality Rating: LOW/GOOD/EXCEPTIONAL (predicted multiplier: X.Xx)`
+
 ## Final Recommendation
 - **SUBMIT**: Report is ready. PoC works, impact clear, framing solid.
 - **STRENGTHEN**: Report has potential but needs fixes. [List specific fixes]

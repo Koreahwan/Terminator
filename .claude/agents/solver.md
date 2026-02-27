@@ -133,6 +133,29 @@ Before sending completion report to Orchestrator, answer ALL of these:
 
 If ANY answer is NO → fix before reporting.
 
+## Checkpoint Protocol (MANDATORY — Compaction/Crash Recovery)
+
+Write `checkpoint.json` to the working directory at **every phase transition**.
+If you find an existing `checkpoint.json` at start → read it and **resume from in_progress**, skip completed phases.
+
+```bash
+cat > checkpoint.json << 'CKPT'
+{
+  "agent": "solver",
+  "status": "in_progress|completed|error",
+  "phase": 1,
+  "completed": ["constraint modeling done"],
+  "in_progress": "z3 solver execution",
+  "critical_facts": {"key_length": 16, "rounds": 10},
+  "expected_artifacts": ["solver_report.md", "solve.py"],
+  "produced_artifacts": [],
+  "timestamp": "ISO8601"
+}
+CKPT
+```
+
+**IRON RULE**: `"status": "completed"` ONLY after solve.py produces correct output on actual binary.
+
 ## Completion Criteria (MANDATORY)
 - solve.py가 실제 바이너리에서 정답을 출력하면 작업 완료
 - 완료 즉시 Orchestrator에게 SendMessage로 결과 보고

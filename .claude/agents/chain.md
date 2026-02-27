@@ -284,6 +284,30 @@ When r2/GDB output exceeds 500 lines, do NOT paste full output into context. Ins
 - Extract ONLY key findings (addresses, sizes, gadgets) into inline context
 - This prevents context window saturation on complex binaries
 
+## Checkpoint Protocol (MANDATORY — Compaction/Crash Recovery)
+
+Write `checkpoint.json` to the working directory at **every phase transition**.
+If you find an existing `checkpoint.json` at start → read it and **resume from in_progress**, skip completed phases.
+
+```bash
+# Write after each phase completion:
+cat > checkpoint.json << 'CKPT'
+{
+  "agent": "chain",
+  "status": "in_progress|completed|error",
+  "phase": 2,
+  "completed": ["Phase 1: exploit code written + compiled"],
+  "in_progress": "Phase 2: local QEMU test",
+  "critical_facts": {},
+  "expected_artifacts": ["chain_report.md", "solve.py"],
+  "produced_artifacts": ["phase4_uaf_cred.c", "solve"],
+  "timestamp": "ISO8601"
+}
+CKPT
+```
+
+**IRON RULE**: Set `"status": "completed"` ONLY after ALL expected artifacts exist AND local test passes. Partial work = `"in_progress"`.
+
 ## Completion Criteria (MANDATORY)
 - `chain_report.md` + `solve.py` 저장 완료
 - solve.py가 로컬 process()에서 shell/flag 획득 성공

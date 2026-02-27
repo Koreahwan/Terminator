@@ -180,6 +180,24 @@ When the Orchestrator sends you a bug bounty report instead of CTF artifacts, sw
 
 **Why Round 0 exists**: In NAMUHX, critic caught 3 fatal errors (wrong auth header, incomplete bugbounty header, overstatement) that would have caused instant rejection. Round 0 systematizes this check so it NEVER depends on critic's ad-hoc attention.
 
+### Round 0.5: Google False Positive Filter (MANDATORY — before Round 1)
+
+Google BugHunters identified these as the most common false positives that waste triager time.
+If the report contains ANY of these patterns → flag as CRITICAL and require justification:
+
+| Pattern | Why It's Usually FP | When It's Real |
+|---------|---------------------|----------------|
+| SSL/TLS flags (CRIME/BEAST/POODLE) | Major sites already mitigated | Only if demonstrable data extraction |
+| SQL injection from automated tool | 80+ reports to Google in 2014, 0 valid | Only with actual DB content retrieved |
+| XSRF without checking hidden tokens | Scanners miss non-standard token names | Only if token truly absent + state-changing action |
+| Missing HTTP headers (X-Frame, HSTS) | Not all resources need all headers | Only if concrete exploit chain demonstrated |
+| File upload = vuln | Many services intentionally allow uploads | Only if upload leads to execution/XSS/SSRF |
+| Code execution after initial access | Consequence of existing access, not new vuln | Only if escalation beyond granted privileges |
+| "Dangerous behavior" without context | Some features are intentionally permissive | Only with target-specific attack scenario |
+
+**Rule**: Tool output without manual verification = automatic MEDIUM issue.
+"Trust, but verify" — every automated finding must have human-verified exploitation evidence.
+
 ### Round 1: Fact-Check (MANDATORY)
 - [ ] **CWE accuracy**: Is the CWE number correct for this vulnerability type?
 - [ ] **File paths**: Do referenced `file.ts:line` actually contain the claimed code?

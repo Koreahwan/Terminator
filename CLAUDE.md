@@ -1,5 +1,12 @@
 # Terminator - Autonomous Security Agent
 
+## ⚠️ 글로벌 도구 규칙 (모든 에이전트 공통)
+
+1. **WebFetch는 항상 `r.jina.ai` 프리픽스 사용**: JS 렌더링 페이지에서 빈 결과 방지.
+   - ❌ `WebFetch(url="https://example.com/page")`
+   - ✅ `WebFetch(url="https://r.jina.ai/https://example.com/page")`
+   - Jina Reader가 JS 렌더링 + 마크다운 변환을 수행하여 구조화된 콘텐츠 반환
+
 ## ⚠️ 필수 규칙 (절대 위반 금지)
 
 1. **CTF 문제를 풀 때 반드시 Agent Teams를 사용하라.**
@@ -694,15 +701,107 @@ knowledge/
 
 이렇게 하면 새 세션도, compact 후에도, 과거 경험을 완전히 복원할 수 있음.
 
-## Orchestrator idle recovery 프로토콜 (MANDATORY)
+## Agent Checkpoint Protocol (MANDATORY — 전 에이전트 공통)
+
+### 왜 필요한가
+에이전트는 compaction(컨텍스트 압축), 도구 에러, 타임아웃 등으로 **중간에 멈출 수 있다.**
+산출물 파일이 존재해도 **작업이 완료된 것은 아닐 수 있다** (코드 작성 O, 테스트 X 등).
+checkpoint.json이 유일한 진실 원천(single source of truth)이다.
+
+### 에이전트 규칙: checkpoint.json 작성 (MANDATORY)
+모든 작업 에이전트(chain, solver, exploiter, analyst, reverser, trigger)는:
+
+1. **작업 시작 시** checkpoint.json 생성:
+```json
+{
+  "agent": "chain",
+  "status": "in_progress",
+  "phase": 1,
+  "phase_name": "UAF read-modify-write exploit",
+  "completed": [],
+  "in_progress": "Writing exploit code",
+  "critical_facts": {"cred_uid_off": "0x08", "slab": "kmalloc-192"},
+  "expected_artifacts": ["chain_report.md", "solve.py"],
+  "produced_artifacts": [],
+  "timestamp": "2026-02-27T19:06:00Z"
+}
+```
+
+2. **각 Phase/단계 완료 시** 즉시 업데이트:
+```json
+{
+  "status": "in_progress",
+  "phase": 2,
+  "completed": ["Phase 1: exploit code written", "Phase 1: static compile OK"],
+  "in_progress": "Phase 2: QEMU local test",
+  "produced_artifacts": ["phase4_uaf_cred.c", "solve"],
+  "timestamp": "2026-02-27T19:08:00Z"
+}
+```
+
+3. **모든 작업 완료 시** status를 "completed"로 변경:
+```json
+{
+  "status": "completed",
+  "completed": ["Phase 1: code", "Phase 2: QEMU test PASS", "Phase 3: report written"],
+  "produced_artifacts": ["chain_report.md", "solve.py", "solve"],
+  "timestamp": "2026-02-27T19:15:00Z"
+}
+```
+
+4. **에러/블로커 발생 시** status를 "error"로:
+```json
+{
+  "status": "error",
+  "error": "QEMU connection refused on port 4444",
+  "completed": ["Phase 1: code written"],
+  "in_progress": "Phase 2: QEMU test — BLOCKED",
+  "timestamp": "2026-02-27T19:10:00Z"
+}
+```
+
+### checkpoint.json 위치
+- CTF: `<challenge_dir>/checkpoint.json` (예: `/home/rootk1m/kernelctf/checkpoint.json`)
+- Bug Bounty: `targets/<target>/checkpoint.json`
+- 에이전트별 구분이 필요하면: `checkpoint_<agent>.json`
+
+### Orchestrator: Checkpoint 기반 Idle Recovery (MANDATORY)
 
 에이전트가 idle 상태에 빠졌을 때 Orchestrator가 따를 규칙:
-1. **산출물 파일 존재 확인** (reversal_map.md, solve.py 등)
-2. 산출물이 **있으면** → 에이전트 완료로 간주, 다음 단계 에이전트 스폰
-3. 산출물이 **없으면** → 에이전트에게 구체적 지시 메시지 1회 전송
-4. 메시지 후에도 idle → **에이전트 포기, 새 에이전트 스폰**
-5. **같은 역할의 에이전트를 2개 이상 동시 실행 금지** (토큰 낭비)
-6. 에이전트 재스폰 시 이전 에이전트의 산출물을 프롬프트에 포함 (중복 분석 방지)
+
+```
+1. checkpoint.json 읽기
+2. if checkpoint.status == "completed":
+     → 진짜 완료. expected_artifacts 전부 존재 확인 후 다음 단계 진행.
+3. elif checkpoint.status == "in_progress":
+     → FAKE IDLE. 에이전트가 compaction/에러로 멈춤.
+     → 에이전트에게 "checkpoint.json 읽고 이어서 작업" 메시지 1회 전송.
+     → 메시지 후에도 idle → 새 에이전트 스폰 (checkpoint 포함).
+4. elif checkpoint.status == "error":
+     → 환경 문제. Orchestrator가 문제 해결 후 재스폰.
+5. elif checkpoint.json 없음:
+     → 에이전트가 시작도 못 함. 즉시 재스폰.
+```
+
+**⚠️ 절대 "산출물 파일 있음 = 완료"로 판단하지 마라.**
+chain이 solve.c는 썼지만 QEMU 테스트를 안 한 상태에서 idle → "완료" 판단 → critic에게 미검증 코드 전달 → 전체 파이프라인 오염. checkpoint.status == "completed"만 신뢰.
+
+### Orchestrator: 재스폰 시 Checkpoint Injection
+에이전트 재스폰 시 프롬프트에 checkpoint 내용을 포함:
+```
+[CHECKPOINT RESUME — 이전 에이전트가 중단된 지점]
+- Completed: [checkpoint.completed 목록]
+- In Progress: [checkpoint.in_progress]
+- Error (if any): [checkpoint.error]
+- Produced Artifacts: [목록]
+- Critical Facts: [checkpoint.critical_facts]
+→ 위 완료 항목은 건너뛰고, in_progress 항목부터 이어서 작업하라.
+```
+
+### 추가 규칙
+- **같은 역할의 에이전트를 2개 이상 동시 실행 금지** (토큰 낭비)
+- 재스폰 시 이전 산출물 + checkpoint를 프롬프트에 포함 (중복 분석 방지)
+- checkpoint.json은 에이전트가 **직접** 작성 (Orchestrator가 대신 쓰지 않음)
 
 ## Environment Issue Reporting Protocol (Devin Pattern — 전 에이전트 공통)
 

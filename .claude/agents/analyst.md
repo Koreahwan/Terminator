@@ -367,6 +367,29 @@ Save to `analysis_report.md`:
 - CVE details referenced
 ```
 
+## Checkpoint Protocol (MANDATORY — Compaction/Crash Recovery)
+
+Write `checkpoint.json` to the target working directory at **every analysis phase transition**.
+If you find an existing `checkpoint.json` at start → read it and **resume from in_progress**, skip completed phases.
+
+```bash
+cat > checkpoint.json << 'CKPT'
+{
+  "agent": "analyst",
+  "status": "in_progress|completed|error",
+  "phase": 2,
+  "completed": ["Phase 1: tool scan (Slither/Semgrep)", "Phase 2: triage 12 candidates"],
+  "in_progress": "Phase 3: deep analysis on top 3 candidates",
+  "critical_facts": {"candidates_total": 12, "high_signal": 3},
+  "expected_artifacts": ["vulnerability_candidates.md"],
+  "produced_artifacts": ["tool_scan_results/"],
+  "timestamp": "ISO8601"
+}
+CKPT
+```
+
+**IRON RULE**: `"status": "completed"` ONLY after vulnerability_candidates.md written with ALL candidates analyzed.
+
 ## Completion Criteria (MANDATORY)
 - `analysis_report.md` 저장 완료
 - 모든 서비스+버전에 대해 searchsploit 조회 완료

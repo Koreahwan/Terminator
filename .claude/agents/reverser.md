@@ -224,6 +224,29 @@ Before saving reversal_map.md, you MUST perform a structured self-check:
 
 **Anti-pattern**: Writing a beautiful reversal_map that reads well but has unverified offsets. Pretty prose doesn't help the chain agent — correct numbers do.
 
+## Checkpoint Protocol (MANDATORY — Compaction/Crash Recovery)
+
+Write `checkpoint.json` to the working directory at **every analysis phase transition**.
+If existing `checkpoint.json` found at start → read it and **resume from in_progress**.
+
+```bash
+cat > checkpoint.json << 'CKPT'
+{
+  "agent": "reverser",
+  "status": "in_progress|completed|error",
+  "phase": 2,
+  "completed": ["Phase 1: binary info + protections", "Phase 2: ioctl interface mapped"],
+  "in_progress": "Phase 3: struct layout verification via BTF",
+  "critical_facts": {"arch": "x86_64", "protections": "KASLR+KPTI+SMEP+SMAP"},
+  "expected_artifacts": ["reversal_map.md"],
+  "produced_artifacts": [],
+  "timestamp": "ISO8601"
+}
+CKPT
+```
+
+**IRON RULE**: `"status": "completed"` ONLY after reversal_map.md is written with ALL sections.
+
 ## Completion Criteria (MANDATORY)
 - reversal_map.md 저장 완료 = **작업 종료**
 - 저장 후 **즉시** Orchestrator에게 SendMessage로 완료 보고

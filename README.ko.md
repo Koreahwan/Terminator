@@ -165,6 +165,19 @@ Phase 6   TeamDelete            정리
 | **fw_surface** | 공격 표면 매핑, 바이너리 diff 분석 | Sonnet | `attack_surface.md` |
 | **fw_validator** | QEMU 에뮬레이션, 동적 PoC 검증 | Sonnet | `validation_results.md` |
 
+### 에이전트 복원력 (Checkpoint Protocol)
+
+모든 작업 에이전트는 크래시/컴팩션 복구를 위한 **체크포인트 프로토콜**을 구현합니다:
+
+| 메커니즘 | 목적 | 방법 |
+|:---------|:-----|:-----|
+| **checkpoint.json** | 컴팩션 시 상태 보존 | 에이전트가 Phase 전환마다 상태/완료항목/핵심정보를 JSON으로 기록 |
+| **Fake Idle 감지** | 중간에 멈춘 에이전트 탐지 | Orchestrator가 `checkpoint.status` 확인 — `"in_progress"` + idle = fake idle, 컨텍스트 포함 재스폰 |
+| **재스폰 시 이어서** | 중복 작업 방지 | 새 에이전트가 기존 checkpoint.json 읽고 완료된 단계 건너뜀 |
+| **에러 보고** | 환경 블로커 | `checkpoint.status: "error"` + 설명 — Orchestrator가 해결 후 재스폰 |
+
+**핵심 규칙**: "산출물 파일 있음 = 완료"로 판단하지 마라. `checkpoint.status == "completed"`만 신뢰.
+
 ---
 
 ## 대시보드

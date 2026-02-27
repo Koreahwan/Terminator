@@ -176,3 +176,12 @@ Use the tree to find relevant past experience by category:
 Catalog of all cloned reference repositories: [external_repos.md](external_repos.md)
 
 Key repos: ExploitDB (47K+), PoC-in-GitHub (8K+), nuclei-templates (12K+), PayloadsAllTheThings (70+ categories), protocol-vulns-index (460×31)
+
+## Kernel Exploit Environments
+
+### 설정된 연습 환경
+- **fasterbox** (Google CTF 2024): seccomp escape, `~/tools/google-ctf/2024/quals/pwn-fasterbox/`
+- **gatekey** (Google CTF 2020): PKU bypass, `~/tools/google-ctf/2020/quals/pwn-gatekey/`
+- **LPE 연습 환경**: UAF vulnmod, `~/kernelctf/` (커널 6.1.119 빌드 중)
+
+기법 문서: [techniques/kernelctf_lpe_environment.md](techniques/kernelctf_lpe_environment.md)

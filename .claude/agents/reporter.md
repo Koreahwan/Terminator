@@ -217,6 +217,25 @@ Before writing ANY bug bounty report:
 - [ ] program_context.md consulted for scope/exclusion check
 ```
 
+## Google Report Quality Framework (7-Dimension Checklist — MANDATORY for Bug Bounty)
+
+Before finalizing ANY bug bounty report, verify ALL 7 dimensions score GOOD or above.
+Reports are rated Low(0.5x reward), Good(1.0x), or Exceptional(1.2x). Novelty bonus: $1K-$5K.
+
+| # | Dimension | GOOD (1.0x) | EXCEPTIONAL (1.2x) |
+|---|-----------|-------------|---------------------|
+| 1 | **Vulnerability Description** | Clear 1-paragraph explanation of root cause | Root cause + variant analysis + affected code paths |
+| 2 | **Attack Preconditions** | All prerequisites listed (auth, config, timing) | Preconditions quantified (probability, cost, effort) |
+| 3 | **Impact Analysis** | Demonstrated impact with evidence | Impact quantified (users affected, data exposed, $) |
+| 4 | **Reproduction Steps/PoC** | Numbered steps + working PoC script | Automated PoC + one-click reproduction + CI-friendly |
+| 5 | **Target/Product Info** | Version, URL, endpoint specified | Exact commit hash, build ID, deployment region |
+| 6 | **Reproduction Output** | Logs/screenshots proving impact | Video walkthrough + annotated output + diff |
+| 7 | **Researcher Responsiveness** | (post-submission) Timely replies | Proactive follow-ups, patch verification offered |
+
+**Self-reproduce before submission**: Follow your OWN reproduction steps from scratch. If you can't reproduce in 5 minutes, the triager can't either → rewrite steps.
+
+**Anti-pattern**: Submitting tool output without verification. Google received 80 SQLi reports in 2014, 0 qualified. Don't be that researcher.
+
 ## Triager Adversarial Questions (Self-Check before submission)
 
 Before finalizing the report, ask yourself these questions AS the triager:

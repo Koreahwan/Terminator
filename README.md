@@ -165,6 +165,28 @@ Phase 6   TeamDelete            Cleanup
 | **fw_surface** | Attack surface mapping, binary diff analysis | Sonnet | `attack_surface.md` |
 | **fw_validator** | QEMU emulation, dynamic PoC validation | Sonnet | `validation_results.md` |
 
+### Agent Resilience
+
+All work agents implement a **checkpoint protocol** for crash/compaction recovery:
+
+| Mechanism | Purpose | How |
+|:----------|:--------|:----|
+| **checkpoint.json** | State persistence across compaction | Agent writes JSON at every phase transition with status, completed steps, critical facts |
+| **Fake Idle Detection** | Catch agents that stopped mid-work | Orchestrator reads `checkpoint.status` — `"in_progress"` + idle = fake idle, re-spawn with context |
+| **Resume on Re-spawn** | No duplicate work | New agent reads existing checkpoint.json, skips completed phases |
+| **Error Reporting** | Environment blockers | `checkpoint.status: "error"` with description — Orchestrator fixes before re-spawn |
+
+```
+Orchestrator idle recovery flow:
+  1. Read checkpoint.json
+  2. status=="completed" + all artifacts exist → next pipeline stage
+  3. status=="in_progress" → fake idle → message 1x → still idle → re-spawn with checkpoint
+  4. status=="error" → fix environment → re-spawn
+  5. No checkpoint → agent never started → re-spawn immediately
+```
+
+**Key Rule**: Never assume "artifact exists = work complete." Only `checkpoint.status == "completed"` is trustworthy.
+
 ---
 
 ## Dashboard

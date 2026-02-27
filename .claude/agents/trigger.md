@@ -122,6 +122,29 @@ Skill("testing-handbook-skills:fuzzing-obstacles")
 - Suggested next steps for chain assembly
 ```
 
+## Checkpoint Protocol (MANDATORY — Compaction/Crash Recovery)
+
+Write `checkpoint.json` to the working directory at **every fuzzing/test phase transition**.
+If existing `checkpoint.json` found at start → read it and **resume from in_progress**.
+
+```bash
+cat > checkpoint.json << 'CKPT'
+{
+  "agent": "trigger",
+  "status": "in_progress|completed|error",
+  "phase": 2,
+  "completed": ["Phase 1: crash found at input[72]"],
+  "in_progress": "Phase 2: minimizing PoC + fixing conditions",
+  "critical_facts": {"crash_offset": 72, "crash_type": "SIGSEGV"},
+  "expected_artifacts": ["trigger_report.md", "trigger_poc.py"],
+  "produced_artifacts": ["crash_input.bin"],
+  "timestamp": "ISO8601"
+}
+CKPT
+```
+
+**IRON RULE**: `"status": "completed"` ONLY after trigger_report.md + trigger_poc.py written AND PoC reproduces.
+
 ## Completion Criteria (MANDATORY)
 - `trigger_report.md` + `trigger_poc.py` 저장 완료
 - PoC 재현율 10/10 (또는 최선의 재현율 + 이유 설명)
