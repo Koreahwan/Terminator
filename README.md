@@ -215,7 +215,7 @@ Phase 6   TeamDelete            Cleanup
 | **trigger** | Crash discovery, input minimization, primitive identification | Sonnet | `trigger_report.md` |
 | **solver** | Reverse computation for reversing/crypto challenges | Opus | `solve.py` |
 | **chain** | Multi-stage exploit: leak -> overwrite -> shell | Opus | `solve.py` |
-| **critic** | Cross-verification of offsets, constants, logic | Opus | `critic_review.md` |
+| **critic** | Security Council deliberation (5 archetypes) + cross-verification | Opus | `critic_review.md` |
 | **verifier** | Local 3x reproduction -> remote execution | Sonnet | `FLAG_FOUND` |
 | **reporter** | Writeup with failed attempts and techniques | Sonnet | `knowledge/challenges/<name>.md` |
 | **ctf-solver** | Legacy single-agent for trivial challenges | Sonnet | `solve.py` |
@@ -441,8 +441,19 @@ Agent definitions incorporate patterns from 10+ LLM security frameworks:
 | 4-Layer Validation | NeuroSploit | critic, triager_sim |
 | Security-Aware Compression | CyberStrikeAI | All agents (context preservation) |
 | Exploit Chain Rules | NeuroSploit | exploiter (web targets) |
+| Security Council (5-archetype deliberation) | Consciousness Council (K-Dense) | critic |
 
-**Anti-Hallucination System** -- The `critic` and `triager_sim` agents enforce a 6-point validation:
+**Anti-Hallucination System** -- The `critic` agent runs a **Security Council** deliberation with 5 adversarial archetypes before any verdict:
+
+| Archetype | Role |
+|:----------|:-----|
+| **The Interrogator** | Adversarial triager -- demands live evidence for every claim ("Show me the GDB output, or it didn't happen") |
+| **The Empiricist** | Data-driven verification -- no evidence = no approval |
+| **The Architect** | Structural analysis -- does the chain design hold under all conditions? |
+| **The Triager** | Platform reviewer simulation -- "What's the first reason I'd close this?" |
+| **The Historian** | Pattern matching against past failures from knowledge base |
+
+The Interrogator has **asymmetric veto power**: any critical claim without live evidence = automatic REJECT. Combined with a 6-point validation:
 
 1. **Evidence Check** -- Every claim must cite specific output (exact string, header, timing)
 2. **Negative Controls** -- Baseline comparison mandatory (normal vs payload response)

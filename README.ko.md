@@ -215,7 +215,7 @@ Phase 6   TeamDelete            정리
 | **trigger** | 크래시 탐색, 입력 최소화, 프리미티브 식별 | Sonnet | `trigger_report.md` |
 | **solver** | reversing/crypto 챌린지용 역연산 | Opus | `solve.py` |
 | **chain** | 다단계 익스플로잇: leak -> overwrite -> shell | Opus | `solve.py` |
-| **critic** | 오프셋, 상수, 로직 교차 검증 | Opus | `critic_review.md` |
+| **critic** | Security Council 심의 (5 아키타입) + 교차 검증 | Opus | `critic_review.md` |
 | **verifier** | 로컬 3회 재현 -> 원격 실행 | Sonnet | `FLAG_FOUND` |
 | **reporter** | 실패한 시도 및 기법 포함 라이트업 | Sonnet | `knowledge/challenges/<name>.md` |
 | **ctf-solver** | Trivial 챌린지용 레거시 단일 에이전트 | Sonnet | `solve.py` |
@@ -441,8 +441,19 @@ python tools/knowledge_indexer.py --stats
 | 4-Layer Validation | NeuroSploit | critic, triager_sim |
 | Security-Aware Compression | CyberStrikeAI | All agents (context preservation) |
 | Exploit Chain Rules | NeuroSploit | exploiter (web targets) |
+| Security Council (5-아키타입 심의) | Consciousness Council (K-Dense) | critic |
 
-**환각 방지 시스템** -- `critic`과 `triager_sim` 에이전트가 6단계 검증을 시행:
+**환각 방지 시스템** -- `critic` 에이전트가 판정 전 5개 적대적 아키타입으로 구성된 **Security Council** 심의를 실행:
+
+| 아키타입 | 역할 |
+|:---------|:-----|
+| **The Interrogator** | 적대적 트리아저 -- 모든 주장에 라이브 증거 요구 ("GDB 출력 보여줘, 아니면 안 일어난 거야") |
+| **The Empiricist** | 데이터 기반 검증 -- 증거 없으면 불인정 |
+| **The Architect** | 구조 분석 -- 체인 설계가 모든 조건에서 버티는지 |
+| **The Triager** | 플랫폼 리뷰어 시뮬 -- "이걸 N/A로 닫을 첫 번째 이유는?" |
+| **The Historian** | 지식 베이스 과거 실패 패턴 매칭 |
+
+Interrogator는 **비대칭 거부권** 보유: 핵심 주장에 라이브 증거 없으면 자동 REJECT. 6단계 검증과 결합:
 
 1. **증거 체크** -- 모든 주장은 구체적 출력(정확한 문자열, 헤더, 타이밍)을 인용해야 함
 2. **음성 대조군** -- 기준선 비교 필수 (정상 응답 vs 페이로드 응답)
