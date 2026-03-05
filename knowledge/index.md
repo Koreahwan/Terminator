@@ -62,6 +62,10 @@
 | Bug Bounty Retrospective v1 (23 programs, v5 rules) | [techniques/bugbounty_retrospective_v1.md](techniques/bugbounty_retrospective_v1.md) |
 | Moonwell $1.78M Vibe Coding Hack (AI oracle bug) | [techniques/moonwell_vibe_coding_hack.md](techniques/moonwell_vibe_coding_hack.md) |
 | Immunefi Submission Form Template | [techniques/immunefi_submission_form.md](techniques/immunefi_submission_form.md) |
+| Bugcrowd VRT (Vulnerability Rating Taxonomy) | [techniques/bugcrowd_vrt.md](techniques/bugcrowd_vrt.md) |
+| Bugcrowd Submission Form Template | [techniques/bugcrowd_submission_form.md](techniques/bugcrowd_submission_form.md) |
+| HackerOne Submission Form Template | [techniques/hackerone_submission_form.md](techniques/hackerone_submission_form.md) |
+| Platform Submission Formats (Master Index) | [techniques/platform_submission_formats.md](techniques/platform_submission_formats.md) |
 | Custom Allocator Exploitation (hunter, Sand_Message) | [techniques/custom_allocator_exploitation.md](techniques/custom_allocator_exploitation.md) |
 | Prompt Caching & Token Efficiency | [techniques/prompt_caching_lessons.md](techniques/prompt_caching_lessons.md) |
 | Pipeline Tools & Ecosystem 2026 | [techniques/pipeline_tools_2026.md](techniques/pipeline_tools_2026.md) |

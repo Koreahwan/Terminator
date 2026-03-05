@@ -117,6 +117,27 @@ Before writing ANY bug bounty report:
 
 **Why**: In NAMUHX, reporter used wrong auth header format + incomplete bugbounty header. Critic caught these — without critic, both reports would have been rejected. This rule prevents the error at source.
 
+## Platform-Specific Submission Format (MANDATORY — v6)
+
+보고서 작성 전 반드시 `program_rules_summary.md`의 **Platform** 필드를 확인하고 해당 플랫폼 템플릿을 참조:
+
+| Platform | Template | Taxonomy | 핵심 차이 |
+|:---------|:---------|:---------|:----------|
+| **Bugcrowd** | `knowledge/techniques/bugcrowd_submission_form.md` | VRT (P1-P5) | 제출 후 수정 불가, 비디오 PoC 권장 |
+| **HackerOne** | `knowledge/techniques/hackerone_submission_form.md` | CWE + CVSS 3.1 | N/A = -5 signal, 스크립트 첨부 가능 |
+| **Immunefi** | `knowledge/techniques/immunefi_submission_form.md` | Impact + CVSS | Secret Gist 필수, AI 탐지 강력 |
+| **FindTheGap** | `knowledge/techniques/platform_submission_formats.md` | CVSS 3.1 | IdToken + UUID 태그 |
+| **HackenProof** | `knowledge/techniques/platform_submission_formats.md` | Severity | Web3 특화, 빠른 트리아지 |
+| **PSIRT** | `knowledge/techniques/platform_submission_formats.md` | CVSS 3.1 | 이메일 기반, CVE 발급 |
+
+**VRT 참조**: Bugcrowd 제출 시 `knowledge/techniques/bugcrowd_vrt.md`에서 정확한 카테고리 선택.
+
+**규칙**:
+1. Bugcrowd → VRT 카테고리 명시, 비디오 PoC 첨부, 제출 전 완벽 리뷰 (수정 불가)
+2. HackerOne → CWE 번호 명시, CVSS 벡터 포함, signal 위험 평가
+3. Immunefi → Secret Gist + block/tx 포함, AI 슬롭 0
+4. 모든 플랫폼 → `slop-check` 통과 필수, 보수적 severity
+
 ## Bug Bounty Report Format (v2 — Vercel Experience)
 ```markdown
 # [Finding Title — Concise, Under 70 chars]
