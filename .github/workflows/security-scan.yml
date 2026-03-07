@@ -18,17 +18,17 @@ on:
   push:
     branches: [main]
     paths:
-      - '**.py'
-      - '**.js'
-      - '**.ts'
-      - '**.go'
+      - '**/*.py'
+      - '**/*.js'
+      - '**/*.ts'
+      - '**/*.go'
   pull_request:
     branches: [main]
 
 jobs:
   semgrep-scan:
     name: Semgrep Static Analysis
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     timeout-minutes: 20
     if: >
       github.event_name == 'push' ||
@@ -50,12 +50,13 @@ jobs:
 
       - name: Run Semgrep security audit
         run: |
+          set -o pipefail
           semgrep \
             --config p/security-audit \
             --config p/owasp-top-ten \
             --json \
             --quiet \
-            . 2>/dev/null | tee semgrep_results.json || true
+            . 2>/dev/null | tee semgrep_results.json
 
           python3 -c "
           import json
@@ -79,6 +80,7 @@ jobs:
         with:
           name: semgrep-results-${{ github.run_number }}
           path: semgrep_results.json
+          if-no-files-found: warn
           retention-days: 30
 
   nuclei-scan:

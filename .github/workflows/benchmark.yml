@@ -15,7 +15,7 @@ on:
 jobs:
   benchmark:
     name: Run Pipeline Benchmark
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     timeout-minutes: 30
 
     steps:
@@ -27,9 +27,13 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install dependencies
+      - name: Reset run-scoped benchmark outputs
         run: |
-          pip install --quiet mcp semgrep 2>/dev/null || true
+          rm -f \
+            tests/benchmarks/results.jsonl \
+            tests/benchmarks/summary.json \
+            benchmark_output.txt \
+            summary_output.txt
 
       - name: Run benchmark (all challenges)
         if: ${{ github.event.inputs.challenge == '' || github.event_name == 'schedule' }}
@@ -42,8 +46,7 @@ jobs:
           CHALLENGE_NAME: ${{ github.event.inputs.challenge }}
         run: |
           python3 tests/benchmarks/benchmark.py \
-            --challenge "$CHALLENGE_NAME" \
-            --report 2>&1 | tee benchmark_output.txt
+            --challenge "$CHALLENGE_NAME" 2>&1 | tee benchmark_output.txt
 
       - name: Generate summary report
         run: |

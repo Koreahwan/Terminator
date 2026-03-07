@@ -21,6 +21,18 @@ from typing import Optional
 import subprocess
 import re as re_module
 
+UTC = datetime.UTC
+
+
+def utc_now() -> datetime.datetime:
+    """Return a timezone-aware UTC timestamp."""
+    return datetime.datetime.now(UTC)
+
+
+def utc_now_iso() -> str:
+    """Return an ISO 8601 UTC timestamp with Z suffix."""
+    return utc_now().isoformat().replace("+00:00", "Z")
+
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 CHALLENGES_DIR = PROJECT_ROOT / "knowledge" / "challenges"
 REPORTS_DIR = PROJECT_ROOT / "reports"
@@ -282,7 +294,7 @@ class BenchmarkRunner:
         if not meta:
             return BenchmarkResult(
                 challenge=name, run_id=f"replay_{name}",
-                timestamp=datetime.datetime.utcnow().isoformat() + "Z",
+                timestamp=utc_now_iso(),
                 status="SKIP", notes="Not in solved challenges registry"
             )
 
@@ -290,7 +302,7 @@ class BenchmarkRunner:
         if not solve_path:
             return BenchmarkResult(
                 challenge=name, run_id=f"replay_{name}",
-                timestamp=datetime.datetime.utcnow().isoformat() + "Z",
+                timestamp=utc_now_iso(),
                 status="SKIP", notes="No solve.py found",
                 difficulty=meta.get("difficulty", ""),
                 challenge_type=meta.get("type", ""),
@@ -323,8 +335,8 @@ class BenchmarkRunner:
 
             br = BenchmarkResult(
                 challenge=name,
-                run_id=f"replay_{name}_{datetime.datetime.utcnow().strftime('%Y%m%dT%H%M%S')}",
-                timestamp=datetime.datetime.utcnow().isoformat() + "Z",
+                run_id=f"replay_{name}_{utc_now().strftime('%Y%m%dT%H%M%S')}",
+                timestamp=utc_now_iso(),
                 status=status,
                 flag_correct=flag_correct,
                 solve_time_seconds=round(elapsed, 2),
@@ -343,8 +355,8 @@ class BenchmarkRunner:
             elapsed = time.time() - start
             br = BenchmarkResult(
                 challenge=name,
-                run_id=f"replay_{name}_{datetime.datetime.utcnow().strftime('%Y%m%dT%H%M%S')}",
-                timestamp=datetime.datetime.utcnow().isoformat() + "Z",
+                run_id=f"replay_{name}_{utc_now().strftime('%Y%m%dT%H%M%S')}",
+                timestamp=utc_now_iso(),
                 status="FAIL",
                 solve_time_seconds=round(elapsed, 2),
                 difficulty=meta.get("difficulty", ""),
@@ -359,8 +371,8 @@ class BenchmarkRunner:
         except Exception as e:
             br = BenchmarkResult(
                 challenge=name,
-                run_id=f"replay_{name}_{datetime.datetime.utcnow().strftime('%Y%m%dT%H%M%S')}",
-                timestamp=datetime.datetime.utcnow().isoformat() + "Z",
+                run_id=f"replay_{name}_{utc_now().strftime('%Y%m%dT%H%M%S')}",
+                timestamp=utc_now_iso(),
                 status="FAIL",
                 difficulty=meta.get("difficulty", ""),
                 challenge_type=meta.get("type", ""),
@@ -414,13 +426,15 @@ class BenchmarkRunner:
         writeup = self.load_writeup(name)
         extracted = self.extract_metrics_from_writeup(writeup)
 
-        run_id = f"{name}_{datetime.datetime.utcnow().strftime('%Y%m%dT%H%M%S')}"
-        timestamp = datetime.datetime.utcnow().isoformat() + "Z"
+        run_id = f"{name}_{utc_now().strftime('%Y%m%dT%H%M%S')}"
+        timestamp = utc_now_iso()
+
+        effective_flag = flag_found or meta.get("flag", "")
 
         # Determine flag correctness
         flag_correct = None
-        if flag_found:
-            flag_correct = self.validate_flag(name, flag_found)
+        if effective_flag:
+            flag_correct = self.validate_flag(name, effective_flag)
 
         # Use provided or extracted metrics
         actual_time = solve_time or extracted.get("solve_time")
@@ -436,8 +450,8 @@ class BenchmarkRunner:
         }
         pipeline = pipeline_map.get(meta.get("type", ""), "unknown")
 
-        status = "PASS" if (flag_correct is True or (flag_correct is None and flag_found)) else (
-            "FAIL" if flag_found else "SKIP"
+        status = "PASS" if (flag_correct is True or (flag_correct is None and effective_flag)) else (
+            "FAIL" if effective_flag else "SKIP"
         )
 
         result = BenchmarkResult(
@@ -464,6 +478,15 @@ class BenchmarkRunner:
         """Append result to JSONL file."""
         with open(RESULTS_FILE, "a") as f:
             f.write(json.dumps(asdict(result)) + "\n")
+
+    def _latest_results(self) -> list[BenchmarkResult]:
+        """Return the latest result recorded for each challenge."""
+        latest: dict[str, BenchmarkResult] = {}
+        for result in self.results:
+            if result.challenge in latest:
+                del latest[result.challenge]
+            latest[result.challenge] = result
+        return list(latest.values())
 
     def run_all_from_registry(self) -> list[BenchmarkResult]:
         """Run benchmark for all known solved challenges (from writeups)."""
@@ -505,18 +528,20 @@ class BenchmarkRunner:
         if not self.results:
             return {"error": "No results found"}
 
-        total = len(self.results)
-        passed = sum(1 for r in self.results if r.status == "PASS")
-        failed = sum(1 for r in self.results if r.status == "FAIL")
-        skipped = sum(1 for r in self.results if r.status == "SKIP")
+        current_results = self._latest_results()
 
-        times = [r.solve_time_seconds for r in self.results if r.solve_time_seconds]
-        tokens = [r.token_estimate for r in self.results if r.token_estimate]
-        agents = [r.agent_count for r in self.results if r.agent_count]
+        total = len(current_results)
+        passed = sum(1 for r in current_results if r.status == "PASS")
+        failed = sum(1 for r in current_results if r.status == "FAIL")
+        skipped = sum(1 for r in current_results if r.status == "SKIP")
+
+        times = [r.solve_time_seconds for r in current_results if r.solve_time_seconds]
+        tokens = [r.token_estimate for r in current_results if r.token_estimate]
+        agents = [r.agent_count for r in current_results if r.agent_count]
 
         # By type
         by_type = {}
-        for r in self.results:
+        for r in current_results:
             t = r.challenge_type
             if t not in by_type:
                 by_type[t] = {"total": 0, "pass": 0}
@@ -526,7 +551,7 @@ class BenchmarkRunner:
 
         # By difficulty
         by_diff = {}
-        for r in self.results:
+        for r in current_results:
             d = r.difficulty
             if d not in by_diff:
                 by_diff[d] = {"total": 0, "pass": 0}
@@ -535,7 +560,7 @@ class BenchmarkRunner:
                 by_diff[d]["pass"] += 1
 
         summary = {
-            "generated_at": datetime.datetime.utcnow().isoformat() + "Z",
+            "generated_at": utc_now_iso(),
             "total_challenges": total,
             "pass": passed,
             "fail": failed,
@@ -555,7 +580,7 @@ class BenchmarkRunner:
                     "agents": r.agent_count,
                     "pipeline": r.pipeline_type,
                 }
-                for r in self.results
+                for r in current_results
             ],
         }
 
@@ -619,7 +644,22 @@ def main():
 
     runner = BenchmarkRunner()
 
-    if args.challenge:
+    if args.replay:
+        print(f"Replaying solved challenges (timeout={args.timeout_replay}s)...")
+        if args.challenge:
+            result = runner.replay_challenge(args.challenge, timeout=args.timeout_replay)
+            print(f"Result: {result.status} | flag_correct={result.flag_correct} | "
+                  f"time={result.solve_time_seconds}s | {result.notes}")
+        else:
+            runner.replay_all(
+                filter_type=getattr(args, 'type', None),
+                filter_difficulty=args.difficulty,
+                timeout=args.timeout_replay,
+            )
+            summary = runner.generate_summary()
+            runner.print_report(summary)
+
+    elif args.challenge:
         result = runner.run_single(
             name=args.challenge,
             flag_found=args.flag or "",
@@ -635,21 +675,6 @@ def main():
         runner.run_all_from_registry()
         summary = runner.generate_summary()
         runner.print_report(summary)
-
-    elif args.replay:
-        print(f"Replaying solved challenges (timeout={args.timeout_replay}s)...")
-        if args.challenge:
-            result = runner.replay_challenge(args.challenge, timeout=args.timeout_replay)
-            print(f"Result: {result.status} | flag_correct={result.flag_correct} | "
-                  f"time={result.solve_time_seconds}s | {result.notes}")
-        else:
-            runner.replay_all(
-                filter_type=getattr(args, 'type', None),
-                filter_difficulty=args.difficulty,
-                timeout=args.timeout_replay,
-            )
-            summary = runner.generate_summary()
-            runner.print_report(summary)
 
     elif args.report:
         summary = runner.generate_summary()
