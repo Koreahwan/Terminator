@@ -185,23 +185,7 @@ Agent definitions: `.claude/agents/*.md`
 - 핵심 주소/오프셋은 HANDOFF 맨 앞 3줄에 배치
 - 이전 에이전트의 실패 내역은 맨 뒤에 배치 (참조용이지 핵심이 아님)
 
-**예시 (chain 에이전트 스폰 시)**:
-```
-[CRITICAL FACTS — READ FIRST]
-- Vulnerability: Stack BOF at 0x401234, offset 0x48 to RIP
-- Protections: NX+PIE+Canary, No RELRO
-- Libc: 2.31, one_gadget at 0xe6c7e
-
-[HANDOFF from @trigger]
-- Finding: trigger_report.md
-- Status: PASS
-- Key Result: Crash at input[72], controlled RIP via overflow
-- Next Action: Build leak→ROP→shell chain
-- Blockers: None
-
-[PREVIOUS FAILURES — REFERENCE ONLY]
-- Attempt 1: ret2libc failed (stack alignment issue)
-```
+예시: `[CRITICAL FACTS]` 주소/오프셋/보호기법 → `[HANDOFF]` 상태/결과/액션 → `[PREVIOUS FAILURES]` 실패 내역.
 
 ### Knowledge DB Pre-Search Protocol (Orchestrator + Agent, v6 — 자동 주입)
 
@@ -241,11 +225,7 @@ Agent definitions: `.claude/agents/*.md`
 이 규칙은 chain, solver, reverser, trigger 등 도구를 직접 실행하는 모든 에이전트에 적용.
 
 ### Dual-Approach Parallel (RoboDuck Pattern)
-3회 실패 후 또는 난이도 높은 문제에서 Orchestrator가 선택적으로 사용:
-- chain/solver를 **2개 다른 접근법으로 동시 스폰**
-- 먼저 성공한 에이전트의 결과 채택, 나머지 종료
-- 예: chain-A(ROP) + chain-B(ret2libc), solver-A(z3) + solver-B(GDB Oracle)
-- **토큰 2배이므로 1차 시도 실패 후에만 사용**
+3회 실패 후 2개 다른 접근법 동시 스폰 → 먼저 성공한 에이전트 채택. 토큰 2배이므로 1차 실패 후에만.
 
 ## Two Operating Modes
 
@@ -367,24 +347,8 @@ p.interactive()  # 또는 flag = p.recvline()
 - ✅ 반드시 원격 서버(사용자가 제공한 host:port)에 exploit 성공해야 진짜 플래그
 
 ## 이미지 처리 (플래그가 이미지에 있을 때)
-
-풀이 결과가 이미지(PNG, JPG 등)인 경우 다음 순서로 처리:
-
-1. **Read 도구** — Claude는 멀티모달. 정상 이미지면 Read로 직접 보고 텍스트 추출
-2. **OCR 자동 추출** — Read가 실패하면 pytesseract 사용:
-   ```python
-   from PIL import Image
-   import pytesseract
-   text = pytesseract.image_to_string(Image.open('flag.png'))
-   print(text)  # 플래그 텍스트 추출
-   ```
-3. **QR코드** — `zbarimg flag.png` 으로 디코딩
-4. **PIL 분석** — 깨진 이미지면 픽셀 데이터 직접 분석 (스테가노그래피 등)
-5. **최후 수단** — 이미지 경로를 사용자에게 알려주고 확인 요청
-
-### Read 도구로 이미지 읽기 실패 시:
-- API 에러 반복되면 **즉시 OCR 방식으로 전환** (무한 재시도 금지)
-- `broken data stream` 에러 = PNG 구조 깨짐 → PIL로 청크 분석
+우선순위: Read(멀티모달) → pytesseract OCR → zbarimg(QR) → PIL 픽셀 분석 → 사용자 확인.
+API 에러 반복 시 즉시 OCR 전환 (무한 재시도 금지). `broken data stream` = PIL 청크 분석.
 
 ## ⚠️ Quality-First Analysis Rules (v4 — Olympus DAO 교훈 반영)
 
@@ -613,13 +577,7 @@ analyst 대신 N개 병렬 헌터 스폰 (각각 vuln-category 전문):
 결과를 vulnerability_candidates.md로 병합 후 confidence score 순 정렬.
 ```
 **주의**: 토큰 4-6x 증가. 소형 코드베이스(<5K줄)에서는 단일 analyst가 효율적.
-**각 헌터에게 전달할 모드별 프롬프트**:
-- `mode=injection`: `grep -rn "eval\|exec\|Function(\|child_process\|spawn\|SQL" src/`
-- `mode=ssrf`: `grep -rn "fetch\|axios\|request\|download\|url\|redirect" src/`
-- `mode=auth`: `grep -rn "token\|auth\|session\|password\|jwt\|cookie\|secret" src/`
-- `mode=crypto`: `grep -rn "random\|seed\|crypto\|hash\|hmac\|aes\|prng" src/`
-- `mode=bizlogic`: `grep -rn "price\|amount\|quantity\|discount\|coupon\|payment\|checkout\|cart\|order\|balance\|credit\|refund\|race\|mutex\|lock\|atomic" src/`
-- `mode=fileupload`: `grep -rn "upload\|file\|path\|directory\|include\|require\|fopen\|readFile\|writeFile\|multer\|formidable\|busboy\|mimetype\|content-type\|extension" src/`
+각 헌터에게 모드별 grep 패턴을 Orchestrator가 생성하여 전달 (injection/ssrf/auth/crypto/bizlogic/fileupload).
 
 ### Phase 1→2 Gate: Coverage Check (v8 — NAMUHX retrospective fix, MANDATORY for Web/API)
 ```bash
@@ -643,10 +601,20 @@ python3 tools/bb_preflight.py coverage-check targets/<target>/
    - PASS → Phase 3 / FAIL → **후보 삭제 (No Exploit, No Report)**
 
 ### Phase 3: Report Writing
-4. `reporter` → 보고서 초안 + CVSS 계산
+4. `reporter` → 보고서 초안 + CVSS 계산 + **bugcrowd_form.md 작성 (MANDATORY)**
    - 관찰적 언어 사용 ("identified in reviewed code")
    - 조건부 CVSS 테이블 포함
    - Executive Conclusion 3문장 최상단
+   - **⚠️ bugcrowd_form.md 필수 작성 (v9 — Klaw VRT 교훈)**:
+     - reporter가 보고서와 동시에 `submission/report_<name>/bugcrowd_form.md` 생성
+     - 필수 필드: Title, Target, VRT, Severity, CVSS Vector+Score, URL/Asset, Attachments, Pre-Submission Checklist
+     - **VRT는 반드시 `bugcrowd.com/vulnerability-rating-taxonomy` 실제 페이지에서 확인** (WebFetch 사용)
+     - VRT 선택 기준: **root cause에 매칭** (impact demonstration이 아님)
+       - 하드코딩 시크릿 → "Using Default Credentials" (P1), NOT "Application-Level DoS" (P2)
+       - 권한 누락 → "Broken Access Control > Privilege Escalation"
+       - 크로스테넌트 → "Broken Access Control > IDOR > Read Sensitive Info"
+     - **CVSS 보수주의**: 벤치마크/증거 없는 메트릭 사용 금지 (A:H without DoS 벤치마크 → A:L)
+     - **바운티 테이블 검증**: target_assessment.md의 예상 바운티를 프로그램 실제 페이지와 대조 확인
 
 ### Phase 4: Review Cycle (최소 2라운드 — 핵심!)
 5. Round 1: `critic` → 팩트체크 (CWE, 날짜, 함수명, line numbers)
@@ -664,6 +632,18 @@ python3 tools/bb_preflight.py coverage-check targets/<target>/
 ### Phase 5: Finalization (triager-sim SUBMIT 후에만 진행)
 8. `reporter` → 관찰적 언어 통일, 리프레이밍 반영, ZIP 패키징
 9. 클러스터별 분리 제출 (같은 코드베이스 → 같은 날, 다른 코드베이스 → 다른 날)
+10. **⚠️ VRT + Bugcrowd Form 최종 검증 (v9 — MANDATORY)**:
+    ```
+    □ bugcrowd_form.md 존재? (submission/report_<name>/ 하위)
+    □ VRT가 bugcrowd.com/vulnerability-rating-taxonomy 실제 카테고리와 일치?
+    □ VRT가 root cause 기반? (impact가 아님)
+    □ CVSS 각 메트릭에 증거 있음? (A:H = 벤치마크 필수, PR:N = 인증 우회 증명 필수)
+    □ 바운티 예상 금액이 프로그램 실제 reward table과 일치?
+    □ Title이 구체적? (취약점 유형 + 영향 + 위치)
+    □ Attachments 목록에 PoC + evidence 파일 포함?
+    □ Pre-Submission Checklist 전항목 체크?
+    ```
+    **위 체크리스트 미통과 시 제출 금지.** Klaw R5에서 VRT "Application-Level DoS"(P2) → "Using Default Credentials"(P1)로 교정하여 severity 1단계 상승.
 
 ### Phase 6: Cleanup
 10. TeamDelete로 정리
@@ -681,6 +661,9 @@ python3 tools/bb_preflight.py coverage-check targets/<target>/
 - **LLM 에코 주장 금지** (검증 불가능한 모델 행동 의존 금지)
 - **3-layer remediation** (1-liner보다 구조적 대안이 채택률 높음)
 - **AI 슬롭 방지** — 타겟 특정 세부사항 필수, 템플릿 언어 금지, triager-sim이 검증
+- **⚠️ VRT = Priority 결정자 (v9 — IRON RULE)**: CVSS가 아니라 VRT가 Bugcrowd에서 severity를 결정. 같은 finding도 VRT 선택에 따라 P1↔P2 달라짐. **제출 전 반드시 `bugcrowd.com/vulnerability-rating-taxonomy` WebFetch로 확인**
+- **⚠️ bugcrowd_form.md 필수 생성**: reporter가 보고서 작성 시 동시에 생성. Title/Target/VRT/Severity/CVSS/URL/Attachments/Checklist 전필드. **form 없이 제출 시도 금지**
+- **⚠️ 바운티 테이블 검증 필수**: target_assessment.md의 예상 금액을 프로그램 실제 reward page와 대조. Keeper에서 P2=$11K-$20K(잘못)→$2.5K-$5K(실제) 오차 발생한 교훈
 
 ## Knowledge Base (모든 에이전트가 사용)
 - **ExploitDB**: `~/exploitdb/searchsploit <query>` — 47K+ 익스플로잇 DB
@@ -784,55 +767,12 @@ checkpoint.json이 유일한 진실 원천(single source of truth)이다.
 
 ### 에이전트 규칙: checkpoint.json 작성 (MANDATORY)
 모든 작업 에이전트(chain, solver, exploiter, analyst, reverser, trigger)는:
+- **작업 시작 시** `{"status":"in_progress", "phase":1, ...}` 생성
+- **Phase 완료 시** 즉시 업데이트 (completed 배열 추가, phase 증가)
+- **전체 완료 시** `"status":"completed"` + produced_artifacts 확인
+- **에러 시** `"status":"error"` + error 메시지
 
-1. **작업 시작 시** checkpoint.json 생성:
-```json
-{
-  "agent": "chain",
-  "status": "in_progress",
-  "phase": 1,
-  "phase_name": "UAF read-modify-write exploit",
-  "completed": [],
-  "in_progress": "Writing exploit code",
-  "critical_facts": {"cred_uid_off": "0x08", "slab": "kmalloc-192"},
-  "expected_artifacts": ["chain_report.md", "solve.py"],
-  "produced_artifacts": [],
-  "timestamp": "2026-02-27T19:06:00Z"
-}
-```
-
-2. **각 Phase/단계 완료 시** 즉시 업데이트:
-```json
-{
-  "status": "in_progress",
-  "phase": 2,
-  "completed": ["Phase 1: exploit code written", "Phase 1: static compile OK"],
-  "in_progress": "Phase 2: QEMU local test",
-  "produced_artifacts": ["phase4_uaf_cred.c", "solve"],
-  "timestamp": "2026-02-27T19:08:00Z"
-}
-```
-
-3. **모든 작업 완료 시** status를 "completed"로 변경:
-```json
-{
-  "status": "completed",
-  "completed": ["Phase 1: code", "Phase 2: QEMU test PASS", "Phase 3: report written"],
-  "produced_artifacts": ["chain_report.md", "solve.py", "solve"],
-  "timestamp": "2026-02-27T19:15:00Z"
-}
-```
-
-4. **에러/블로커 발생 시** status를 "error"로:
-```json
-{
-  "status": "error",
-  "error": "QEMU connection refused on port 4444",
-  "completed": ["Phase 1: code written"],
-  "in_progress": "Phase 2: QEMU test — BLOCKED",
-  "timestamp": "2026-02-27T19:10:00Z"
-}
-```
+필수 필드: `agent, status, phase, phase_name, completed, in_progress, critical_facts, expected_artifacts, produced_artifacts, timestamp`
 
 ### checkpoint.json 위치
 - CTF: `<challenge_dir>/checkpoint.json` (예: `/home/rootk1m/kernelctf/checkpoint.json`)
