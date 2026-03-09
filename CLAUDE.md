@@ -669,10 +669,11 @@ python3 tools/bb_preflight.py coverage-check targets/<target>/
 - **ExploitDB**: `~/exploitdb/searchsploit <query>` — 47K+ 익스플로잇 DB
 - **PoC-in-GitHub**: `~/PoC-in-GitHub/<year>/CVE-*.json` — 8K+ GitHub PoC
 - 서비스/버전 발견 시 반드시 searchsploit 조회할 것
-- **Knowledge FTS5 DB**: `python3 tools/knowledge_indexer.py search "<query>"` — 242K+ 문서 BM25 검색 (내부 기법 + 25개 외부 레포 + ExploitDB + nuclei + PoC)
+- **Knowledge FTS5 DB**: `python3 tools/knowledge_indexer.py search "<query>"` — 265K+ 문서 BM25 검색 (내부 기법 + 45개 외부 레포 + ExploitDB + nuclei + PoC + trickest-cve)
   - MCP Server: `knowledge-fts` (technique_search, exploit_search, challenge_search, search_all, get_technique_content, knowledge_stats)
   - CLI: `python3 tools/knowledge_indexer.py {build|search|search-all|search-exploits|stats|get}`
-  - DB: `knowledge/knowledge.db` (~245MB, zero-dep SQLite FTS5)
+  - DB: `knowledge/knowledge.db` (~338MB, zero-dep SQLite FTS5)
+  - 외부 레포 (45개): PayloadsAllTheThings, HackTricks, SecLists, GTFOBins, how2heap, OWASP CheatSheetSeries, InternalAllTheThings, AllAboutBugBounty, KingOfBugBountyTips, Awesome-Cybersecurity-Handbooks, AD-Attack-Defense, MobileApp-Pentest-Cheatsheet, smart-contract-vulnerabilities, not-so-smart-contracts, solidity-security-blog, ctf-blockchain, cloudgoat, google-security-research, Kernelhub, CVE-2024-1086, prompt-injection-defenses, owasp-fstm, shannon-analysis 등
 
 ## Local Security Tools
 - **RE**: radare2 (r2), objdump, strings, readelf, nm, file, wabt 1.0.39 (wasm2wat, wasm-decompile — WASM RE), ImHex (바이너리 패턴 분석 + YARA), Apktool v2.11.1 (APK 디컴파일)
@@ -697,7 +698,7 @@ python3 tools/bb_preflight.py coverage-check targets/<target>/
 - **GitHub**: gh CLI (PRs, issues, API — `/usr/bin/gh`)
 - **Workflow/OSINT**: osmedeus (~/gopath/bin/osmedeus — YAML 정찰 워크플로우), web-check (Docker, 33 API 엔드포인트, port 3001)
 - **Knowledge Repos (~/tools/)**: MBE, HEVD, google-ctf, exploit-writeups, how2heap, CTF-All-In-One, linux-kernel-exploitation, awesome-list-systems, paper_collection, owasp-mastg, ad-exploitation
-- **Knowledge DB**: knowledge-fts MCP (242K+ docs — techniques, ExploitDB 47K, nuclei 15K, PoC 18K, trickest-cve 154K, HackTricks, GTFOBins, PayloadsAllTheThings)
+- **Knowledge DB**: knowledge-fts MCP (265K+ docs — techniques 81, external 29K (45 repos), ExploitDB 47K, nuclei 15K, PoC 18K, trickest-cve 155K)
 - **BB Pipeline Gate**: `tools/bb_preflight.py` — Phase 게이트 검증 (v8, NAMUHX retrospective). `init` 템플릿 생성, `rules-check` 규칙 검증, `coverage-check` 엔드포인트 커버리지 (`--json` 옵션), `inject-rules` HANDOFF 주입, `exclusion-filter` 분석 제외 목록
 - **Pipeline Skills (v6)**: `.claude/skills/` — `oos-check` (OOS 사전 체크), `checkpoint-validate` (에이전트 상태 검증), `poc-tier` (PoC 품질 분류), `coverage-gate` (커버리지 게이트), `threat-model-check` (위협 모델 정합성), `slop-check` (AI 슬롭 감지)
 - **Competitor-Adopted Tools (P0)**:
