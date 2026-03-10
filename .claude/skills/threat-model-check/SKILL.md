@@ -1,6 +1,6 @@
 ---
 name: threat-model-check
-description: Finding의 공격 전제조건이 현실적인지 검증. 비현실적 threat model 사전 차단. "threat model", "위협 모델", "공격 전제", "attack prerequisites" 키워드 매칭
+description: Verify attack prerequisites are realistic. Block unrealistic threat models pre-submission. Matches "threat model", "attack prerequisites", "prereq check"
 user-invocable: true
 argument-hint: <finding-description-or-file>
 allowed-tools: [Read, Bash]
@@ -8,68 +8,98 @@ allowed-tools: [Read, Bash]
 
 # Threat Model Consistency Check
 
-Finding의 공격 전제조건이 프로그램의 threat model과 일치하는지 검증한다.
-Threat model breach가 실패의 19%를 차지 (MCP, Immutable, OPPO).
+## CRITICAL RULES (NEVER VIOLATE)
+1. **BLOCK → finding MUST NOT be sent to exploiter**
+2. **3+ prerequisites = unrealistic attack scenario** → automatic BLOCK
+3. **D-Bus/local access → BLOCK unless root escalation chain exists**
 
-## 입력
-- `$ARGUMENTS`: finding 설명 텍스트 또는 보고서 파일 경로
+Verifies that a finding's attack prerequisites are consistent with the program's threat model.
+Threat model breaches account for 19% of all failures (MCP, Immutable, OPPO).
 
-## 실행 절차
+## Input
+- `$ARGUMENTS`: finding description text or report file path
 
-### Step 1: Finding에서 공격 전제조건 추출
-Finding 설명/보고서를 읽고 공격자가 제어해야 하는 것을 분류:
+## Procedure
 
-| 전제조건 카테고리 | 설명 | 현실성 |
-|-------------------|------|--------|
-| 네트워크 접근 | 인터넷에서 도달 가능 | HIGH (일반적) |
-| 사용자 인증정보 | 유효한 계정/토큰 필요 | MEDIUM (피싱 등) |
-| 코드 실행 | 타겟 시스템에서 코드 실행 | LOW (이미 침해됨) |
-| 인프라 접근 | 서버/클라우드 접근 | VERY LOW |
-| 물리 접근 | 디바이스 물리적 접근 | VERY LOW |
-| 내부자 | 조직 내부 권한 | VERY LOW |
-| 사용자 기기 접근 | 피해자 기기 접근 | LOW |
-| MitM 위치 | 네트워크 중간자 위치 | LOW-MEDIUM |
+### Step 1: Extract Attack Prerequisites
+Read finding and classify what the attacker must control:
 
-### Step 2: 전제조건 수 기반 판정
+| Prerequisite Category | Description | Realism |
+|-----------------------|-------------|---------|
+| Network access | Reachable from internet | HIGH (common) |
+| User credentials | Valid account/token required | MEDIUM (phishing etc.) |
+| Code execution | Execute code on target system | LOW (already compromised) |
+| Infrastructure access | Server/cloud access | VERY LOW |
+| Physical access | Physical device access | VERY LOW |
+| Insider | Internal org privileges | VERY LOW |
+| Victim device access | Access to victim's device | LOW |
+| MitM position | Network intermediary position | LOW-MEDIUM |
+
+### Step 2: Prerequisite Count Verdict
 ```
-prerequisite_count = 공격자가 제어해야 하는 카테고리 수
+prerequisite_count = number of categories attacker must control
 
 if prerequisite_count == 0-1:
-    → PASS (현실적 공격 시나리오)
+    → PASS (realistic attack scenario)
 elif prerequisite_count == 2:
-    → WARN ("2개 전제조건 — 공격 실현 가능성 낮을 수 있음")
+    → WARN ("2 prerequisites — attack feasibility may be low")
 elif prerequisite_count >= 3:
-    → BLOCK ("3개+ 전제조건 — 비현실적 공격 시나리오")
+    → BLOCK ("3+ prerequisites — unrealistic attack scenario")
 ```
 
-### Step 3: 프로그램 Threat Model 교차검증
+### Step 3: Program Threat Model Cross-check
 ```
-Read targets/<target>/program_rules_summary.md  # 프로그램 threat model
+Read targets/<target>/program_rules_summary.md  # program threat model
 ```
 
-특별 규칙:
-- **D-Bus/로컬 접근** → root escalation 체인 없으면 → **BLOCK**
-- **Admin/governance 접근** → "admin trust assumed" 프로그램에서 → **BLOCK**
-- **물리 접근 필요** → 원격 exploit 없으면 → **WARN** (낮은 severity)
-- **사용자 상호작용 필요** → 1-click = OK, 복잡한 시나리오 = **WARN**
+Special rules:
+- **D-Bus/local access** → no root escalation chain → **BLOCK**
+- **Admin/governance access** → "admin trust assumed" program → **BLOCK**
+- **Physical access required** → no remote exploit → **WARN** (low severity)
+- **User interaction required** → 1-click = OK, complex scenario = **WARN**
 
-### Step 4: 결과 출력
+### Step 4: Output
 ```
 [THREAT-MODEL] Finding: <summary>
 [THREAT-MODEL] Prerequisites:
-  - [카테고리1]: <설명> (현실성: HIGH/MEDIUM/LOW)
-  - [카테고리2]: <설명> (현실성: HIGH/MEDIUM/LOW)
+  - [category1]: <description> (realism: HIGH/MEDIUM/LOW)
+  - [category2]: <description> (realism: HIGH/MEDIUM/LOW)
 [THREAT-MODEL] Prerequisite count: N
 [THREAT-MODEL] Program threat model match: YES/NO
-[THREAT-MODEL] Result: PASS / WARN(<이유>) / BLOCK(<이유>)
+[THREAT-MODEL] Result: PASS / WARN(<reason>) / BLOCK(<reason>)
 ```
 
-## 과거 실패 교훈
-- **MCP (Immutable)**: "공격자가 MCP 서버 코드를 수정할 수 있다" 전제 → 프로그램이 "intended behavior" 판정
-- **OPPO**: "정적 분석만으로 RCE 주장" → 실행 환경 접근 없이 증명 불가 → Informative
-- **AXIS D-Bus**: 로컬 접근 + D-Bus 호출 → root escalation 체인 없어서 OOS
+## Few-Shot Examples
 
-## 핵심 규칙
-- **BLOCK → 해당 finding은 exploiter에게 전달 금지**
-- **WARN → exploiter에게 전제조건 명시적 전달 + 보고서에 honest prerequisite disclosure 필수**
-- 전제조건이 많을수록 severity 하향 필수 (CVSS PR/UI 보정)
+### PASS (1 prerequisite) — Remote API IDOR
+```
+Finding: GET /api/invoices/{id} returns any user's invoice without auth check
+Prerequisites: [Network access] (realism: HIGH)
+Prerequisite count: 1
+→ PASS — realistic, single prerequisite, internet-reachable API
+```
+
+### WARN (2 prerequisites) — Authenticated SSRF
+```
+Finding: Authenticated user can trigger SSRF via webhook URL parameter
+Prerequisites: [Network access] + [User credentials]
+Prerequisite count: 2
+→ WARN — feasible but requires valid account. Disclose prerequisite honestly
+```
+
+### BLOCK (3+ prerequisites) — Local D-Bus + SUID + config
+```
+Finding: D-Bus method bypasses polkit, then SUID binary reads config with secret
+Prerequisites: [Local access] + [D-Bus session] + [Specific SUID binary present]
+Prerequisite count: 3
+Program OOS: "local access bugs OOS unless root escalation"
+→ BLOCK — 3 prerequisites + no root chain + matches program OOS rule
+```
+
+## Lessons Learned
+- **MCP (Immutable)**: "attacker can modify MCP server code" premise → program judged "intended behavior"
+- **OPPO**: "static analysis alone claims RCE" → no execution environment access to prove → Informative
+- **AXIS D-Bus**: local access + D-Bus call → no root escalation chain → OOS
+- **Keeper EPM**: "unauthenticated" claim → only tested with enrolled user → peer credential checking existed
+
+> **REMINDER**: BLOCK = never send to exploiter. More prerequisites = lower severity (adjust CVSS PR/UI).

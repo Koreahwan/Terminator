@@ -1,6 +1,6 @@
 ---
 name: poc-tier
-description: PoC 파일의 품질을 Tier 1-4로 분류. exploiter 완료 후 triager_sim 전에 실행. "PoC tier", "PoC 품질", "poc quality", "exploit 검증" 키워드 매칭
+description: Classify PoC file quality as Tier 1-4. Run after exploiter completes, before triager-sim. Matches "PoC tier", "PoC quality", "poc quality", "exploit verify"
 user-invocable: true
 argument-hint: <poc-file-path>
 allowed-tools: [Read, Bash, Grep]
@@ -8,85 +8,107 @@ allowed-tools: [Read, Bash, Grep]
 
 # PoC Quality Tier Classification
 
-PoC 파일의 품질을 Tier 1-4로 자동 분류한다.
-Tier 3-4 finding 제출로 인한 실패 방지 (Veda, Katana 등 4건 실패).
+## CRITICAL RULES (NEVER VIOLATE)
+1. **Tier 3-4 = submission FORBIDDEN** — PoC without execution evidence is 100% Informative
+2. **No real network call + response capture = cannot be Tier 1** — local mock = Bronze at best
 
-## 입력
-- `$ARGUMENTS`: PoC 파일 경로 (예: `evidence/ssrf/poc.py`, `poc/foundry-test/test/Exploit.t.sol`)
+Automatically classifies PoC quality as Tier 1-4.
+Prevents Tier 3-4 submission failures (Veda, Katana, etc. — 4 failures).
 
-## Tier 정의
+## Input
+- `$ARGUMENTS`: PoC file path (e.g., `evidence/ssrf/poc.py`, `poc/foundry-test/test/Exploit.t.sol`)
 
-| Tier | Name | Requirements | H1 Outcome |
-|------|------|-------------|------------|
-| **1** | Gold | 런타임 검증 + Integration test + 증거 캡처 + UA 핑거프린트 | ACCEPT (high confidence) |
-| **2** | Silver | 실행 가능한 스크립트 + 출력 캡처, integration test 없음 | ACCEPT (moderate confidence) |
-| **3** | Bronze | 스크립트 존재하지만 출력이 이론적/목업 | **DROPPED — 제출 불가** |
-| **4** | Reject | PoC 없음, 의사코드만, "left as exercise" | **DROPPED — 제출 불가** |
+## Tier Definitions
 
-## 실행 절차
+| Tier | Name | Requirements | Outcome |
+|------|------|-------------|---------|
+| **1** | Gold | Runtime verified + integration test + evidence capture + UA fingerprint | ACCEPT (high confidence) |
+| **2** | Silver | Executable script + output capture, no integration test | ACCEPT (moderate confidence) |
+| **3** | Bronze | Script exists but output is theoretical/mock | **DROPPED — submission forbidden** |
+| **4** | Reject | No PoC, pseudocode only, "left as exercise" | **DROPPED — submission forbidden** |
 
-### Step 1: PoC 파일 읽기
+## Few-Shot Examples
+
+### Tier 1 (Gold) — Real API call + response capture + assertion
+```python
+resp = requests.get(f"{BASE}/api/users/2", headers={"Authorization": f"Bearer {token_user1}"})
+assert resp.status_code == 200
+data = resp.json()
+assert "email" in data  # user1 can read user2's PII
+print(f"[VULN] Cross-user data: {data['email']}")  # captured in output.txt
+```
+
+### Tier 3 (Bronze) — Script exists but mock output
+```python
+# This should work against the production API
+url = "https://example.com/api/admin"  # placeholder
+# TODO: replace with actual target URL
+resp = requests.get(url)  # hypothetical response would contain admin data
+print("Exploitation successful")  # no actual evidence
+```
+
+## Procedure
+
+### Step 1: Read PoC File
 ```
 Read $ARGUMENTS
 ```
 
-### Step 2: 양성 시그널 탐지 (+1 tier 각각)
+### Step 2: Positive Signal Detection (+1 tier each)
 
-**네트워크 호출 존재 여부**:
+**Network calls present**:
 !`grep -cE "requests\.|fetch\(|curl |remote\(|cast send|cast call|axios\.|http\.|urllib" "$ARGUMENTS" 2>/dev/null || echo "0"`
 
-**실제 응답 캡처 존재 여부**:
+**Real response capture present**:
 !`grep -cE "response\.|status_code|\.json\(\)|recvline|recvuntil|interactive|200 OK|HTTP/" "$ARGUMENTS" 2>/dev/null || echo "0"`
 
-**테스트 프레임워크 사용**:
+**Test framework usage**:
 !`grep -cE "forge test|npm test|pytest|unittest|assert|vm\.expect|console\.log" "$ARGUMENTS" 2>/dev/null || echo "0"`
 
-### Step 3: 음성 시그널 탐지 (-1 tier 각각)
+### Step 3: Negative Signal Detection (-1 tier each)
 
-**미완성 마커**:
+**Incomplete markers**:
 !`grep -ciE "TODO|FIXME|theoretical|hypothetical|would work|should work|left as exercise|mock|placeholder" "$ARGUMENTS" 2>/dev/null || echo "0"`
 
-**하드코딩 mock 데이터**:
+**Hardcoded mock data**:
 !`grep -cE "fake_|mock_|dummy_|example\.com|0xdead|placeholder" "$ARGUMENTS" 2>/dev/null || echo "0"`
 
-**실행 불가 마커** (주석 처리된 핵심 로직):
+**Commented-out core logic**:
 !`grep -cE "^#.*exploit|^#.*send|^#.*remote|^//.*attack" "$ARGUMENTS" 2>/dev/null || echo "0"`
 
-### Step 4: Tier 계산
+### Step 4: Tier Calculation
 ```
-base_tier = 2  (Silver 기본)
+base_tier = 2  (Silver default)
 
-# 양성 시그널
-if 네트워크 호출 > 0: tier -= 0  (유지)
-else: tier += 1  (Silver→Bronze)
+# Positive signals
+if network_calls == 0: tier += 1  (Silver→Bronze)
+if response_capture > 0: tier -= 1  (can upgrade)
+if test_framework > 0: tier -= 0.5
 
-if 응답 캡처 > 0: tier -= 1  (상승 가능)
-if 테스트 프레임워크 > 0: tier -= 0.5
+# Negative signals
+if incomplete_markers > 0: tier += 1
+if mock_data > 2: tier += 1
+if commented_out > 0: tier += 1
 
-# 음성 시그널
-if 미완성 마커 > 0: tier += 1
-if mock 데이터 > 2: tier += 1
-if 실행 불가 > 0: tier += 1
-
-# 범위 제한
 tier = clamp(tier, 1, 4)
 ```
 
-### Step 5: 결과 출력
+### Step 5: Output
 ```
 [POC-TIER] File: <path>
 [POC-TIER] Positive signals: network_calls=N, response_capture=N, test_framework=N
 [POC-TIER] Negative signals: incomplete=N, mock_data=N, commented_out=N
 [POC-TIER] Tier: N (<name>)
-[POC-TIER] Result: PASS (Tier 1-2) / BLOCK (Tier 3-4, 제출 불가)
+[POC-TIER] Result: PASS (Tier 1-2) / BLOCK (Tier 3-4, submission forbidden)
 ```
 
-### BLOCK 시 행동
-- **Tier 3**: "스크립트는 있지만 실제 실행 증거 없음. 실행 후 output.txt 캡처 필요"
-- **Tier 4**: "PoC 없음. exploit 코드 작성 필수. 이론적 설명만으로는 100% Informative"
+### BLOCK Actions
+- **Tier 3**: "Script exists but no execution evidence. Run it and capture output.txt"
+- **Tier 4**: "No PoC. Write exploit code first. Theoretical descriptions are 100% Informative"
 
-## DeFi PoC 추가 체크
-Foundry test인 경우:
-- `vm.deal()` 사용 + honest disclosure 없음 → Tier 3으로 하락
-- `fork-url` + 실제 블록 넘버 → Tier 1 시그널
-- `assert` 문으로 profit 증명 → Tier 1 시그널
+## DeFi PoC Extra Checks
+- `vm.deal()` used + no honest disclosure → downgrade to Tier 3
+- `fork-url` + real block number → Tier 1 signal
+- `assert` proving profit → Tier 1 signal
+
+> **REMINDER**: Tier 3-4 = NEVER submit. Only Tier 1-2 pass to triager-sim.

@@ -1,6 +1,6 @@
 ---
 name: coverage-gate
-description: Phase 1->2 전환 시 endpoint_map.md 커버리지 체크. 80% 미만이면 Phase 2 진행 차단. "coverage check", "커버리지", "endpoint 커버리지", "Phase 2 gate" 키워드 매칭
+description: Check endpoint_map.md coverage at Phase 1→2 transition. Blocks Phase 2 if below 80%. Matches "coverage check", "endpoint coverage", "Phase 2 gate"
 user-invocable: true
 argument-hint: <target-dir>
 allowed-tools: [Read, Bash, Grep, Glob]
@@ -8,45 +8,46 @@ allowed-tools: [Read, Bash, Grep, Glob]
 
 # Endpoint Coverage Gate
 
-Phase 1→2 전환 시 endpoint_map.md 커버리지를 체크한다.
-NAMUHX에서 40% coverage로 Phase 2 진행, 실제 IDOR은 나머지 60%에서 발견된 교훈 반영.
+## CRITICAL RULES (NEVER VIOLATE)
+1. **FAIL → Phase 2 is BLOCKED** — no Phase 2 spawn without coverage gate pass
+2. **No premature "analysis complete" declarations** — must verify numbers against endpoint_map.md
 
-## 입력
-- `$ARGUMENTS`: 타겟 디렉토리 (예: `targets/keeper`)
+Checks endpoint_map.md coverage at Phase 1→2 transition.
+Lesson: NAMUHX had 40% coverage at Phase 2 entry; the real IDOR was in the untested 60%.
 
-## 실행 절차
+## Input
+- `$ARGUMENTS`: target directory (e.g., `targets/keeper`)
 
-### Step 1: bb_preflight.py coverage-check 실행
+## Procedure
+
+### Step 1: Run bb_preflight.py coverage-check
 !`python3 /home/rootk1m/01_CYAI_Lab/01_Projects/Terminator/tools/bb_preflight.py coverage-check "$ARGUMENTS" 2>&1`
 
-### Step 2: 결과 파싱 및 판정
+### Step 2: Parse Result
 
-| 결과 | 조건 | 행동 |
-|------|------|------|
-| **PASS** | coverage >= 80% | Phase 2 진행 OK |
-| **FAIL** | coverage < 80% | Phase 2 진행 **차단**. UNTESTED 엔드포인트 목록 출력 |
-| **ERROR** | endpoint_map.md 없음 | Scout가 생성해야 함. Phase 2 진행 차단 |
+| Result | Condition | Action |
+|--------|-----------|--------|
+| **PASS** | coverage >= 80% | Phase 2 proceed |
+| **FAIL** | coverage < 80% | Phase 2 **BLOCKED**. Output UNTESTED endpoint list |
+| **ERROR** | endpoint_map.md missing | Scout must generate it. Phase 2 blocked |
 
-### Step 3: FAIL 시 UNTESTED 엔드포인트 출력
-!`grep -i "UNTESTED" "$ARGUMENTS/endpoint_map.md" 2>/dev/null || echo "endpoint_map.md 없음"`
+### Step 3: On FAIL — List UNTESTED Endpoints
+!`grep -i "UNTESTED" "$ARGUMENTS/endpoint_map.md" 2>/dev/null || echo "endpoint_map.md not found"`
 
-### Step 4: 소규모 타겟 예외
-- 총 엔드포인트 < 10개 → **100% 커버리지 필수** (80% 임계값 대신)
-- 이유: 소규모에서 1-2개 미테스트 = 핵심 공격면 누락 가능
+### Step 4: Small Target Exception
+- Total endpoints < 10 → **100% coverage required** (not 80%)
+- Reason: 1-2 untested endpoints on small targets = critical attack surface gap
 
-### Step 5: 결과 출력
+### Step 5: Output
 ```
 [COVERAGE-GATE] Target: <target>
 [COVERAGE-GATE] Total endpoints: N
 [COVERAGE-GATE] Tested: N (VULN=X, SAFE=Y, TESTED=Z)
 [COVERAGE-GATE] Untested: N
 [COVERAGE-GATE] Coverage: XX.X%
-[COVERAGE-GATE] Threshold: 80% (또는 100% for <10 endpoints)
+[COVERAGE-GATE] Threshold: 80% (or 100% for <10 endpoints)
 [COVERAGE-GATE] Result: PASS / FAIL
-[COVERAGE-GATE] Action: <"Phase 2 진행" 또는 "추가 analyst/exploiter 라운드 필요 — UNTESTED 목록 첨부">
+[COVERAGE-GATE] Action: <"Phase 2 proceed" or "Additional analyst/exploiter round needed — UNTESTED list attached">
 ```
 
-## 핵심 규칙
-- **FAIL → 추가 analyst/exploiter 라운드를 UNTESTED 엔드포인트 대상으로 스폰**
-- **"analysis complete" 조기 선언 방지** — coverage gate 통과 없이 Phase 2 진행 금지
-- Orchestrator가 Phase 1 완료 후, Phase 2 스폰 전에 반드시 이 skill 호출
+> **REMINDER**: FAIL = Phase 2 blocked. Spawn additional analyst/exploiter rounds targeting UNTESTED endpoints.

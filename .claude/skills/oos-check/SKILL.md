@@ -1,6 +1,6 @@
 ---
 name: oos-check
-description: Bug Bounty finding이 Out-of-Scope에 해당하는지 사전 체크. Phase 0 target_evaluator 후, Phase 1 analyst finding별 교차확인 시 자동 트리거. "OOS", "out of scope", "exclusion check" 키워드 매칭
+description: Pre-check if a Bug Bounty finding is Out-of-Scope. Auto-triggered at Phase 0 (full scan) and Phase 1 (per-finding). Matches "OOS", "out of scope", "exclusion check"
 user-invocable: true
 argument-hint: <target-dir> [finding-type]
 allowed-tools: [Read, Grep, Glob, Bash, WebFetch]
@@ -8,54 +8,83 @@ allowed-tools: [Read, Grep, Glob, Bash, WebFetch]
 
 # OOS (Out-of-Scope) Pre-Check
 
-Bug Bounty finding이 프로그램의 Out-of-Scope 규칙에 해당하는지 사전 체크한다.
-OOS 미스가 전체 실패의 22%를 차지 — CapyFi(oracle staleness), AXIS(D-Bus) 모두 brief에 명시돼 있었음.
+## CRITICAL RULES (NEVER VIOLATE)
+1. **BLOCK → immediately remove finding from vulnerability_candidates.md**
+2. **WARN → do NOT proceed without bypass reframing strategy**
+3. **Phase 0 = full program OOS scan, Phase 1 = per-finding scan — never skip**
 
-## 입력
-- `$ARGUMENTS`: `<target-dir>` (예: `targets/keeper`) + 선택적 `[finding-type]` (예: `oracle-staleness`)
-- finding-type이 없으면 전체 프로그램 OOS 스캔
+OOS misses account for 22% of all failures — CapyFi (oracle staleness), AXIS (D-Bus) were both explicitly listed in program brief.
 
-## 실행 절차
+## Input
+- `$ARGUMENTS`: `<target-dir>` (e.g., `targets/keeper`) + optional `[finding-type]` (e.g., `oracle-staleness`)
+- If no finding-type: full program OOS scan
 
-### Step 1: Program Rules 로드
+## Procedure
+
+### Step 1: Load Program Rules
 ```
 Read targets/<target>/program_rules_summary.md
 ```
-- "Exclusion List" 섹션에서 OOS 항목 추출
-- "Known Issues" 섹션에서 이미 알려진 이슈 추출
+- Extract OOS items from "Exclusion List" section
+- Extract known issues from "Known Issues" section
 
-### Step 2: 공통 배제 패턴 매칭
-OOS 패턴 DB (`scripts/oos_patterns.json`) 로드 후 finding-type과 교차 매칭:
+### Step 2: Common Exclusion Pattern Matching
+Load OOS pattern DB (`scripts/oos_patterns.json`) and cross-match with finding-type:
 
-!`cat /home/rootk1m/01_CYAI_Lab/01_Projects/Terminator/.claude/skills/oos-check/scripts/oos_patterns.json 2>/dev/null || echo "패턴 DB 없음"`
+!`cat /home/rootk1m/01_CYAI_Lab/01_Projects/Terminator/.claude/skills/oos-check/scripts/oos_patterns.json 2>/dev/null || echo "pattern DB not found"`
 
-### Step 3: 프로그램 페이지 OOS 확인 (Immunefi/H1)
-- Immunefi: `immunefi.com/common-vulnerabilities-to-exclude/` 기본 배제 목록
-- H1/Bugcrowd: 프로그램 policy 페이지에서 "Out of Scope" 항목
+### Step 3: Platform OOS Verification
+- Immunefi: `immunefi.com/common-vulnerabilities-to-exclude/` default exclusion list
+- H1/Bugcrowd: program policy page "Out of Scope" items
 
-### Step 4: 판정
-| 결과 | 조건 | 행동 |
-|------|------|------|
-| **PASS** | 어떤 OOS 패턴에도 매칭 안 됨 | Phase 1 진행 OK |
-| **WARN** | 부분 매칭 (bypass 가능성 있음) | analyst에게 경고 + bypass 리프레이밍 필요 |
-| **BLOCK** | 명확히 OOS에 해당 | 해당 finding 자동 제외. Phase 1에서 분석 금지 |
+### Step 4: Verdict
 
-### Step 5: 결과 출력
+| Result | Condition | Action |
+|--------|-----------|--------|
+| **PASS** | No OOS pattern matched | Phase 1 proceed OK |
+| **WARN** | Partial match (bypass possible) | Alert analyst + bypass reframing required |
+| **BLOCK** | Clear OOS match | Auto-exclude finding. Analysis forbidden |
+
+### Step 5: Output
 ```
 [OOS-CHECK] Target: <target>
-[OOS-CHECK] Finding type: <type or "전체 스캔">
+[OOS-CHECK] Finding type: <type or "full scan">
 [OOS-CHECK] Program exclusions matched: <count>
 [OOS-CHECK] Common pattern matched: <count>
-[OOS-CHECK] Result: PASS / WARN(<이유>) / BLOCK(<이유>)
+[OOS-CHECK] Result: PASS / WARN(<reason>) / BLOCK(<reason>)
 ```
 
-## 과거 실패 교훈 (이것들을 잡기 위한 skill)
-- **CapyFi**: oracle staleness → Immunefi 공통 배제 목록에 명시. OOS로 거절
-- **AXIS**: D-Bus authorization bypass → "local access bugs OOS unless root escalation" 명시
-- **Kiln DeFi**: offset=0인 vault → 코드 경로 비활성화 = latent bug = OOS
-- **stake.link**: sandwich attack → "third party oracle data" OOS by default
+## Few-Shot Examples
 
-## 핵심 규칙
-- **BLOCK 판정 → 해당 finding은 vulnerability_candidates.md에서 제외**
-- **WARN 판정 → bypass 리프레이밍 없이 진행 금지** (예: "oracle staleness" → "oracle manipulation via flash loan"으로 리프레이밍 가능?)
-- **Phase 0에서 전체 OOS 스캔, Phase 1에서 finding별 개별 스캔**
+### PASS — IDOR in user API
+```
+Finding: GET /api/users/{id} returns other users' PII without authorization check
+Program OOS: "Rate limiting, clickjacking, self-XSS"
+Pattern match: None
+→ PASS (IDOR not in any exclusion list)
+```
+
+### BLOCK — Oracle staleness on Immunefi
+```
+Finding: Chainlink oracle has no staleness check, stale price could cause bad liquidation
+Program OOS: Immunefi common exclusion "Incorrect data supplied by third party oracles"
+Pattern match: "oracle-staleness" → Immunefi default exclusion
+→ BLOCK (oracle staleness is auto-OOS on Immunefi unless manipulation via flash loan)
+```
+
+### WARN — D-Bus authorization bypass
+```
+Finding: D-Bus method call bypasses polkit authorization check
+Program OOS: "Local access bugs OOS unless vertical privilege escalation to root"
+Pattern match: "dbus-local" → partial (root escalation chain could bypass)
+→ WARN (need root escalation chain to reframe as in-scope)
+```
+
+## Lessons Learned (this skill exists to catch these)
+- **CapyFi**: oracle staleness → Immunefi common exclusion. OOS rejection
+- **AXIS**: D-Bus auth bypass → "local access OOS unless root escalation" in brief
+- **Kiln DeFi**: offset=0 vault → code path inactive = latent bug = OOS
+- **stake.link**: sandwich attack → "third party oracle data" OOS by default
+- **DEXX/HackenProof**: rate limiting + account pre-takeover = OOS (platform-specific)
+
+> **REMINDER**: BLOCK = remove from candidates immediately. WARN = no progress without bypass reframing.
