@@ -675,60 +675,22 @@ python3 tools/bb_preflight.py coverage-check targets/<target>/
   - DB: `knowledge/knowledge.db` (~338MB, zero-dep SQLite FTS5)
   - 외부 레포 (45개): PayloadsAllTheThings, HackTricks, SecLists, GTFOBins, how2heap, OWASP CheatSheetSeries, InternalAllTheThings, AllAboutBugBounty, KingOfBugBountyTips, Awesome-Cybersecurity-Handbooks, AD-Attack-Defense, MobileApp-Pentest-Cheatsheet, smart-contract-vulnerabilities, not-so-smart-contracts, solidity-security-blog, ctf-blockchain, cloudgoat, google-security-research, Kernelhub, CVE-2024-1086, prompt-injection-defenses, owasp-fstm, shannon-analysis 등
 
-## Local Security Tools
-- **RE**: radare2 (r2), objdump, strings, readelf, nm, file, wabt 1.0.39 (wasm2wat, wasm-decompile — WASM RE), ImHex (바이너리 패턴 분석 + YARA), Apktool v2.11.1 (APK 디컴파일)
-- **Mobile**: jadx 1.5.1 (~/tools/jadx/bin/jadx — APK→Java 디컴파일), frida 17.7.3 + frida-tools (런타임 후킹/SSL pinning 우회), objection 1.12.3 (모바일 보안 테스팅), androguard 4.1.3 (Python APK 분석), adb 1.0.41 (Android 기기 연결), mitmproxy 12.2.1 (~/tools/mitmproxy/ — API 트래픽 캡처)
-- **Mobile References**: owasp-mastg (~/tools/owasp-mastg — MASVS 테스팅 가이드), awesome-android-security (~/tools/awesome-android-security — Android 보안 리소스)
-- **Mobile Device**: Galaxy S20 Ultra (SM-G988N, Android 13, Magisk root) — ADB via Tailscale (포트 변동), frida-server 17.6.2 port 27043
-- **Kernel Fuzzing**: Syzkaller (`~/syzkaller/` — syz-manager, kernel 6.1.128 KCOV+KASAN, `workdir/syz-config.json`, dashboard :56741), OSS-Fuzz (`~/oss-fuzz/` — 1,340 프로젝트, `python3 infra/helper.py build_fuzzers/run_fuzzer`)
-- **Firmware Emulation**: FirmAE (`~/FirmAE/` — 79% 성공률, `sudo ~/FirmAE/run.sh -r <brand> <fw.bin>`, PostgreSQL DB 설정 완료)
-- **Debug**: gdb (+ pwndbg + GEF `~/gef/gef.py` 93 commands + mcp-gdb MCP), strace
-- **Exploit**: pwntools, ROPgadget, ropper, z3-solver, capstone, angr, unicorn, rp++ (~/tools/rp++ — ARM64 ROP gadget finder), linux-exploit-suggester (~/tools/linux-exploit-suggester.sh), routersploit (~/tools/routersploit — 임베디드 exploit)
-- **Crypto**: pycryptodome, sympy, ~/collisions (corkami hash collision reference), RSACTFTool (~/tools/rsactftool — RSA 약한키 공격)
-- **Web**: curl, wget, Python requests, sqlmap, SSRFmap (~/SSRFmap — 18+ SSRF 모듈), commix (~/commix — 커맨드 인젝션), fuxploider (~/fuxploider — file upload exploitation)
-- **Web Recon**: ffuf, subfinder, katana, httpx, dalfox, gau, waybackurls, interactsh-client (~/gopath/bin/), arjun, dirsearch, RustScan v2.3.0 (초고속 포트 스캔), amass (~/gopath/bin/amass — OWASP 서브도메인), dnstwist (타이포스쿼팅), sherlock (OSINT 사용자명)
-- **Scanning**: nuclei (v3.7.0, ~/nuclei-templates/ — 12K+ 탐지 템플릿), trufflehog (v3.93.3, 800+ 시크릿 타입 탐지+검증)
-- **Code Analysis**: CodeQL (~/tools/codeql/ — semantic taint tracking, variant analysis)
-- **Payloads/References**: PayloadsAllTheThings (~/PayloadsAllTheThings — 70+ 취약점 카테고리), trickest-cve (~/trickest-cve — 154K+ CVE PoC), ExploitDB (~/exploitdb), PoC-in-GitHub (~/PoC-in-GitHub)
-- **Web3/Smart Contract**: Foundry 1.5.1 (forge/cast/anvil/chisel — `~/.foundry/bin/`), Slither (pipx — 100+ Solidity detectors), Mythril (pipx — EVM symbolic execution), cargo-audit 0.22.1, cargo-fuzz 0.13.1
-- **AI**: Gemini CLI (gemini-3-pro-preview 고정, `tools/gemini_query.sh` — 모드: reverse/analyze/triage/summarize/protocol/bizlogic/summarize-dir)
-- **Web Crawling**: crawl4ai (pipx — Playwright 기반, LLM-friendly Markdown 출력, stealth mode, JS 렌더링)
-- **Browser Debug**: chrome-devtools-mcp (26 tools: 네트워크 검사/콘솔/JS 실행/스크린샷)
-- **Vuln Reference**: protocol-vulnerabilities-index (`knowledge/protocol-vulns-index/` — 460 categories × 31 protocol types)
-- **GitHub**: gh CLI (PRs, issues, API — `/usr/bin/gh`)
-- **Workflow/OSINT**: osmedeus (~/gopath/bin/osmedeus — YAML 정찰 워크플로우), web-check (Docker, 33 API 엔드포인트, port 3001)
-- **Knowledge Repos (~/tools/)**: MBE, HEVD, google-ctf, exploit-writeups, how2heap, CTF-All-In-One, linux-kernel-exploitation, awesome-list-systems, paper_collection, owasp-mastg, ad-exploitation
-- **Knowledge DB**: knowledge-fts MCP (265K+ docs — techniques 81, external 29K (45 repos), ExploitDB 47K, nuclei 15K, PoC 18K, trickest-cve 155K)
-- **BB Pipeline Gate**: `tools/bb_preflight.py` — Phase 게이트 검증 (v8, NAMUHX retrospective). `init` 템플릿 생성, `rules-check` 규칙 검증, `coverage-check` 엔드포인트 커버리지 (`--json` 옵션), `inject-rules` HANDOFF 주입, `exclusion-filter` 분석 제외 목록
-- **Pipeline Skills (v6)**: `.claude/skills/` — `oos-check` (OOS 사전 체크), `checkpoint-validate` (에이전트 상태 검증), `poc-tier` (PoC 품질 분류), `coverage-gate` (커버리지 게이트), `threat-model-check` (위협 모델 정합성), `slop-check` (AI 슬롭 감지)
-- **Competitor-Adopted Tools (P0)**:
-  - `tools/web_chain_engine.py` — Web exploit chain engine (NeuroSploit 포팅): SSRF→내부, SQLi→DB타입별 자동 체인. `on_finding()` → `List[ChainableTarget]`
-  - `tools/flag_detector.py` — CTF 플래그 감지 (PentestGPT 포팅): 6+ regex 패턴, strict 모드, DH/FLAG/CTF/GoN/CYAI/HTB 포맷
-  - `tools/validation_prompts.py` — Anti-hallucination 프롬프트 (NeuroSploit 포팅): 8개 조합형 프롬프트, speculative language 감지, AI slop 감지, 0-100 confidence scoring
-  - `tools/mitre_mapper.py` — MITRE 매핑 (확장): 36 CWEs, `get_context_for_finding("CWE-79")` → 에이전트 프롬프트 주입용 컨텍스트
-- **MCP Servers (12)**: mcp-gdb (GDB), radare2-mcp (r2 디스어셈블/디컴파일), pentest-mcp (nmap/nikto/john), pentest-thinking (공격경로계획, optional/non-blocking), context7 (문서조회), frida-mcp (동적계측), ghidra-mcp (디컴파일), knowledge-fts (기법+익스플로잇 검색), nuclei-mcp (취약점 스캔), codeql-mcp (시맨틱 분석), semgrep-mcp (정적 분석), graphrag-security (보안 지식 그래프)
-
-### Installed Skill Plugins (Trail of Bits + Sentry + Anthropic)
-에이전트가 `Skill("plugin:skill")` 형태로 호출 가능:
-
-| Plugin | Skills | 용도 | 대상 에이전트 |
-|--------|--------|------|--------------|
-| **static-analysis** | semgrep, codeql, sarif-parsing | 자동 정적분석 | analyst |
-| **semgrep-rule-creator** | semgrep-rule-creator | 커스텀 Semgrep 룰 생성 | analyst |
-| **variant-analysis** | variant-analysis | CVE variant 패턴 자동 탐색 | analyst |
-| **insecure-defaults** | insecure-defaults | 하드코딩 시크릿/안전하지 않은 설정 | analyst, scout |
-| **sharp-edges** | sharp-edges | 위험한 API/설정 탐지 | analyst |
-| **audit-context-building** | audit-context-building | 코드 감사 전 아키텍처 컨텍스트 | analyst |
-| **differential-review** | differential-review | git diff 보안 리뷰 | analyst |
-| **dwarf-expert** | dwarf-expert | DWARF 디버그 포맷 분석 | reverser |
-| **yara-authoring** | yara-rule-authoring | YARA 탐지 룰 작성 | reverser |
-| **testing-handbook-skills** | aflpp, harness-writing, libfuzzer, address-sanitizer, coverage-analysis, fuzzing-dictionary, fuzzing-obstacles 등 15개 | 퍼징/테스팅 | trigger |
-| **burpsuite-project-parser** | scripts | Burp Suite .burp 파일 파싱 | scout |
-| **fix-review** | fix-review | 패치 검증 | reporter |
-| **sentry-skills** | find-bugs, security-review, code-review 등 | 버그 탐지, 코드 리뷰 | analyst, exploiter |
-| **security-guidance** | (hook) | 코드 편집 시 보안 경고 자동 | 전체 (자동) |
-| **playwright** | (MCP) | 브라우저 자동화 | exploiter (웹) |
-| **document-skills** | docx, xlsx, pdf, pptx | 문서 생성/분석 | reporter |
+## Local Security Tools (상세: `memory/installed_tools_full.md`)
+- **RE**: r2, Ghidra(MCP), objdump, strings, wabt, ImHex, Apktool
+- **Mobile**: jadx, frida 17.7.3, objection, androguard, adb, mitmproxy | Device: Galaxy S20 Ultra (Magisk, Tailscale ADB)
+- **Kernel**: Syzkaller (`~/syzkaller/`), OSS-Fuzz (`~/oss-fuzz/`)
+- **Firmware**: FirmAE (`~/FirmAE/`, `sudo ~/FirmAE/run.sh -r <brand> <fw.bin>`)
+- **Debug**: gdb (+pwndbg+GEF+MCP), strace | **Exploit**: pwntools, ROPgadget, z3, angr, rp++, routersploit
+- **Crypto**: pycryptodome, sympy, RSACTFTool | **Web**: sqlmap, SSRFmap, commix, fuxploider, crawl4ai
+- **Recon**: ffuf, subfinder, katana, httpx, nuclei(12K+), RustScan, amass, trufflehog
+- **Analysis**: CodeQL, Slither, Mythril, Semgrep | **Web3**: Foundry 1.5.1 (forge/cast/anvil)
+- **AI**: Gemini CLI (`tools/gemini_query.sh`, 모드: reverse/analyze/triage/summarize/protocol/bizlogic/review/ask)
+- **Knowledge**: knowledge-fts MCP (265K+ docs), ExploitDB(47K), PayloadsAllTheThings, trickest-cve(154K)
+- **BB Gate**: `tools/bb_preflight.py` (init/rules-check/coverage-check/inject-rules/exclusion-filter)
+- **Skills**: `.claude/skills/` (oos-check, checkpoint-validate, poc-tier, coverage-gate, threat-model-check, slop-check)
+- **Custom Tools**: `tools/web_chain_engine.py`(exploit chain), `flag_detector.py`(플래그감지), `validation_prompts.py`(anti-hallucination), `mitre_mapper.py`(36 CWEs)
+- **MCP (12)**: gdb, r2, pentest, pentest-thinking, context7, frida, ghidra, knowledge-fts, nuclei, codeql, semgrep, graphrag-security
+- **Skill Plugins**: static-analysis, semgrep-rule-creator, variant-analysis, insecure-defaults, sharp-edges, audit-context-building, differential-review, dwarf-expert, yara-authoring, testing-handbook-skills(15), burpsuite-project-parser, fix-review, sentry-skills, playwright, document-skills
 
 ## Wargame Challenges
 - 위치: `tests/wargames/` (zip 파일들, `extracted/`에 압축해제됨)
