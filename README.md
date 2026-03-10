@@ -21,7 +21,7 @@ Claude Code-native core with Codex/OMX + Gemini coordination — 22 specialized 
 
 | CTF Solved | Bug Bounty Targets | AI Agents | MCP Servers | Pipeline Skills | Knowledge Docs | Security Tools |
 |:----------:|:------------------:|:---------:|:-----------:|:--------------:|:--------------:|:--------------:|
-| **20** | **30+** | **22** | **12** | **8** | **242K+** | **40+** |
+| **20** | **30+** | **22** | **12** | **8** | **265K+** | **40+** |
 
 <br>
 
@@ -132,7 +132,7 @@ Validated on **March 6, 2026** in this repository with real `claude`, `codex`, a
           │                  Infrastructure Layer                     │
           ├──────────┬──────────┬───────────┬──────────┬─────────────┤
           │ 12 MCP   │Knowledge │ Dashboard │ 40+      │ Anti-       │
-          │ Servers  │ DB 242K+ │ (Web UI)  │ Tools    │ Hallucinate │
+          │ Servers  │ DB 265K+ │ (Web UI)  │ Tools    │ Hallucinate │
           └──────────┴──────────┴───────────┴──────────┴─────────────┘
 ```
 
@@ -260,7 +260,7 @@ Phase 6   TeamDelete            Cleanup
 
 ## Agents
 
-22 specialized agents defined in `.claude/agents/` (~7,900 lines of definitions).
+22 specialized agents defined in `.claude/agents/` (~8,100 lines of definitions including reference docs).
 
 <details>
 <summary><b>CTF Agents (8)</b></summary>
@@ -335,23 +335,23 @@ All work agents implement a checkpoint protocol for crash/compaction recovery:
 
 ## Knowledge Engine
 
-A unified full-text search over **242K+ security documents** -- zero external dependencies, built on SQLite FTS5 with BM25 ranking.
+A unified full-text search over **265K+ security documents** -- zero external dependencies, built on SQLite FTS5 with BM25 ranking.
 
 | Source | Documents | Content |
 |:-------|----------:|:--------|
-| Internal techniques | 71 | Attack patterns, CTF writeups |
-| External repos (25) | 8,666 | HackTricks, GTFOBins, PayloadsAllTheThings, how2heap, OWASP MASTG |
+| Internal techniques | 81 | Attack patterns, CTF writeups |
+| External repos (42) | 29,565 | HackTricks, GTFOBins, PayloadsAllTheThings, how2heap, OWASP, SecLists, InternalAllTheThings + 35 more |
 | ExploitDB | 46,960 | Exploit descriptions, platforms, CVEs |
-| Nuclei templates | 14,693 | Vulnerability detection templates with severity |
-| PoC-in-GitHub | 18,077 | CVE proof-of-concept repositories |
-| trickest-cve | 154,467 | CVE details with products, CWE, PoC links |
+| Nuclei templates | 14,871 | Vulnerability detection templates with severity |
+| PoC-in-GitHub | 18,235 | CVE proof-of-concept repositories |
+| trickest-cve | 155,121 | CVE details with products, CWE, PoC links |
 
 Agents query via the `knowledge-fts` MCP server:
 
 ```python
 technique_search("heap tcache poisoning")     # top 5 technique docs
 exploit_search("apache struts rce")            # ExploitDB + nuclei + PoC
-search_all("race condition double spend")      # all 242K docs ranked
+search_all("race condition double spend")      # all 265K docs ranked
 ```
 
 <details>
@@ -392,7 +392,7 @@ Optional user-level MCPs may appear in local `claude`/`omx` startup logs; if `pe
 | **playwright** | Browser automation for web exploitation |
 | **context7** | Up-to-date library documentation lookup |
 | **graphrag-security** | Security knowledge graph: exploit lookup, similar findings, drift detection |
-| **knowledge-fts** | 242K+ document BM25 search across techniques, ExploitDB, nuclei, PoC, trickest-cve |
+| **knowledge-fts** | 265K+ document BM25 search across techniques, ExploitDB, nuclei, PoC, trickest-cve |
 
 </details>
 
@@ -481,7 +481,26 @@ Optional user-level MCPs may appear in local `claude`/`omx` startup logs; if `pe
 <details>
 <summary><b>Research Foundations</b></summary>
 
-Agent definitions incorporate patterns from 10+ LLM security frameworks:
+**v7 -- LLM Prompting Research Applied (13 papers)**
+
+Agent prompts were systematically improved based on 13 LLM prompting research papers. Core 12 agents reduced from 5,391 to 3,515 lines (35% reduction) while adding higher-quality reasoning structures:
+
+| Technique | Paper | Applied To | Effect |
+|:----------|:------|:-----------|:-------|
+| IRON RULES primacy+recency | Lost in the Middle (Liu et al.) | All 12 agents | Critical rules at top + recap at bottom, +22%p recall |
+| Structured Reasoning (OBSERVED/INFERRED/ASSUMED/RISK/DECISION) | Chain-of-Thought (Wei et al.) | All 12 agents | Replaces unstructured Think-Before-Act |
+| Self-Verification (CoVe) | Chain-of-Verification (Dhuliawala et al.) | chain, solver, exploiter, trigger | Independent fact-check before submission, -77% hallucination |
+| Few-Shot examples | The Prompt Report + CoT | critic, reverser, triager-sim, solver | APPROVED/REJECTED, reversal_map, SUBMIT/KILL, z3 modeling examples |
+| Tree of Thoughts branching | Tree of Thoughts (Yao et al.) | chain, solver | Top-3 strategy evaluation before coding |
+| ReAct loops (THOUGHT→ACTION→OBSERVATION) | ReAct (Yao et al.) | reverser, scout, trigger | Forced strategy updates on contradicting observations |
+| Self-Consistency (multi-solution detection) | Self-Consistency (Wang et al.) | solver | Detects under-constrained z3 models |
+| Aggressive pruning + reference split | APE (Zhou et al.) | scout (-76%), analyst (-61%), exploiter (-45%) | Content moved to `_reference/` directory |
+
+Dual-Approach trigger reduced from 3 to 2 failures (ToT evaluates alternatives on first attempt).
+
+---
+
+Agent definitions also incorporate patterns from 10+ LLM security frameworks:
 
 | Pattern | Origin | Implemented In |
 |:--------|:-------|:---------------|
@@ -490,7 +509,7 @@ Agent definitions incorporate patterns from 10+ LLM security frameworks:
 | Symbolic + Neural Hybrid | ATLANTIS (AIxCC 1st place) | solver |
 | No Exploit, No Report | Shannon, XBOW | Orchestrator gate |
 | Iterative Context Gathering -- 3-pass backtracing | Vulnhuntr | analyst |
-| Dual-Approach Parallel -- 2 strategies after 3 failures | RoboDuck | Orchestrator |
+| Dual-Approach Parallel -- 2 strategies after 2 failures | RoboDuck | Orchestrator |
 | OWASP Parallel Hunters | Shannon | analyst (Phase 1.5) |
 | PoC Quality Tier Gate (1-4) | XBOW | exploiter |
 | Adversarial Triage Simulation | Internal | triager-sim |
@@ -538,13 +557,14 @@ The Interrogator has **asymmetric veto power**: any critical claim without live 
 ```
 Terminator/
 ├── .claude/
-│   ├── agents/              # 22 agent definitions (~7,900 lines)
+│   ├── agents/              # 22 agent definitions (~8,100 lines)
 │   │   ├── reverser.md      #   Binary analysis
 │   │   ├── chain.md         #   Exploit chain building
 │   │   ├── critic.md        #   Cross-verification + Security Council
 │   │   ├── target_evaluator.md  # GO/NO-GO + Hard NO-GO rules
 │   │   ├── triager_sim.md   #   Adversarial triage + JSON feedback
 │   │   ├── fw_*.md          #   Firmware analysis (4 agents)
+│   │   ├── _reference/      #   Shared reference docs (commands, patterns, tools)
 │   │   └── ...              #   + 16 more specialists
 │   └── skills/              # 8 pipeline skills (v6 NEW)
 │       ├── bounty/          #   Bug bounty pipeline orchestration
@@ -557,7 +577,7 @@ Terminator/
 │       └── checkpoint-validate/ # Agent idle/completion verification
 ├── knowledge/               # Accumulated experience
 │   ├── index.md             #   Master index
-│   ├── knowledge.db         #   FTS5 search DB (242K docs, ~245MB)
+│   ├── knowledge.db         #   FTS5 search DB (265K docs, ~338MB)
 │   ├── challenges/          #   Per-challenge writeups
 │   └── techniques/          #   Reusable attack patterns + competitor analysis
 ├── research/                # LLM security framework analysis (14 docs)
