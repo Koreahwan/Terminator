@@ -42,6 +42,12 @@
 - 비밀정보는 커밋하지 말고 `.env`는 로컬 전용으로 유지하세요. 설정 키가 바뀌면 `.env.example`도 함께 갱신하세요.
 - 공격/스캔 테스트는 반드시 승인된 CTF 환경과 허용된 버그바운티 스코프에서만 수행하세요.
 
+## 에이전트 역할 (v12 신규)
+
+- `threat-modeler`: 신뢰 경계, 역할 매트릭스, 상태 머신 추출. scout의 정찰 산출물을 기반으로 분석 전 보안 모델을 구축합니다. (v12 신규)
+- `workflow-auditor`: 비즈니스 워크플로우 상태 전이 매핑 및 이상 탐지. workspace, billing, admin, invite, race 워크플로우 팩을 실행합니다. (v12 신규)
+- `patch-hunter`: 보안 커밋 diff 분석을 통한 불완전 수정 및 변종 취약점 탐색. EXACT/SIMILAR/SPECULATIVE 신뢰도로 분류합니다. (v12 신규)
+
 ## Cross-tool coordination 규칙
 - 이 저장소의 **교차 도구 정본(source of truth)** 은 `coordination/` 입니다. `.omx/`와 Claude 런타임 상태는 로컬 보조 상태로 취급하세요.
 - Codex/OMX는 1회 `./scripts/install_omx_wrapper.sh` 설치 후 이 repo 안에서는 **plain `omx`** 로 실행하세요. wrapper가 `OMX_HOOK_PLUGINS=1` + `COORD_PROJECT_ROOT`를 자동 주입합니다.

@@ -1,3 +1,5 @@
+> **Note**: The bug bounty pipeline has been upgraded to v12 (Explore Lane + Kill Gate). See `.claude/rules/bb_pipeline_v12.md` for the current procedure. This document contains historical pipeline documentation.
+
 # 1. GPT
 
 

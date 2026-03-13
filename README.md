@@ -8,7 +8,7 @@
 
 **Multi-agent AI system that autonomously solves CTF challenges and hunts bug bounties.**
 
-Claude Code-native core with Codex/OMX + Gemini coordination — 22 specialized agents orchestrated through sequential pipelines, shared `coordination/` state, and digest-first context compaction.
+Claude Code-native core with Codex/OMX + Gemini coordination — 25 specialized agents orchestrated through sequential pipelines, shared `coordination/` state, and digest-first context compaction.
 
 <br>
 
@@ -21,7 +21,7 @@ Claude Code-native core with Codex/OMX + Gemini coordination — 22 specialized 
 
 | CTF Solved | Bug Bounty Targets | AI Agents | MCP Servers | Pipeline Skills | Knowledge Docs | Security Tools |
 |:----------:|:------------------:|:---------:|:-----------:|:--------------:|:--------------:|:--------------:|
-| **20** | **30+** | **22** | **12** | **8** | **248K+** | **40+** |
+| **20** | **30+** | **25** | **12** | **8** | **248K+** | **40+** |
 
 <br>
 
@@ -39,7 +39,7 @@ You: "Solve pwnable.kr fd. SSH: fd@pwnable.kr -p2222 (pw: guest)"
 Terminator:
   -> spawns @reverser  -> analyzes binary, produces attack map
   -> spawns @chain     -> builds exploit from attack map
-  -> spawns @critic    -> cross-verifies offsets with gdb/r2
+  -> spawns @critic    -> cross-verifies offsets with gdb
   -> spawns @verifier  -> runs exploit 3x locally, then remote
   -> FLAG_FOUND: mama, are you prout of me?
 ```
@@ -60,12 +60,12 @@ Terminator:
 
 ## How It Works
 
-Terminator is not a single model prompt. It is a **team of 22 AI agents** coordinated by an orchestrator through sequential pipelines.
+Terminator is not a single model prompt. It is a **team of 25 AI agents** coordinated by an orchestrator through sequential pipelines.
 
 - **Adaptive pipeline selection** -- the orchestrator picks the right agent sequence based on challenge type (pwn, reversing, web, firmware, smart contract)
 - **Structured handoffs** -- each agent produces a typed artifact (attack map, trigger report, exploit script) that feeds into the next stage
 - **Verification-first** -- every exploit is tested 3x locally before remote execution; every bug bounty report requires a working PoC
-- **Anti-hallucination** -- a dedicated critic agent cross-verifies all addresses, offsets, and constants with independent tool runs (gdb, r2)
+- **Anti-hallucination** -- a dedicated critic agent cross-verifies all addresses, offsets, and constants with independent tool runs (gdb)
 - **Crash recovery** -- checkpoint protocol lets agents resume from exact point of failure after context compaction
 - **Automated quality gates** -- 6 pipeline skills (v6) automatically block OOS findings, weak PoCs, unrealistic threat models, and AI-generated template language before submission
 
@@ -114,7 +114,7 @@ Validated on **March 6, 2026** in this repository with real `claude`, `codex`, a
                   ┌──────────────────┼──────────────────┐
                   │                                      │
         ┌────────▼─────────┐                  ┌─────────▼────────┐
-        │   CTF Pipeline   │                  │  Bug Bounty v11  │
+        │   CTF Pipeline   │                  │  Bug Bounty v12  │
         │   (Sequential)   │                  │   (Kill Gate)    │
         └────────┬─────────┘                  └─────────┬────────┘
                  │                                      │
@@ -155,7 +155,7 @@ Agents communicate through structured artifact passing -- no context is lost bet
 - [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code) with Anthropic API key
 - Codex CLI + oh-my-codex (`omx`) for Codex-native sessions
 - Python 3.10+ with pwntools, z3-solver, angr
-- gdb with pwndbg or GEF, radare2
+- gdb with pwndbg or GEF
 - Docker (optional, for full infrastructure stack)
 
 ### Interactive Mode
@@ -211,13 +211,13 @@ docker compose up -d
 | **Web** -- injection, SSRF, auth bypass | `scout -> analyst -> exploiter -> reporter` | 4 |
 | **Firmware** -- ARM binary diff, emulated PoC | `fw-profiler -> fw-inventory -> fw-surface -> fw-validator -> reporter` | 5 |
 
-### Bug Bounty -- v11 Pipeline (Kill Gate)
+### Bug Bounty -- v12 Pipeline (Kill Gate + Explore Lane)
 
 > [!IMPORTANT]
 > **Iron Rule**: No Exploit, No Report. Findings without a working PoC are automatically discarded.
 
 <details>
-<summary><b>Kill Gate Pipeline Details (v11)</b></summary>
+<summary><b>Kill Gate Pipeline Details (v12)</b></summary>
 
 ```
 Phase 0   @target-evaluator     GO / NO-GO assessment + Hard NO-GO rules
@@ -226,12 +226,21 @@ Phase 0   @target-evaluator     GO / NO-GO assessment + Hard NO-GO rules
 Phase 0.2 bb_preflight.py       Program rules generation + validation (MANDATORY)
 Phase 0.5 @scout                Automated tool scan (Slither, Semgrep, Mythril)
 Phase 1   @scout + @analyst     Parallel recon + OOS cross-check per finding
+          @threat-modeler       Trust boundary mapping, role matrix, state machine extraction (parallel)
+          @patch-hunter         Incomplete fix + variant hunting from security commits (parallel)
           coverage-gate skill   80%+ endpoint coverage required
 Phase 1.5 @analyst (N parallel) OWASP-category hunting (large codebases only)
+          @workflow-auditor     Business workflow state transition mapping + anomaly detection
+          @web-tester           Web application workflow pack testing
+          workflow-check        Workflow state coverage validation (v12 NEW)
+          fresh-surface-check   New attack surface from recent commits (v12 NEW)
 ★ Gate 1  @triager-sim (sonnet) Finding viability: 5-Question Destruction Test (KILL/GO)
-Phase 2   @exploiter            PoC development + poc-tier skill (Tier 1-2 only)
+          risk-weighted coverage + workflow-check + fresh-surface-check required
+Phase 2   @exploiter            PoC development + poc-tier skill (Tier 1-2 only) + Evidence Tier (E1-E4)
           threat-model-check    Attack prerequisite validation
-★ Gate 2  @triager-sim (opus)   PoC destruction: evidence quality + triager objections (KILL/GO)
+          evidence-tier-check   Evidence quality classification (E1-E4) (v12 NEW)
+★ Gate 2  @triager-sim (opus)   PoC destruction: evidence quality + triager objections + duplicate-graph-check (KILL/GO)
+          duplicate-graph-check Semantic duplicate detection via knowledge graph (v12 NEW)
 Phase 3   @reporter             Report draft + CVSS
 Phase 4   @critic               Fact-check (streamlined, Gate 2 handles viability)
 Phase 4.5 @triager-sim          Final consistency check (KILL here = Gate bug → feedback loop)
@@ -240,14 +249,18 @@ Phase 5   @reporter             Final report + ZIP packaging
 Phase 6   TeamDelete            Cleanup
 ```
 
-**6 automated pipeline skills + 2 Kill Gates (v11):**
+**6 automated pipeline skills + 2 Kill Gates (v12):**
 
 | Skill | Gate | Blocks |
 |:------|:-----|:-------|
 | `oos-check` | Phase 0 + per-finding | OOS patterns (oracle staleness, admin-gated, etc.) |
 | `coverage-gate` | Phase 1->2 | <80% endpoint coverage (100% for small targets) |
+| `workflow-check` | Gate 1->2 | Incomplete workflow state coverage (v12 NEW) |
+| `fresh-surface-check` | Gate 1->2 | Missed attack surface from recent commits (v12 NEW) |
 | `poc-tier` | Phase 2->3 | Tier 3-4 PoC (no live execution capture) |
+| `evidence-tier-check` | Phase 2->3 | Evidence below E2 tier (v12 NEW) |
 | `threat-model-check` | Phase 2 | Unrealistic attack prerequisites (2+ controlled) |
+| `duplicate-graph-check` | Gate 2 | Semantic duplicates via knowledge graph (v12 NEW) |
 | `slop-check` | Phase 4.5 | AI template language score >5 |
 | `checkpoint-validate` | Any phase | Fake idle / fake completion detection |
 
@@ -255,7 +268,8 @@ Phase 6   TeamDelete            Cleanup
 - Phase 0 Hard NO-GO: 3+ audits, 2+ reputable audits, 100+ reports, 3yr+, source inaccessible
 - Phase 0.2 Program rules must pass validation before any agent spawns
 - Phase 4.5 triager-sim outputs structured JSON for automated reporter feedback loop
-- ★ Gate 1 + Gate 2: Kill Gates block findings before PoC dev and before report writing (v11 NEW)
+- ★ Gate 1 + Gate 2: Kill Gates block findings before PoC dev and before report writing
+- ★ v12 Explore Lane: threat-modeler + patch-hunter run parallel in Phase 1; workflow-auditor + web-tester in Phase 1.5
 
 </details>
 
@@ -263,7 +277,7 @@ Phase 6   TeamDelete            Cleanup
 
 ## Agents
 
-22 specialized agents defined in `.claude/agents/` (~8,100 lines of definitions including reference docs).
+25 specialized agents defined in `.claude/agents/` (~8,100 lines of definitions including reference docs).
 
 <details>
 <summary><b>CTF Agents (8)</b></summary>
@@ -282,14 +296,17 @@ Phase 6   TeamDelete            Cleanup
 </details>
 
 <details>
-<summary><b>Bug Bounty Agents (7)</b></summary>
+<summary><b>Bug Bounty Agents (10)</b></summary>
 
 | Agent | Role | Model | Output |
 |:------|:-----|:-----:|:-------|
 | **target-evaluator** | Program ROI scoring, GO/NO-GO gate | Sonnet | `target_assessment.md` |
 | **scout** | Recon + duplicate pre-screen + automated tool scanning | Sonnet | `recon_report.json` |
 | **analyst** | CVE matching, source->sink tracing, confidence scoring | Sonnet | `vulnerability_candidates.md` |
-| **exploiter** | PoC development, quality tier classification | Opus | PoC scripts + evidence |
+| **threat-modeler** | Trust boundary mapping, role matrix, state machine and invariant extraction | Sonnet | `threat_model.md` |
+| **patch-hunter** | Incomplete fix and variant vulnerability hunting from security commits | Sonnet | `patch_analysis.md` |
+| **exploiter** | PoC development, quality tier classification, Evidence Tier (E1-E4) | Opus | PoC scripts + evidence |
+| **workflow-auditor** | Business workflow state transition mapping and anomaly detection | Sonnet | `workflow_audit.md` |
 | **triager-sim** | Adversarial triage -- 3 modes: finding-viability (Gate 1), PoC-destruction (Gate 2), report-review | Sonnet/Opus | SUBMIT / STRENGTHEN / KILL |
 | **source-auditor** | Deep source code audit, cross-file taint analysis | Opus | `audit_findings.md` |
 | **defi-auditor** | Smart contract analysis, DeFi-specific vulnerability patterns | Opus | `defi_audit.md` |
@@ -561,15 +578,22 @@ The Interrogator has **asymmetric veto power**: any critical claim without live 
 ```
 Terminator/
 ├── .claude/
-│   ├── agents/              # 22 agent definitions (~8,100 lines)
+│   ├── agents/              # 25 agent definitions (~8,100 lines)
 │   │   ├── reverser.md      #   Binary analysis
 │   │   ├── chain.md         #   Exploit chain building
 │   │   ├── critic.md        #   Cross-verification + Security Council
 │   │   ├── target_evaluator.md  # GO/NO-GO + Hard NO-GO rules
 │   │   ├── triager_sim.md   #   Adversarial triage + JSON feedback
+│   │   ├── threat-modeler.md #  Trust boundary mapping, role matrix, state machine extraction
+│   │   ├── workflow-auditor.md # Business workflow state transition mapping
+│   │   ├── patch-hunter.md  #   Incomplete fix + variant hunting from security commits
 │   │   ├── fw_*.md          #   Firmware analysis (4 agents)
 │   │   ├── _reference/      #   Shared reference docs (commands, patterns, tools)
+│   │   │   └── workflow_packs.md # Workflow pack definitions (v12 NEW)
 │   │   └── ...              #   + 16 more specialists
+│   ├── rules/               # Pipeline procedure documents
+│   │   ├── bb_pipeline_v12.md # Bug Bounty v12 Kill Gate + Explore Lane (NEW)
+│   │   └── ctf_pipeline.md  #   CTF pipeline procedure
 │   └── skills/              # 8 pipeline skills (v6 NEW)
 │       ├── bounty/          #   Bug bounty pipeline orchestration
 │       ├── ctf/             #   CTF pipeline orchestration
@@ -583,10 +607,11 @@ Terminator/
 │   ├── index.md             #   Master index
 │   ├── knowledge.db         #   FTS5 search DB (248K docs, ~259MB)
 │   ├── challenges/          #   Per-challenge writeups
-│   └── techniques/          #   Reusable attack patterns + competitor analysis
+│   ├── techniques/          #   Reusable attack patterns + competitor analysis
+│   └── triage_objections/   #   Triager objection patterns by vuln category (v12 NEW)
 ├── research/                # LLM security framework analysis (14 docs)
 ├── tools/                   # Pipeline tooling
-│   ├── bb_preflight.py      #   Pipeline gate validator (rules, coverage, --json)
+│   ├── bb_preflight.py      #   Pipeline gate validator (rules, coverage, workflow-check, fresh-surface-check, evidence-tier-check, duplicate-graph-check, --json)
 │   ├── knowledge_indexer.py #   FTS5 DB builder (6 tables, zero dependencies)
 │   ├── web_chain_engine.py  #   Web exploit chain engine (10 rules)
 │   ├── flag_detector.py     #   CTF flag pattern detector (8+ formats)
@@ -601,7 +626,7 @@ Terminator/
 │   └── static/index.html    #   Single-page dashboard (5 tabs)
 ├── targets/                 # Bug bounty workspaces (30+ missions)
 ├── tests/                   # CTF files + E2E replay benchmarks
-├── CLAUDE.md                # Orchestrator instructions (v11)
+├── CLAUDE.md                # Orchestrator instructions (v12)
 ├── terminator.sh            # Autonomous mode launcher
 ├── docker-compose.yml       # Full stack infrastructure
 └── README.md
