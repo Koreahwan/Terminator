@@ -355,7 +355,7 @@ All work agents implement a checkpoint protocol for crash/compaction recovery:
 
 ## Knowledge Engine
 
-A unified full-text search over **248K+ security documents** -- zero external dependencies, built on SQLite FTS5 with BM25 ranking.
+A unified full-text search over **248K+ security documents** -- zero external dependencies, built on SQLite FTS5 with BM25 ranking and progressive query relaxation.
 
 | Source | Documents | Content |
 |:-------|----------:|:--------|
@@ -365,25 +365,35 @@ A unified full-text search over **248K+ security documents** -- zero external de
 | Nuclei templates | 14,871 | Vulnerability detection templates with severity |
 | PoC-in-GitHub | 18,235 | CVE proof-of-concept repositories |
 | trickest-cve | 155,121 | CVE details with products, CWE, PoC links |
+| Web articles | 30+ | Crawled security blog posts, writeups, OWASP cheatsheets |
 
 Agents query via the `knowledge-fts` MCP server:
 
 ```python
-technique_search("heap tcache poisoning")     # top 5 technique docs
-technique_search("IDOR")                      # auto-expands to "insecure direct object reference"
-exploit_search("CVE-2021-44228")              # CVE routed to trickest-cve + PoC first
-search_all("race condition double spend")      # all 248K docs, cross-table ranked
+smart_search("QNAP buffer overflow strcpy")   # RECOMMENDED: auto-relaxes (AND → OR → top-terms)
+technique_search("heap tcache poisoning")      # top 5 technique docs
+technique_search("IDOR")                       # auto-expands to "insecure direct object reference"
+exploit_search("CVE-2021-44228")               # CVE routed to trickest-cve + PoC first
+search_all("race condition double spend")      # all 7 tables, cross-table ranked
 ```
 
-<details>
-<summary><b>Auto-Rebuild and CLI</b></summary>
+33 security abbreviations auto-expand: `uaf`, `bof`, `sqli`, `ssrf`, `toctou`, `xxe`, `ssti`, `idor`, `rce`, `lpe`, `cmdinjection`, etc.
 
-A PostToolUse hook automatically re-indexes when `knowledge/techniques/` or `knowledge/challenges/` files are modified. Full rebuild: ~4 minutes. Incremental update: 0.13 seconds.
+<details>
+<summary><b>Auto-Rebuild, Web Fetcher, and CLI</b></summary>
+
+A PostToolUse hook automatically re-indexes when `knowledge/techniques/` or `knowledge/challenges/` files are modified. Full rebuild: ~60 seconds. Incremental update: <1 second.
 
 ```bash
-python tools/knowledge_indexer.py --rebuild    # Full rebuild
-python tools/knowledge_indexer.py --search "reentrancy flash loan"
-python tools/knowledge_indexer.py --stats
+python tools/knowledge_indexer.py build                    # Full rebuild
+python tools/knowledge_indexer.py smart-search "heap uaf"  # Relaxed cross-table search
+python tools/knowledge_indexer.py stats                    # Row counts per table
+
+# Web content fetcher (adds to web_articles table)
+python tools/knowledge_fetcher.py fetch <url>              # Single URL via jina.ai
+python tools/knowledge_fetcher.py bulk knowledge/sources/blogs.md  # Bulk from URL list
+python tools/knowledge_fetcher.py update                   # Re-fetch stale (>30 days)
+python tools/knowledge_fetcher.py stats                    # Web articles breakdown
 ```
 
 </details>
@@ -413,7 +423,7 @@ Optional user-level MCPs may appear in local `claude`/`omx` startup logs; if `pe
 | **playwright** | Browser automation for web exploitation |
 | **context7** | Up-to-date library documentation lookup |
 | **graphrag-security** | Security knowledge graph: exploit lookup, similar findings, drift detection |
-| **knowledge-fts** | 248K+ document BM25 search with synonym expansion, cross-table ranking, CVE routing |
+| **knowledge-fts** | 248K+ document BM25 search with smart_search relaxation, 33 synonyms, web_articles, cross-table ranking |
 
 </details>
 
@@ -605,14 +615,15 @@ Terminator/
 │       └── checkpoint-validate/ # Agent idle/completion verification
 ├── knowledge/               # Accumulated experience
 │   ├── index.md             #   Master index
-│   ├── knowledge.db         #   FTS5 search DB (248K docs, ~259MB)
+│   ├── knowledge.db         #   FTS5 search DB (248K+ docs, 7 tables, ~259MB)
 │   ├── challenges/          #   Per-challenge writeups
 │   ├── techniques/          #   Reusable attack patterns + competitor analysis
 │   └── triage_objections/   #   Triager objection patterns by vuln category (v12 NEW)
 ├── research/                # LLM security framework analysis (14 docs)
 ├── tools/                   # Pipeline tooling
 │   ├── bb_preflight.py      #   Pipeline gate validator (rules, coverage, workflow-check, fresh-surface-check, evidence-tier-check, duplicate-graph-check, --json)
-│   ├── knowledge_indexer.py #   FTS5 DB builder (6 tables, zero dependencies)
+│   ├── knowledge_indexer.py #   FTS5 DB builder (7 tables, smart_search, zero dependencies)
+│   ├── knowledge_fetcher.py #   Web content fetcher (jina.ai → web_articles table)
 │   ├── web_chain_engine.py  #   Web exploit chain engine (10 rules)
 │   ├── flag_detector.py     #   CTF flag pattern detector (8+ formats)
 │   ├── validation_prompts.py#   Anti-hallucination prompt library

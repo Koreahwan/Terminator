@@ -2,7 +2,7 @@
 
 ## 프로젝트 구조 및 모듈 구성
 - `agent/`는 오케스트레이션 런타임 코드, `.claude/agents/`는 역할별 프롬프트/파이프라인 정의를 포함합니다.
-- `tools/`는 재사용 가능한 보안 도구 모음입니다 (`recon_pipeline.py`, `mitre_mapper.py`, `knowledge_indexer.py`, `report_generator.py`).
+- `tools/`는 재사용 가능한 보안 도구 모음입니다 (`knowledge_indexer.py`, `knowledge_fetcher.py`, `mitre_mapper.py`, `bb_preflight.py`, `web_chain_engine.py`).
 - `web/`는 대시보드(FastAPI) 영역입니다 (`app.py`, `routes/`, `services/`, `static/index.html`).
 - `bridge/`는 정책 검증 보조 코드이며 테스트는 `bridge/tests/`에 둡니다.
 - `tests/benchmarks/`는 파이프라인 성능/정확도 벤치마크, `tests/wargames/`는 챌린지 픽스처를 관리합니다.
@@ -15,7 +15,10 @@
 - `cd web && pip install -r requirements.txt && uvicorn app:app --reload --port 3000` — 대시보드 로컬 실행.
 - `pytest bridge/tests -q` — 정책 단위 테스트 실행.
 - `python3 tests/benchmarks/benchmark.py --all` — 벤치마크 전체 실행.
-- `python3 tools/knowledge_indexer.py build` — `knowledge/knowledge.db` 재생성.
+- `python3 tools/knowledge_indexer.py build` — `knowledge/knowledge.db` 재생성 (7 tables, 248K+ docs).
+- `python3 tools/knowledge_indexer.py smart-search "query"` — 프로그레시브 쿼리 완화 검색 (AND→OR→top-terms).
+- `python3 tools/knowledge_fetcher.py fetch <url>` — 웹 기사를 `web_articles` 테이블에 추가.
+- `python3 tools/knowledge_fetcher.py bulk knowledge/sources/blogs.md` — URL 목록 일괄 수집.
 
 ## 코딩 스타일 및 네이밍 규칙
 - 주 언어는 Python/Bash입니다. Python은 공백 4칸 들여쓰기, 신규 셸 스크립트는 `set -euo pipefail`을 사용하세요.
