@@ -37,7 +37,7 @@ You are the firmware stage router. Read profile artifacts first, then decide the
 ## Output to Orchestrator
 Use structured handoff:
 ```
-[HANDOFF from @fw_profiler to @fw_inventory or @fw_surface]
+[HANDOFF from @fw-profiler to @fw-inventory or @fw-surface]
 - Finding/Artifact: stages/firmware_profile/firmware_profile.json
 - Confidence: PASS/PARTIAL/FAIL
 - Key Result: inventory_mode route + selected subset rationale

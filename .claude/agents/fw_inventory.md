@@ -38,7 +38,7 @@ You are the inventory completeness gate. Confirm artifact quality before downstr
 
 ## Output to Orchestrator
 ```
-[HANDOFF from @fw_inventory to @fw_surface]
+[HANDOFF from @fw-inventory to @fw-surface]
 - Finding/Artifact: stages/inventory/inventory.json (+ stage.json)
 - Confidence: PASS/PARTIAL/FAIL
 - Key Result: inventory completeness and known blind spots

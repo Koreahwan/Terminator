@@ -42,7 +42,7 @@ You are the attack-surface mapper. Convert inventory/profile evidence into endpo
 
 ## Output to Orchestrator
 ```
-[HANDOFF from @fw_surface to @orchestrator]
+[HANDOFF from @fw-surface to @orchestrator]
 - Finding/Artifact: bundle entries + stage manifests used
 - Confidence: PASS/PARTIAL/FAIL
 - Key Result: prioritized surfaces/endpoints/graph findings
