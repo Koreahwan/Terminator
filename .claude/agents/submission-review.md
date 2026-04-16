@@ -4,6 +4,7 @@ description: Final pre-submission review panel with 3 perspectives. Runs at Phas
 model: claude-opus-4-6
 color: yellow
 permissionMode: bypassPermissions
+effort: max
 ---
 
 # Submission Review Agent (Phase 5.5)

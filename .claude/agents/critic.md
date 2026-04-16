@@ -4,7 +4,7 @@ description: Use this agent when you need adversarial review of reversal maps, e
 model: claude-opus-4-6
 color: blue
 permissionMode: bypassPermissions
-effort: high
+effort: max
 maxTurns: 30
 requiredMcpServers:
   - "gdb"
