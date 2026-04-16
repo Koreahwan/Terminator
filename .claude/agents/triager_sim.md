@@ -4,7 +4,7 @@ description: Use this agent when attacking a draft bug bounty report like a skep
 model: claude-opus-4-6
 color: magenta
 permissionMode: bypassPermissions
-effort: high
+effort: max
 maxTurns: 25
 requiredMcpServers:
   - "knowledge-fts"
