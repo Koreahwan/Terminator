@@ -144,3 +144,15 @@ EXIT:
 Exit code:\ 
 knowledge/index.md
 .mcp.json
+
+# --- Pre-cleanup 2026-04-16 additions ---
+.claude/settings.local.json
+.vscode/
+.idea/
+evidence/
+terminator_loop.sh
+.terminator_loop_state.json
+.terminator_loop.log
+.gmail_monitor_state.json
+.gmail_label_ids.json
+.gmail_filter_ids.json
