@@ -1,7 +1,7 @@
 ---
 name: chain
 description: Use this agent when assembling a full pwn exploit chain from a confirmed crash primitive or reversal map.
-model: opus
+model: claude-opus-4-6
 color: red
 permissionMode: bypassPermissions
 effort: max

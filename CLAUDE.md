@@ -41,17 +41,17 @@ See `.claude/rules/agent_models.md` for model assignments per agent.
 |-------|-------|--------|
 | reverser | sonnet | Structure analysis, pattern matching |
 | trigger | sonnet | Crash search, execution-based |
-| solver | opus | Complex inverse computation |
-| chain | opus | Multi-stage exploit design |
-| critic | opus | Cross-verification, logic error detection |
+| solver | claude-opus-4-6 | Complex inverse computation |
+| chain | claude-opus-4-6 | Multi-stage exploit design |
+| critic | claude-opus-4-6 | Cross-verification, logic error detection |
 | verifier | sonnet | Execution + verification, simple judgment |
 | reporter | sonnet | Documentation |
 | scout | sonnet | Recon, tool execution |
 | analyst | sonnet | CVE matching, pattern search |
-| exploiter | opus | PoC development, complex exploits |
+| exploiter | claude-opus-4-6 | PoC development, complex exploits |
 | target-evaluator | sonnet | Target ROI, GO/NO-GO |
-| triager-sim | sonnet/opus | Gate 1=sonnet, Gate 2+report-review=opus |
-| submission-review | opus | Final 3-perspective review panel (Phase 5.5) |
+| triager-sim | sonnet/claude-opus-4-6 | Gate 1=sonnet, Gate 2+report-review=opus |
+| submission-review | claude-opus-4-6 | Final 3-perspective review panel (Phase 5.5) |
 | threat-modeler | sonnet | Trust boundary modeling, state machine extraction |
 | workflow-auditor | sonnet | Workflow state transition mapping, anomaly detection |
 | patch-hunter | sonnet | Security commit diff analysis, variant search |
@@ -60,8 +60,8 @@ See `.claude/rules/agent_models.md` for model assignments per agent.
 | sc-scanner | sonnet | SBOM generation, dependency tree, namespace conflicts |
 | cve-manager | sonnet | CVE eligibility check, GHSA/MITRE submission prep |
 | ctf-solver | sonnet | Trivial CTF end-to-end single-agent solve |
-| defi-auditor | opus | Smart contract + DeFi exploit audit (Slither/Mythril/medusa/ityfuzz/pashov-skills) |
-| source-auditor | opus | Deep source code security review (files, data flows, business logic) |
+| defi-auditor | claude-opus-4-6 | Smart contract + DeFi exploit audit (Slither/Mythril/medusa/ityfuzz/pashov-skills) |
+| source-auditor | claude-opus-4-6 | Deep source code security review (files, data flows, business logic) |
 | web-tester | sonnet | Request-level + workflow pack testing (Playwright/Lightpanda/SecLists) |
 | recon-scanner | sonnet | Automated broad recon sweep (hosts, ports, endpoints, JS) |
 | mobile-analyst | sonnet | Android/iOS static + dynamic analysis |
