@@ -105,13 +105,23 @@ for name, locs in locations.items():
 EOF
 
 # ===== E. Prompt-injection markers =====
-hits=$(grep -rEn "ignore (all|previous|prior) instructions|you are (now|actually|secretly) (a different|another)|disregard (all )?system prompt" \
+# Multi-word patterns covering "ignore all previous instructions", "ignore previous", etc.
+hits=$(grep -riEn "ignore ((all|previous|prior)(\s+(all|previous|prior))*)\s+instructions|you are (now|actually|secretly)\s+(a different|another|not)|disregard (all |the )?system prompt|respond only with|jailbreak.{0,20}success" \
     --include="*.md" "$PROJECT_ROOT/.claude" 2>/dev/null \
-    | grep -v "example\|sample\|demo\|do not\|must not\|never\|forbidden\|iron rule" || true)
+    | grep -v "example\|sample\|demo\|do not\|must not\|never\|forbidden\|iron rule\|defense\|attack\|refuse\|refusal\|jailbreak_success_test" || true)
 while IFS= read -r line; do
     [[ -z "$line" ]] && continue
     add_finding "warning" "E.prompt_injection" "$line"
 done <<<"$hits"
+
+# ===== E2. Secret patterns in agent/skill MDs (extended from MCP-only) =====
+secret_hits=$(grep -rEn "(ghp_[A-Za-z0-9]{20,}|AKIA[A-Z0-9]{12,}|sk-[A-Za-z0-9]{20,}|eyJ[A-Za-z0-9_-]{100,})" \
+    --include="*.md" --include="*.json" --include="*.yaml" --include="*.yml" "$PROJECT_ROOT/.claude" 2>/dev/null \
+    | grep -viE "EXAMPLE[A-Z0-9]*|placeholder|xxxx+|YOUR_[A-Z]+|AKIAIOSFODNN7EXAMPLE|ghp_xxxx|sk-xxxx" || true)
+while IFS= read -r line; do
+    [[ -z "$line" ]] && continue
+    add_finding "critical" "C2.secrets_in_claude" "$line"
+done <<<"$secret_hits"
 
 # ===== F. Hook/settings JSON validity =====
 if [[ -f "$HOME/.claude/settings.json" ]]; then
