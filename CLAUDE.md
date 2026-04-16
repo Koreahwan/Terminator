@@ -59,6 +59,16 @@ See `.claude/rules/agent_models.md` for model assignments per agent.
 | robo-scanner | sonnet | ROS topology, node enumeration, firmware extraction |
 | sc-scanner | sonnet | SBOM generation, dependency tree, namespace conflicts |
 | cve-manager | sonnet | CVE eligibility check, GHSA/MITRE submission prep |
+| ctf-solver | sonnet | Trivial CTF end-to-end single-agent solve |
+| defi-auditor | opus | Smart contract + DeFi exploit audit (Slither/Mythril/medusa/ityfuzz/pashov-skills) |
+| source-auditor | opus | Deep source code security review (files, data flows, business logic) |
+| web-tester | sonnet | Request-level + workflow pack testing (Playwright/Lightpanda/SecLists) |
+| recon-scanner | sonnet | Automated broad recon sweep (hosts, ports, endpoints, JS) |
+| mobile-analyst | sonnet | Android/iOS static + dynamic analysis |
+| fw-profiler | sonnet | Firmware profile reading, stage routing |
+| fw-inventory | sonnet | Firmware inventory validation |
+| fw-surface | sonnet | Firmware attack surface mapping + evidence bundles |
+| fw-validator | sonnet | Firmware validator policy enforcement |
 
 ### Structured Handoff Protocol
 
@@ -161,7 +171,7 @@ Status reports: 1-2 sentence result + 1 sentence next action. Artifact files can
 
 ## Tools Reference
 
-Full inventory: `memory/installed_tools_full.md`
+Full inventory: `knowledge/techniques/installed_tools_reference.md`
 - **RE**: Ghidra(MCP, PRIMARY), objdump, strings, readelf
 - **Debug**: gdb(+pwndbg+GEF+MCP), strace | **Exploit**: pwntools, ROPgadget, z3, angr, rp++
 - **Web**: sqlmap, SSRFmap, commix, nuclei(12K+), ffuf, RustScan
