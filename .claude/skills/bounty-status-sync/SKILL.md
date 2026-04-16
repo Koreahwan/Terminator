@@ -29,7 +29,7 @@ model: sonnet
 Orchestrator (직접 실행, agent 불필요):
 
 ```bash
-MEMORY_DIR="${HOME}/.claude/projects/-mnt-c-Users-KH-All-Projects-Terminator/memory"
+MEMORY_DIR="${HOME}/.claude/projects/$(pwd | sed 's|/|-|g')/memory"
 grep -lE '(Pending|Triage|N/R|Won.t fix|Accepted|closed|Awaiting|제출)' "$MEMORY_DIR"/project_*.md
 ```
 
@@ -68,11 +68,12 @@ from:mitre.org newer_than:30d  # MITRE CVE Request 응답 트래킹
 ```
 추출: sender, subject, date → status 라벨 매핑 (예: "status updated to Accepted" / "status updated to Won't fix" / "account disabled" / "Thank you for your submission" etc)
 
-#### NaverWorks (`<secondary-email>`)
+#### NaverWorks (개인 secondary 이메일)
 MCP 미지원 → Playwright 로그인 필요:
-- `https://worksmobile.com/` 또는 고대 웹메일 포털
+- `https://common.worksmobile.com/proxy/my` 경유 `auth.worksmobile.com`
 - huntr 알림이 Gmail에 도달하지 않는 경우 주로 여기 있음 (확인 필수)
 - 로그인 세션은 Playwright 프로필에 유지
+- 본 레포 외부 `~/.config/bounty-credentials.json` 또는 별도 secret store에서 주소 로드
 
 ### 2.2 공개 API/URL (Playwright 불필요)
 - **GHSA**: `gh api repos/<owner>/<repo>/security-advisories --paginate | jq -r '.[] | "\(.ghsa_id) | \(.cve_id // "NO-CVE") | \(.state) | \(.severity) | \(.published_at // "unpublished") | \(.summary)"'`

@@ -1221,7 +1221,7 @@ test_missing_signature()
 
 ### 소스
 - Bugcrowd VRT: https://bugcrowd.com/vulnerability-rating-taxonomy
-- 프로젝트 내 VRT 참조: `<project-root>/All_Projects/Terminator/knowledge/techniques/bugcrowd_vrt.md`
+- 프로젝트 내 VRT 참조: `knowledge/techniques/bugcrowd_vrt.md`
 
 ---
 
