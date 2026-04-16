@@ -27,9 +27,68 @@ Claude Code-native core with Codex/OMX + Gemini coordination — 25 specialized 
 
 **English** | [한국어](README.ko.md)
 
-<sub>Originally forked from [R00T-Kim/Terminator](https://github.com/R00T-Kim/Terminator) · maintained by [@Koreahwan](https://github.com/Koreahwan)</sub>
+<sub>Forked from [R00T-Kim/Terminator](https://github.com/R00T-Kim/Terminator) · maintained by [@Koreahwan](https://github.com/Koreahwan) with [fork enhancements](#fork-enhancements-by-koreahwan) below</sub>
 
 </div>
+
+---
+
+## Fork Enhancements by @Koreahwan
+
+Building on [R00T-Kim/Terminator](https://github.com/R00T-Kim/Terminator) (upstream), this fork adds the following major capabilities. **+16,745 / −3,376 lines across 142 files** vs upstream HEAD.
+
+### Pipeline Hardening (`bb_pipeline v11 → v12.5`)
+- **Explore Lane ↔ Prove Lane split** — discovery (Phases 0–1.5) separated from validation (Phases 2–6); borderline findings preserved in `explore_candidates.md` instead of being discarded
+- **Kill Gate 1 / Kill Gate 2** with **HARD_KILL enforcement** — destructive testing before PoC + before report; `triager-sim` simulation + `bb_preflight.py kill-gate-1/2` with `--severity` / `--impact` strict validation
+- **Evidence Tier model (E1–E4)** — only E1 (full live exploit) / E2 (live differential) proceed to submission; E3/E4 recycled via explore lane
+- **Strengthening Loop** — iterative 5-item checklist (cross-user PoC, two-step chain, E2→E1 upgrade, sibling-module variant hunt, static source quote) with `strengthening_report.md` audit artifact
+- **Phase 5.7 Live Scope Verification** (MANDATORY) — re-fetches live program page via `fetch-program --no-cache` before auto-fill
+- **v12.5 info-disc ↔ verbose-OOS collision check** — blocks info-disclosure findings against programs with `verbose messages without sensitive info` exclusions unless concrete sensitivity anchor is proven
+
+### New Tooling
+- **`tools/program_fetcher/`** (13 modules, ~4,500 lines) — per-platform verbatim scope intake replacing lossy WebFetch+jina extraction:
+  - HackerOne GraphQL · Bugcrowd target_groups.json · Immunefi `__NEXT_DATA__` · Intigriti / YesWeHack / HackenProof APIs · huntr · github raw README · generic jina fallback
+  - 38-target live benchmark harness under `tests/benchmarks/program_fetcher/`
+- **`bb_preflight.py`** (+1,560 lines) — `verify-target`, `fetch-program`, `rules-check`, `coverage-check`, `workflow-check`, `fresh-surface-check`, `kill-gate-1/2`, `evidence-tier-check`, `strengthening-check`, `duplicate-graph-check`
+- **`terminator.sh`** (+1,347 lines) — autonomous modes for `ai-security`, `robotics`, `supplychain` domains
+- **Report quality pipeline** — `report_scorer.py` (composite ≥75 gate), `report_scrubber.py` (Unicode watermark / em-dash slop removal), `evidence_manifest.py` (SHA256 audit trail)
+
+### New Agents
+| Agent | Model | Role |
+|-------|-------|------|
+| `ai-recon` | sonnet | LLM endpoint mapping, model fingerprinting, tool enumeration |
+| `robo-scanner` | sonnet | ROS topology, node enumeration, firmware extraction |
+| `sc-scanner` | sonnet | SBOM generation, dependency tree, namespace conflicts |
+| `cve-manager` | sonnet | CVE eligibility check, GHSA / MITRE submission prep |
+| `submission-review` | opus | Final 3-perspective review panel (Triager's Eye + Evidence Auditor + Devil's Advocate) |
+
+### Cross-Model Integrations
+- **Codex GPT-5.4 adversarial-review** at Phase 4 — independent cross-model design challenge for threat-model realism / CVSS justification / evidence gaps
+- **Codex slop cross-check** at Phase 4.5 — Claude-blind pattern detection
+
+### AI Detection (3-Layer, MANDATORY)
+- **L1** heuristic (`ai_detect.py heuristic`, instant)
+- **L2** Claude self-review (in-session prompt)
+- **L3** ZeroGPT via Playwright MCP (<10% AI threshold)
+
+### Knowledge System Upgrades
+- **FTS5 optimization** — BM25 column weights + snippet() for 93–97% token savings in `mcp__knowledge-fts` queries
+- **Wiki + AgDR layers** — persistent decision records in `knowledge/decisions/` (GO / KILL / strategy-change markers)
+- **Awesome-Hacking corpus** — 81 repos / 14.7K docs / 280K+ tokens indexed
+- **Kernel-security-learning** corpus integrated
+- **SQLite WAL + mmap** + PRAGMA tuning + per-connect overhead fix
+
+### Submission Workflow
+- **Platform-style report templates** (`context/report-templates/platform-style/`) — Bugcrowd / HackerOne / Immunefi / MSRC / VendorDirect / ZDI per-platform writing guides
+- **Phase 5.8 MCP auto-fill** with Playwright — `autofill_payload.json` contract, human-gated Submit click (never auto-clicked)
+- **Cluster Submission Protocol** — same codebase = same day, root cause bundling
+- **Orphan Sweep** — `verifier` mode=bb-orphan-sweep detects stale references / count drift across submission artifacts
+
+### Upstream Sync
+Upstream pipeline (`bb_pipeline_v11.md`) was superseded and removed; see commit history for divergence point.
+
+---
+
 
 ---
 

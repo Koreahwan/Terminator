@@ -27,9 +27,68 @@ Claude Code-native 코어 + Codex/OMX + Gemini coordination 기반 — 25개 전
 
 [English](README.md) | **한국어**
 
-<sub>[R00T-Kim/Terminator](https://github.com/R00T-Kim/Terminator) 에서 fork · [@Koreahwan](https://github.com/Koreahwan) 이 유지관리</sub>
+<sub>[R00T-Kim/Terminator](https://github.com/R00T-Kim/Terminator) 에서 fork · [@Koreahwan](https://github.com/Koreahwan) 이 유지관리 · 아래 [포크 강화 내역](#포크-강화-내역-koreahwan)</sub>
 
 </div>
+
+---
+
+## 포크 강화 내역 (@Koreahwan)
+
+업스트림 [R00T-Kim/Terminator](https://github.com/R00T-Kim/Terminator) 위에서 추가한 주요 기능. 업스트림 HEAD 대비 **142 파일 / +16,745 / −3,376 라인**.
+
+### 파이프라인 강화 (`bb_pipeline v11 → v12.5`)
+- **Explore Lane ↔ Prove Lane 분리** — 탐색(Phase 0–1.5)과 검증(Phase 2–6) 분리, 경계 발견은 `explore_candidates.md`에 보존
+- **Kill Gate 1 / Kill Gate 2** + **HARD_KILL 강제** — PoC 전 + 보고서 전 destructive 테스트. `triager-sim` 시뮬 + `bb_preflight.py kill-gate-1/2` + `--severity`/`--impact` 엄격 검증
+- **Evidence Tier 모델 (E1–E4)** — E1(full live exploit)/E2(live differential)만 제출 진행, E3/E4는 explore lane으로 재순환
+- **Strengthening Loop** — 5-항목 iterative 체크리스트 (cross-user PoC, 2-step chain, E2→E1 승격, sibling 모듈 variant hunt, static source quote) + `strengthening_report.md` 감사 아티팩트
+- **Phase 5.7 Live Scope Verification** (MANDATORY) — auto-fill 전 `fetch-program --no-cache`로 프로그램 페이지 재확인
+- **v12.5 info-disc ↔ verbose-OOS 충돌 체크** — `verbose messages without sensitive info` OOS 조항이 있는 프로그램에서 info-disclosure 제출 시 구체 sensitivity anchor 필수
+
+### 신규 도구
+- **`tools/program_fetcher/`** (13개 모듈, ~4,500 라인) — 플랫폼별 verbatim scope intake:
+  - HackerOne GraphQL · Bugcrowd target_groups.json · Immunefi `__NEXT_DATA__` · Intigriti / YesWeHack / HackenProof API · huntr · github raw README · jina fallback
+  - 38-타겟 live benchmark (`tests/benchmarks/program_fetcher/`)
+- **`bb_preflight.py`** (+1,560 라인) — `verify-target`, `fetch-program`, `rules-check`, `coverage-check`, `workflow-check`, `fresh-surface-check`, `kill-gate-1/2`, `evidence-tier-check`, `strengthening-check`, `duplicate-graph-check`
+- **`terminator.sh`** (+1,347 라인) — `ai-security`, `robotics`, `supplychain` 자율 모드 추가
+- **Report quality pipeline** — `report_scorer.py` (≥75 게이트), `report_scrubber.py` (Unicode watermark 제거), `evidence_manifest.py` (SHA256 감사 체인)
+
+### 신규 에이전트
+| 에이전트 | 모델 | 역할 |
+|---------|-----|------|
+| `ai-recon` | sonnet | LLM 엔드포인트 매핑, 모델 핑거프린팅, tool 열거 |
+| `robo-scanner` | sonnet | ROS 토폴로지, 노드 열거, 펌웨어 추출 |
+| `sc-scanner` | sonnet | SBOM 생성, 의존성 트리, 네임스페이스 충돌 |
+| `cve-manager` | sonnet | CVE 자격 체크, GHSA / MITRE 제출 준비 |
+| `submission-review` | opus | 최종 3-관점 리뷰 (Triager's Eye + Evidence Auditor + Devil's Advocate) |
+
+### Cross-Model 통합
+- **Codex GPT-5.4 adversarial-review** (Phase 4) — threat-model 현실성 / CVSS 정당성 / evidence gap 독립 교차 검토
+- **Codex slop cross-check** (Phase 4.5) — Claude-blind 패턴 탐지
+
+### AI Detection 3-레이어 (MANDATORY)
+- **L1** heuristic (`ai_detect.py heuristic`)
+- **L2** Claude self-review (in-session)
+- **L3** ZeroGPT via Playwright MCP (<10% 임계)
+
+### 지식 시스템 업그레이드
+- **FTS5 최적화** — BM25 column weights + snippet() 적용 → `mcp__knowledge-fts` 쿼리 93–97% 토큰 절감
+- **Wiki + AgDR 레이어** — `knowledge/decisions/`에 GO / KILL / 전략 변경 기록
+- **Awesome-Hacking corpus** — 81 repos / 14.7K docs / 280K+ 토큰
+- **Kernel-security-learning** corpus 통합
+- **SQLite WAL + mmap** + PRAGMA 튜닝 + per-connect 오버헤드 수정
+
+### 제출 워크플로
+- **플랫폼별 report 템플릿** (`context/report-templates/platform-style/`) — Bugcrowd / HackerOne / Immunefi / MSRC / VendorDirect / ZDI
+- **Phase 5.8 MCP auto-fill** (Playwright) — `autofill_payload.json` 계약, Submit 버튼 수동 클릭 (자동 클릭 절대 금지)
+- **Cluster Submission Protocol** — 같은 codebase = 같은 날, root cause 번들링
+- **Orphan Sweep** — `verifier` mode=bb-orphan-sweep, 제출물 간 stale reference / count drift 감지
+
+### 업스트림 변경
+업스트림 파이프라인(`bb_pipeline_v11.md`)은 superseded 되어 삭제. 커밋 히스토리에서 분기점 확인 가능.
+
+---
+
 
 ---
 
