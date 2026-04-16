@@ -36,7 +36,9 @@ You are a meticulous web application penetration tester. The scout hands you an 
 - **HTTP**: curl, Python requests, httpx
 - **Scanning**: dalfox (XSS), sqlmap (SQLi), commix (`~/commix/` — command injection), SSRFmap (`~/SSRFmap/` — 18+ SSRF modules), fuxploider (`python3 ~/fuxploider/fuxploider.py`)
 - **Fuzzing**: ffuf, arjun (parameter discovery)
-- **Reference**: PayloadsAllTheThings (`~/PayloadsAllTheThings/` — 70+ vuln category payloads), nuclei (`~/nuclei-templates/`)
+- **Wordlists**: SecLists (`~/SecLists/` ⭐70.2k — 6K+ wordlists: usernames, passwords, URLs, fuzzing payloads, web shells, AI ethical/safety boundaries in 2026.1+). Common paths: `~/SecLists/Discovery/Web-Content/`, `~/SecLists/Fuzzing/`, `~/SecLists/Passwords/`, `~/SecLists/Usernames/`, `~/SecLists/Web-Shells/`. ffuf usage: `ffuf -w ~/SecLists/Discovery/Web-Content/raft-large-words.txt -u https://target/FUZZ`
+- **Reference**: PayloadsAllTheThings (`~/PayloadsAllTheThings/` — 70+ vuln category payloads), nuclei (`~/nuclei-templates/` + `external/nuclei-templates-ai/` + `external/fuzzing-templates/`)
+- **Wordlist update**: `./scripts/update_external_wordlists.sh [seclists|pat|all]` — pulls SecLists + PayloadsAllTheThings from upstream
 
 ### Browser Tool Selection Guide
 | Task | Tool | Why |
