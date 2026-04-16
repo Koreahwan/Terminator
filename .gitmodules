@@ -4,3 +4,9 @@
 [submodule "external/pashov-skills"]
 	path = external/pashov-skills
 	url = https://github.com/pashov/skills.git
+[submodule "external/nuclei-templates-ai"]
+	path = external/nuclei-templates-ai
+	url = https://github.com/projectdiscovery/nuclei-templates-ai.git
+[submodule "external/fuzzing-templates"]
+	path = external/fuzzing-templates
+	url = https://github.com/projectdiscovery/fuzzing-templates.git

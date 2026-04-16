@@ -178,7 +178,7 @@ Extend `recon_report.json` with: `target_type`, `chain_map`, `proxy_type`, `is_f
 | **nmap / RustScan** | Port scanning + service version detection |
 | **httpx** | HTTP probing + tech fingerprinting (bulk) |
 | **ffuf / gobuster** | Directory and endpoint fuzzing |
-| **nuclei** | CVE + misconfig + exposure scanning (12K+ templates) |
+| **nuclei** | CVE + misconfig + exposure scanning (12K+ base templates + `external/nuclei-templates-ai` 2.5K AI-generated CVE templates + `external/fuzzing-templates` 25 unknown-vuln fuzz templates). Custom run: `nuclei -u <target> -t external/fuzzing-templates/` for unknown-surface fuzz; `-t external/nuclei-templates-ai/` for recent CVEs not in main template repo. |
 | **subfinder + katana** | Subdomain discovery + web crawling |
 | **searchsploit** | ExploitDB offline search (47K+ exploits) |
 | **trufflehog** | Secret detection (800+ types, verified) |
