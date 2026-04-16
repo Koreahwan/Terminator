@@ -32,7 +32,7 @@ python3 tests/benchmarks/benchmark.py --report
 ## Weekly Auto-Run (cron)
 ```
 # Add to crontab: runs every Monday at 09:00
-0 9 * * 1 <project-root>/All_Projects/Terminator/tests/benchmarks/weekly_run.sh
+0 9 * * 1 /path/to/Terminator/tests/benchmarks/weekly_run.sh
 ```
 
 ## Challenge Registry

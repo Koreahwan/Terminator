@@ -2,30 +2,30 @@
   "mcpServers": {
     "knowledge-fts": {
       "command": "python3",
-      "args": ["<project-root>/All_Projects/Terminator/tools/mcp-servers/knowledge-fts/server.py"],
+      "args": ["tools/mcp-servers/knowledge-fts/server.py"],
       "env": {
-        "PYTHONPATH": "<project-root>/All_Projects/Terminator/tools"
+        "PYTHONPATH": "tools"
       }
     },
     "semgrep-mcp": {
       "command": "python3",
-      "args": ["<project-root>/All_Projects/Terminator/tools/mcp-servers/semgrep-mcp/server.py"]
+      "args": ["tools/mcp-servers/semgrep-mcp/server.py"]
     },
     "nuclei-mcp": {
       "command": "python3",
-      "args": ["<project-root>/All_Projects/Terminator/tools/mcp-servers/nuclei-mcp/server.py"]
+      "args": ["tools/mcp-servers/nuclei-mcp/server.py"]
     },
     "codeql-mcp": {
       "command": "python3",
-      "args": ["<project-root>/All_Projects/Terminator/tools/mcp-servers/codeql-mcp/server.py"]
+      "args": ["tools/mcp-servers/codeql-mcp/server.py"]
     },
     "graphrag-security": {
       "command": "python3",
-      "args": ["<project-root>/All_Projects/Terminator/tools/mcp-servers/graphrag-mcp/server.py"]
+      "args": ["tools/mcp-servers/graphrag-mcp/server.py"]
     },
     "context7": {
-      "command": "node",
-      "args": ["${HOME}/.local/lib/node_modules/@upstash/context7-mcp/dist/index.js"]
+      "command": "npx",
+      "args": ["-y", "@upstash/context7-mcp"]
     }
   }
 }

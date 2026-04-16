@@ -530,7 +530,7 @@ Orchestrator uses MCP Playwright tools directly (NOT a standalone script):
 1. Read `autofill_payload.json` from submission directory
 1b. **Credential file reference**: 로그인 필요 시 아래 경로를 순서대로 참조:
    - **플랫폼 크레덴셜**: `${HOME}/.config/bounty-credentials.json` (chmod 600, 10+ 플랫폼 저장)
-   - **Playwright 프로필**: `<project-root>/.config/playwright-bounty-profile` (세션 쿠키 유지)
+   - **Playwright 프로필**: `${PLAYWRIGHT_BOUNTY_PROFILE:-$HOME/.config/playwright-bounty-profile}` (세션 쿠키 유지)
    - **타겟별 테스트 계정**: `targets/<target>/test_accounts.json` (타겟 서비스 가입 계정)
    - **로그인 도우미**: `python3 tools/platform_autologin.py check|get-creds|login-steps <platform>`
    - `autofill_payload.json`에 `credential_file` 필드로 해당 경로 포함하여 interactive session이 즉시 참조 가능하게.

@@ -96,7 +96,7 @@ score = clamp(score, 0, 10)
 
 ### Step 5: Cross-validation with validation_prompts.py (if available)
 !`python3 -c "
-import sys; sys.path.insert(0, '<project-root>/All_Projects/Terminator')
+import sys; sys.path.insert(0, '.')
 from tools.validation_prompts import check_ai_slop
 with open('$ARGUMENTS') as f: text = f.read()
 result = check_ai_slop(text)

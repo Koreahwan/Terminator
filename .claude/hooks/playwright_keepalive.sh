@@ -3,8 +3,8 @@
 # Ensures the isolated Chrome bounty profile is running before Playwright tool calls
 # Called as PreToolUse hook for mcp__playwright__* tools
 
-PROFILE_DIR="<project-root>/.config/playwright-bounty-profile"
-CHROME_EXE="/mnt/c/Program Files/Google/Chrome/Application/chrome.exe"
+PROFILE_DIR="${PLAYWRIGHT_BOUNTY_PROFILE:-$HOME/.config/playwright-bounty-profile}"
+CHROME_EXE="${CHROME_EXE:-/mnt/c/Program Files/Google/Chrome/Application/chrome.exe}"
 PORT=9333
 LOCK_FILE="/tmp/playwright_bounty_chrome.lock"
 
@@ -19,7 +19,7 @@ fi
 
 # Not running — launch it
 if [ -f "$CHROME_EXE" ]; then
-    "$CHROME_EXE" --user-data-dir="C:\\Users\\KH\\.config\\playwright-bounty-profile" --remote-debugging-port=$PORT &>/dev/null &
+    "$CHROME_EXE" --user-data-dir="${PROFILE_DIR}" --remote-debugging-port=$PORT &>/dev/null &
     sleep 2
 fi
 

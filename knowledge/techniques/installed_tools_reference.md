@@ -418,7 +418,7 @@ python3 tests/benchmarks/benchmark.py --challenge dhcc
 ### Docker Infrastructure
 ```bash
 # 전체 기동
-cd <project-root>/All_Projects/Terminator
+cd "$TERMINATOR_ROOT"   # or your local Terminator checkout
 docker compose up -d
 
 # 개별 서비스
