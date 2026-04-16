@@ -127,6 +127,30 @@ MCP 미지원 → Playwright 로그인 필요:
 4. 페이지당 1회 fetch — 과잉 traffic 회피
 5. 다른 플랫폼: 순차 (동시 4개 초과 자제), 같은 플랫폼: 순차 (rate limit)
 
+### 2.5 Direct Platform Rotation (사용자 요청 시)
+Email MCP로 못 잡는 세부 정보(예: 댓글 타임라인, bounty 금액 확정, VRT 변경, triager 내부 메모)가 필요할 때 실행:
+
+실행 순서 (Playwright 순차, 미로그인 감지 시 사용자에게 수동 로그인 요청):
+1. **huntr** — `https://huntr.com/bounties/<id>` 각 submission 순회 → 섹션 2.3의 추출 패턴 재사용
+2. **Bugcrowd** — `https://bugcrowd.com/submissions` 에서 list view → 각 row 상태/state change 스크래핑 (필요 시 개별 URL drill-in)
+3. **YesWeHack** — `https://yeswehack.com/programs` → 본인 제출 필터
+4. **Intigriti** — `https://app.intigriti.com/researcher/submissions` → state 칼럼
+5. **HackenProof** — `https://hackenproof.com/profile` 에서 submission 탭
+6. **Immunefi** — `https://bugs.immunefi.com/reports` (account 살아있을 때만)
+
+각 플랫폼에서 수집:
+- 상태 label (Pending / Triage / Accepted / Won't fix / Duplicate / etc.)
+- bounty 금액 (Pending이면 `—`, Paid면 정확한 `$X`)
+- last update 날짜
+- 최근 triager/maintainer 댓글 요약 (1-2줄)
+
+결과는 `/tmp/bounty_sync_rotation.json`에 기록 → Phase 3 diff에 통합.
+
+**주의**:
+- 로그인 세션이 끊긴 플랫폼은 `AWAITING_USER_LOGIN` 상태로 표시 후 스킵, 다음 플랫폼으로 진행
+- 세션 유지된 플랫폼은 즉시 추출
+- 같은 submission에 대해 Email MCP 결과와 rotation 결과가 다르면 rotation 우선 (더 최신)
+
 출력: `/tmp/bounty_sync_observed.json`
 
 ---
