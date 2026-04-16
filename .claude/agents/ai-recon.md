@@ -50,7 +50,10 @@ permissionMode: bypassPermissions
   - MCP: `promptfoo` server registered in `.claude/mcp.json` (stdio transport). Use MCP tools for interactive session work
   - Rate limit: built-in `maxConcurrency: 2` + `delay: 2100ms` (28 req/min, under 30/min IRON RULE)
 - `httpx` / `curl` — Direct API calls
-- `knowledge-fts` MCP — OWASP LLM Top 10 reference lookup
+- `knowledge-fts` MCP — OWASP LLM Top 10 + Agentic Top 10 reference lookup
+  - **Curated index**: `knowledge/techniques/ai_redteam_external_2026.md` — OWASP GenAI + Agentic Top-10 checklist, promptfoo plugin map, deepteam attack taxonomy, PyRIT primitive reference. Search: `mcp__knowledge-fts__search_all` with query like "OWASP LLM01" or "Agentic ASI02"
+  - **Coverage requirement**: before marking a target's injection surface "scanned", test at minimum: 1 direct + 1 encoding-obfuscation + 1 multi-turn + 1 indirect attack (per deepteam taxonomy in index doc)
+  - **Agentic target additional requirement**: test at minimum ASI02 (Tool Misuse), ASI03 (Privilege Compromise), ASI09 (Unexpected RCE) for any agent with tool-calling capability
 
 ## Standard Workflow (with promptfoo)
 
