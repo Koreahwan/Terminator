@@ -176,6 +176,7 @@ Full inventory: `memory/installed_tools_full.md`
 - **Report Context**: `context/report-templates/` (6 platform styles, writing guide, rejection patterns, CVSS calibration)
 - **Cross-Model**: Codex(GPT-5.4, plugin `codex@openai-codex`) — `/codex:review`, `/codex:adversarial-review`, `/codex:rescue` | Wrapper: `tools/codex_cross_review.sh`
 - **External Skills Marketplaces** (⭐4.6k ToB, audited 2026-04-17): `trailofbits` marketplace registered (38 plugins, CC-BY-SA-4.0). Cherry-pick install: `/plugin install {fp-check|variant-analysis|semgrep-rule-creator|semgrep-rule-variant-creator|static-analysis|supply-chain-risk-auditor|insecure-defaults|building-secure-contracts|entry-point-analyzer|spec-to-code-compliance|yara-authoring|agentic-actions-auditor|audit-context-building|differential-review|gh-cli}@trailofbits`. Do NOT install all — see `docs/external-integrations/trailofbits-skills-audit.md`.
+- **Pashov Audit Group Skills** (⭐589 MIT, `external/pashov-skills/` submodule, audited 2026-04-17): `solidity-auditor` (<5min fast SC feedback) + `x-ray` (pre-audit threat model/invariants/entry-points). Invoked by `defi-auditor` agent. Update: `git submodule update --remote external/pashov-skills`. See `docs/external-integrations/pashov-skills-audit.md`.
 - **MCP (15)**: gdb, pentest, pentest-thinking, context7, frida, ghidra, knowledge-fts, nuclei, codeql, semgrep, graphrag-security, lightpanda, browser-use, opendataloader-pdf, promptfoo
 
 ### Codex Cross-Model Review (v12.1)

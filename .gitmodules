@@ -1,3 +1,6 @@
 [submodule "targets/kiln-defi/source/vault_impl/Vault/lib/forge-std"]
 	path = targets/kiln-defi/source/vault_impl/Vault/lib/forge-std
 	url = https://github.com/foundry-rs/forge-std
+[submodule "external/pashov-skills"]
+	path = external/pashov-skills
+	url = https://github.com/pashov/skills.git
