@@ -132,7 +132,7 @@ fi
 
 # ===== G. Agent model assignments =====
 while IFS= read -r md; do
-    if ! head -20 "$md" | grep -qE "^model:\s*(opus|sonnet|haiku)"; then
+    if ! head -20 "$md" | grep -qE "^model:\s*(opus|sonnet|haiku|claude-(opus|sonnet|haiku)-[0-9]+-[0-9]+([-0-9]*)?)"; then
         rel=${md#$PROJECT_ROOT/}
         add_finding "warning" "G.model_missing" "Agent $rel missing explicit model declaration"
     fi

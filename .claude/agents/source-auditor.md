@@ -1,7 +1,7 @@
 ---
 name: source-auditor
 description: Use this agent when performing deep source code security review across files, data flows, and business logic.
-model: opus
+model: claude-opus-4-6
 color: blue
 permissionMode: bypassPermissions
 effort: max

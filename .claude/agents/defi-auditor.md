@@ -1,7 +1,7 @@
 ---
 name: defi-auditor
 description: Use this agent when auditing smart contracts or DeFi protocols for exploitable vulnerabilities and on-chain impact.
-model: opus
+model: claude-opus-4-6
 color: magenta
 permissionMode: bypassPermissions
 effort: max
