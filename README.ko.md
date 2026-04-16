@@ -27,6 +27,8 @@ Claude Code-native 코어 + Codex/OMX + Gemini coordination 기반 — 25개 전
 
 [English](README.md) | **한국어**
 
+<sub>[R00T-Kim/Terminator](https://github.com/R00T-Kim/Terminator) 에서 fork · [@Koreahwan](https://github.com/Koreahwan) 이 유지관리</sub>
+
 </div>
 
 ---
