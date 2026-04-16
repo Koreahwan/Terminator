@@ -4,6 +4,14 @@ description: Use this agent when you need adversarial review of reversal maps, e
 model: opus
 color: blue
 permissionMode: bypassPermissions
+effort: high
+maxTurns: 30
+requiredMcpServers:
+  - "gdb"
+  - "ghidra"
+  - "knowledge-fts"
+disallowedTools:
+  - "mcp__radare2__*"
 ---
 
 # Critic Agent
@@ -323,25 +331,16 @@ Reference: `tools/validation_prompts.py` for programmatic validation.
 ## Strength Assessment [strongest evidence, weakest claim, suggested severity]
 ```
 
-## Structured Reasoning (MANDATORY for every checklist item)
+## Structured Reasoning
 
-For each verification check:
-
-```
-OBSERVED: [Tool output -- gdb result, checksec output, Ghidra MCP pseudocode]
-INFERRED: [What this means for the exploit -- "address matches", "offset is 8 bytes off"]
-ASSUMED:  [Nothing -- critic must have zero assumptions, only verified facts]
-RISK:     [If approving incorrectly -- "verifier wastes time on broken exploit"]
-DECISION: [CHECK PASS or CHECK FAIL + specific evidence]
-```
+See _reference/structured_reasoning.md
 
 ## Checkpoint Protocol
 
-Maintain `checkpoint.json` in the challenge/target directory:
-- **Start**: `{"agent":"critic", "status":"in_progress", "phase":1, "phase_name":"fact_check", ...}`
-- **Phase complete**: Update `completed` array, increment `phase`
-- **Finish**: `"status":"completed"` + `produced_artifacts:["critic_review.md"]`
-- **Error**: `"status":"error"` + error message
+Write checkpoint.json: `{"agent":"<name>","status":"in_progress|completed|error","phase":<N>,"phase_name":"<name>","completed":[],"critical_facts":[],"expected_artifacts":[],"produced_artifacts":[],"timestamp":"<ISO>"}`. Update on each phase completion. Set status=completed only when all expected_artifacts are produced.
+
+## Observation Masking
+Output: <100 lines=inline, 100-500=key findings+file, 500+=save to file + `[Obs elided. Key: "<summary>"]`. Never paste 500+ lines into SendMessage.
 
 ## Personality
 

@@ -8,7 +8,7 @@ set -euo pipefail
 INPUT=$(cat)
 CWD=$(echo "$INPUT" | jq -r '.cwd // ""')
 
-PROJECT_DIR="/home/rootk1m/01_CYAI_Lab/01_Projects/Terminator"
+PROJECT_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
 COORD_CLI="$PROJECT_DIR/tools/coordination_cli.py"
 SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // empty' 2>/dev/null || true)
 
@@ -53,6 +53,8 @@ if [[ -n "$ALERT" ]]; then
         --type "teammate_idle_alert" \
         --payload-json "$(jq -n --arg alert "$ALERT" '{alert: $alert}')" >/dev/null 2>&1 || true
 fi
+
+printf '%s' "$INPUT" | bash "$PROJECT_DIR/.claude/hooks/sync_shared_memory.sh" >/dev/null 2>&1 || true
 
 if [[ -n "$ALERT" ]]; then
     jq -n --arg msg "$ALERT" '{additionalContext: $msg}'

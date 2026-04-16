@@ -6,6 +6,7 @@ import sys
 
 import pandas as pd
 from mcp.server.fastmcp import FastMCP
+from mcp.types import ToolAnnotations
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import exploit_search
@@ -130,7 +131,7 @@ def _search_text_units(query: str, top_n: int = 10) -> str:
     return "\n".join(lines)
 
 
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, idempotentHint=True))
 def knowledge_search(query: str, mode: str = "local") -> str:
     """Search the security knowledge graph (no LLM, instant pandas search).
 
@@ -148,7 +149,7 @@ def knowledge_search(query: str, mode: str = "local") -> str:
         return f"{ent}\n\n{rel}"
 
 
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, idempotentHint=True))
 def knowledge_global(query: str) -> str:
     """Search community-level summaries in the security knowledge graph (instant, no LLM).
 
@@ -158,7 +159,7 @@ def knowledge_global(query: str) -> str:
     return _search_community_reports(query)
 
 
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, idempotentHint=True))
 def knowledge_drift(query: str) -> str:
     """Broad text search across all indexed security documents (instant, no LLM).
 
@@ -168,7 +169,7 @@ def knowledge_drift(query: str) -> str:
     return _search_text_units(query)
 
 
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, idempotentHint=True))
 def exploit_lookup(query: str) -> str:
     """Search ExploitDB, PoC-in-GitHub, and trickest-cve for exploits matching query.
 
@@ -178,7 +179,7 @@ def exploit_lookup(query: str) -> str:
     return exploit_search.unified_search(query)
 
 
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, idempotentHint=True))
 def similar_findings(description: str) -> str:
     """Find similar past security findings by searching entities and community reports.
 
@@ -190,7 +191,7 @@ def similar_findings(description: str) -> str:
     return f"{ent}\n\n{comm}"
 
 
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=False, idempotentHint=False))
 def knowledge_ingest(file_path: str, doc_type: str = "unknown") -> str:
     """Ingest a new document into the security knowledge graph.
 
@@ -232,7 +233,7 @@ def knowledge_ingest(file_path: str, doc_type: str = "unknown") -> str:
         return f"Ingest error: {str(e)}"
 
 
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, idempotentHint=True))
 def knowledge_graph_query(cypher: str) -> str:
     """Run a Cypher query against the Neo4j attack graph.
 
@@ -264,7 +265,7 @@ def knowledge_graph_query(cypher: str) -> str:
         return f"Graph query error: {str(e)}"
 
 
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, idempotentHint=True))
 def knowledge_stats() -> str:
     """Show statistics about the indexed security knowledge graph."""
     stats = []

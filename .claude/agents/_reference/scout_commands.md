@@ -77,43 +77,56 @@ arjun -u https://<target>/api/endpoint
 
 #### A4: Program Context (MANDATORY)
 
-```bash
-# 1. Program page (WebFetch REQUIRED)
-# MUST capture ALL of these:
-# - In-scope assets and versions (EXACT list)
-# - Excluded vulnerability types (EXACT list)
-# - CVSS version: 3.1 vs 4.0 (CRITICAL — wrong version = credibility damage)
-# - Bounty table (per severity)
-# - Response SLA times
-# - Special rules (e.g., "no automated scanning", "source code review only")
+**v12.4 — use fetch-program for verbatim intake.** WebFetch+jina is banned for
+scope/OOS/severity because it drops collapsed `<details>` sections, reorders
+lists, and summarizes tables (Okto incident).
 
-# 2. Hacktivity analysis (MANDATORY)
+```bash
+# 1. Fetch the program page via the deterministic per-platform handler.
+python3 tools/bb_preflight.py init targets/<target>/
+python3 tools/bb_preflight.py fetch-program targets/<target>/ <program_url>
+# Exit 0 = PASS (verbatim sections auto-filled)
+# Exit 2 = HOLD (confidence < 0.8 — review program_page_raw.md by hand)
+# Exit 1 = FAIL (no handler matched — fall back to manual fill from live page)
+
+# 2. Read the structured output:
+cat targets/<target>/program_data.json    # normalized scope/OOS/severity/bounty
+cat targets/<target>/program_page_raw.md  # verbatim markdown for visual review
+
+# Captured automatically: In-scope assets + types + qualifiers, OOS verbatim,
+# Known Issues, CVSS version, bounty table, submission rules.
+
+# 3. Hacktivity analysis (still manual — hacktivity is out of fetch-program scope)
 # - Count of disclosed reports (program maturity)
 # - Types of vulns rewarded (what triagers accept)
 # - Types of vulns rejected (what to AVOID)
 # - Average time to triage
 # - Top researchers active (competition level)
+# WebFetch+jina is acceptable for hacktivity (no verbatim requirement).
 
-# 3. Program policy file
-# Check for safe harbor, testing restrictions, reporting requirements
+# 4. Program policy file: check for safe harbor, testing restrictions,
+#    reporting requirements (covered by fetch-program's "submission_rules").
 ```
 
 #### A5: Program Rules Summary (MANDATORY)
 
 ```bash
-# 1. Initialize template
-python3 tools/bb_preflight.py init targets/<target>/
+# Verbatim sections are auto-filled by A4's fetch-program step.
+# A5's job is to VERIFY them and fill OPERATIONAL sections from live traffic.
 
-# 2. Fill ALL <REQUIRED> fields by extracting from:
-#    - Program page (auth format, mandatory headers, exclusions)
-#    - Actual API traffic (intercept via Frida/mitmproxy/curl)
-#    - Known Issues list from program
-#    - Already-submitted reports (if any)
+# 1. Fill OPERATIONAL sections (Auth Header Format, Mandatory Headers, Verified
+#    Curl Template) by extracting from ACTUAL API traffic (Frida/mitmproxy/curl).
+#    These cannot be fetched from the program page — they come from live
+#    request interception.
 
-# 3. CRITICAL: Test the auth header format
+# 2. CRITICAL: Test the auth header format
 #    - Send actual API request with discovered auth format
 #    - Confirm 200 response (not 401/403)
 #    - Save working curl command to "Verified Curl Template" section
+
+# 3. Verify the auto-filled VERBATIM sections match the live program page.
+#    If something looks summarized/reordered, rerun fetch-program --no-cache
+#    or paste from the live page by hand.
 
 # 4. Validate completeness
 python3 tools/bb_preflight.py rules-check targets/<target>/
@@ -311,7 +324,7 @@ garak --model_type rest --model_name <target_api> --probes promptinject,dan,know
 CVE_LIST=$(cat cve_ids_found.txt | tr '\n' ' ')
 
 if [ -n "$CVE_LIST" ]; then
-    python3 /home/rootk1m/01_CYAI_Lab/01_Projects/Terminator/tools/mitre_mapper.py \
+    python3 tools/mitre_mapper.py \
         $CVE_LIST \
         --json \
         --atlas \
@@ -342,7 +355,7 @@ fi
 
 **Offline fallback** (if NVD API unreachable):
 ```bash
-python3 /home/rootk1m/01_CYAI_Lab/01_Projects/Terminator/tools/mitre_mapper.py \
+python3 tools/mitre_mapper.py \
     $CVE_LIST --json --offline > mitre_enrichment.json
 ```
 
@@ -638,7 +651,7 @@ grep -rn "req\.body\|req\.query\|req\.params\|process\.env\|stdin" --include="*.
 
 ```bash
 # Fetch verified source from block explorer (per chain)
-export PATH="/home/rootk1m/.foundry/bin:/usr/bin:$PATH"
+export PATH="$HOME/.foundry/bin:/usr/bin:$PATH"
 
 # Ethereum
 cast source <address> --chain mainnet --etherscan-api-key $ETHERSCAN_API_KEY -d contracts/eth/
@@ -684,7 +697,7 @@ cast call <address> "facets()((address,bytes4[])[])" --rpc-url $RPC_URL 2>/dev/n
 ### Phase SC-C: Automated Security Tool Scan (MANDATORY)
 
 ```bash
-export PATH="/home/rootk1m/.foundry/bin:$PATH"
+export PATH="$HOME/.foundry/bin:$PATH"
 
 # 1. Slither — 100+ automated Solidity detectors
 echo "[SC-C] Running Slither..."

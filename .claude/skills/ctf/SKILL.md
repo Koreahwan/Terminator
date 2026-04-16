@@ -2,6 +2,9 @@
 name: ctf
 description: Start CTF challenge solving pipeline. Auto-matches "ctf", "solve challenge", "pwn", "reversing", "crypto challenge", "wargame"
 argument-hint: [challenge-path] [host:port]
+context: fork
+effort: high
+model: opus
 ---
 
 # CTF Challenge Pipeline
@@ -17,7 +20,7 @@ Challenge info:
 !`if [ -n "$1" ] && [ -e "$1" ]; then file "$1" 2>/dev/null && checksec --file="$1" 2>/dev/null | head -5; elif [ -d "$ARGUMENTS" ] 2>/dev/null; then ls -la "$ARGUMENTS" 2>/dev/null | head -10; fi`
 
 Knowledge DB prior attempts:
-!`python3 /home/rootk1m/01_CYAI_Lab/01_Projects/Terminator/tools/knowledge_indexer.py search "$ARGUMENTS" 2>/dev/null | head -10 || echo "search unavailable"`
+!`python3 tools/knowledge_indexer.py search "$ARGUMENTS" 2>/dev/null | head -10 || echo "search unavailable"`
 
 ## Pipeline Rules
 

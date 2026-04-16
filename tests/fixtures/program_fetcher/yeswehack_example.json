@@ -1,0 +1,81 @@
+{
+  "_note": "Real YWH public API shape. See api.yeswehack.com/programs/<slug>.",
+  "title": "Example Corp",
+  "slug": "example-corp",
+  "type": "bug-bounty",
+  "status": "V",
+  "updated_at": "2026-03-20T10:00:00Z",
+  "public": true,
+  "bounty": true,
+  "vdp": false,
+  "reports_count": 100,
+  "bounty_reward_min": 100,
+  "bounty_reward_max": 5000,
+  "scopes_count": 2,
+  "scopes": [
+    {
+      "scope": "https://api.example.com",
+      "scope_type": "web-application",
+      "scope_type_name": "Web application",
+      "asset_value": "HIGH",
+      "report_count": null
+    },
+    {
+      "scope": "*.example.com",
+      "scope_type": "web-application",
+      "scope_type_name": "Web application",
+      "asset_value": "MEDIUM",
+      "report_count": null
+    }
+  ],
+  "out_of_scope": [
+    "Social engineering attempts",
+    "Denial of service",
+    "Issues on third-party marketing tools"
+  ],
+  "qualifying_vulnerability": [
+    "SQL Injection",
+    "RCE",
+    "Authentication bypass"
+  ],
+  "non_qualifying_vulnerability": [
+    "Self-XSS without impact",
+    "CSRF on logout",
+    "Missing HTTP security headers on marketing pages"
+  ],
+  "rules": "# Example Corp Bug Bounty Rules\n\nReport via YWH platform. Provide a reproducible PoC. Do not exfiltrate data beyond the minimum required to demonstrate impact. All reports handled under coordinated disclosure. Do not publicly disclose before the fix is deployed. Respect rate limits.",
+  "rules_html": "<h1>Example Corp Bug Bounty Rules</h1><p>Report via YWH platform...</p>",
+  "reward_grid_default": {
+    "bounty_low": 100,
+    "bounty_medium": 500,
+    "bounty_high": 1500,
+    "bounty_critical": 5000
+  },
+  "reward_grid_low": {
+    "bounty_low": 100,
+    "bounty_medium": 300,
+    "bounty_high": 1000,
+    "bounty_critical": 3000
+  },
+  "reward_grid_medium": {
+    "bounty_low": 150,
+    "bounty_medium": 500,
+    "bounty_high": 1500,
+    "bounty_critical": 4000
+  },
+  "reward_grid_high": {
+    "bounty_low": 200,
+    "bounty_medium": 700,
+    "bounty_high": 2500,
+    "bounty_critical": 5000
+  },
+  "reward_grid_critical": {
+    "bounty_low": null,
+    "bounty_medium": null,
+    "bounty_high": null,
+    "bounty_critical": null
+  },
+  "hall_of_fame": true,
+  "hacktivity": true,
+  "report_collaboration_active": true
+}

@@ -4,6 +4,15 @@ description: Use this agent when auditing Android or iOS applications with stati
 model: sonnet
 color: blue
 permissionMode: bypassPermissions
+effort: high
+maxTurns: 40
+requiredMcpServers:
+  - "knowledge-fts"
+  - "semgrep"
+disallowedTools:
+  - "mcp__radare2__*"
+  - "mcp__nuclei__*"
+  - "mcp__codeql__*"
 ---
 
 # Mobile Analyst Agent

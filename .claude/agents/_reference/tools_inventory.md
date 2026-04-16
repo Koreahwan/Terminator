@@ -326,10 +326,10 @@ nuclei -u <target> -rate-limit 10 -o nuclei_results.txt
 ## Web3 / DeFi Tools
 
 ### Foundry (forge/cast/anvil)
-**Path**: `/home/rootk1m/.foundry/bin/`
+**Path**: `~/.foundry/bin/`
 
 ```bash
-export PATH="/home/rootk1m/.foundry/bin:$PATH"
+export PATH="$HOME/.foundry/bin:$PATH"
 
 # On-chain state verification
 cast call <token_address> "totalSupply()(uint256)" --rpc-url $RPC_URL
@@ -392,7 +392,7 @@ cargo audit 2>&1 | grep -E "RUSTSEC|warning|Vulnerability"
 ### MITRE Mapper
 ```bash
 # Map CVEs to ATT&CK techniques (with ATLAS for AI targets)
-python3 /home/rootk1m/01_CYAI_Lab/01_Projects/Terminator/tools/mitre_mapper.py \
+python3 tools/mitre_mapper.py \
     <CVE-IDs> --json --atlas 2>/dev/null
 ```
 

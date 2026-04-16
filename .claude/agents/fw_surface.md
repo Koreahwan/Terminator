@@ -4,6 +4,13 @@ description: Use this agent when mapping firmware attack surface and building ev
 model: sonnet
 color: yellow
 permissionMode: bypassPermissions
+effort: medium
+maxTurns: 30
+requiredMcpServers:
+  - "knowledge-fts"
+  - "ghidra"
+disallowedTools:
+  - "mcp__radare2__*"
 ---
 
 # Firmware Surface Agent

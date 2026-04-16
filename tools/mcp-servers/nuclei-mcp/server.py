@@ -4,14 +4,15 @@ import subprocess
 import json
 import os
 from mcp.server.fastmcp import FastMCP
+from mcp.types import ToolAnnotations
 
 mcp = FastMCP("nuclei-mcp")
 
-NUCLEI_BIN = os.path.expanduser("~/gopath/bin/nuclei")
+NUCLEI_BIN = os.path.expanduser("~/go/bin/nuclei")
 TEMPLATES_DIR = os.path.expanduser("~/nuclei-templates/")
 
 
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=False, openWorldHint=True, idempotentHint=True))
 def scan(target: str, severity: str = "", templates: str = "", timeout: int = 300) -> str:
     """Run nuclei vulnerability scan on target.
 
@@ -64,7 +65,7 @@ def scan(target: str, severity: str = "", templates: str = "", timeout: int = 30
         return f"Error: {str(e)}"
 
 
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, idempotentHint=True))
 def list_templates(category: str = "", severity: str = "") -> str:
     """List available nuclei templates.
 
@@ -97,7 +98,7 @@ def list_templates(category: str = "", severity: str = "") -> str:
     }, indent=2)
 
 
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, idempotentHint=True))
 def template_info(template_id: str) -> str:
     """Get information about a specific nuclei template.
 
@@ -110,12 +111,21 @@ def template_info(template_id: str) -> str:
         template_path += '.yaml'
 
     if not os.path.exists(template_path):
-        # Try to find by name
-        result = subprocess.run(
-            ["find", TEMPLATES_DIR, "-name", f"*{template_id}*", "-type", "f"],
-            capture_output=True, text=True
-        )
-        matches = result.stdout.strip().splitlines()[:5]
+        # Try to find by name (portable; avoid external `find`)
+        needle = template_id
+        if not needle.endswith(".yaml"):
+            needle += ".yaml"
+
+        matches: list[str] = []
+        for root, _, files in os.walk(TEMPLATES_DIR):
+            for name in files:
+                if name.endswith(".yaml") and needle in name:
+                    matches.append(os.path.join(root, name))
+                    if len(matches) >= 5:
+                        break
+            if len(matches) >= 5:
+                break
+
         if matches:
             template_path = matches[0]
         else:
@@ -129,7 +139,7 @@ def template_info(template_id: str) -> str:
         return f"Error reading template: {str(e)}"
 
 
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=False, openWorldHint=True, idempotentHint=True))
 def scan_multiple(targets: str, severity: str = "critical,high", timeout: int = 600) -> str:
     """Run nuclei scan against multiple targets (newline or comma separated).
 
@@ -164,7 +174,7 @@ def scan_multiple(targets: str, severity: str = "critical,high", timeout: int = 
         for line in output.splitlines():
             try:
                 findings.append(json.loads(line))
-            except:
+            except json.JSONDecodeError:
                 pass
 
         return json.dumps(findings, indent=2)

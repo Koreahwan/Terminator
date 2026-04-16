@@ -4,6 +4,17 @@ description: Use this agent when auditing smart contracts or DeFi protocols for 
 model: opus
 color: magenta
 permissionMode: bypassPermissions
+effort: max
+maxTurns: 60
+requiredMcpServers:
+  - "semgrep"
+  - "knowledge-fts"
+  - "graphrag-security"
+disallowedTools:
+  - "mcp__radare2__*"
+  - "mcp__gdb__*"
+  - "mcp__ghidra__*"
+  - "mcp__nuclei__*"
 ---
 
 # DeFi Auditor Agent
@@ -59,7 +70,7 @@ cat audit_docs.md 2>/dev/null | head -100  # known/intentional issues
 ### Step 1: Tool-First Gate (MANDATORY before code reading)
 
 ```bash
-export PATH="/home/rootk1m/.foundry/bin:$PATH"
+export PATH="$HOME/.foundry/bin:$PATH"
 
 echo "[Step 1] Running automated security tools..."
 
@@ -134,7 +145,7 @@ echo "[Step 1] All tools complete. Results in tool_scan_results/"
 ### Step 2: On-Chain State Verification
 
 ```bash
-export PATH="/home/rootk1m/.foundry/bin:$PATH"
+export PATH="$HOME/.foundry/bin:$PATH"
 # Requires: RPC_URL environment variable set
 
 echo "[Step 2] On-chain state verification..."
@@ -280,7 +291,7 @@ done
 ### Step 4: Foundry Fork PoC (for confirmed findings)
 
 ```bash
-export PATH="/home/rootk1m/.foundry/bin:$PATH"
+export PATH="$HOME/.foundry/bin:$PATH"
 
 # Setup Foundry fork test
 mkdir -p poc/foundry-poc
@@ -435,7 +446,7 @@ If assumptions are wrong:
 ```
 [ENV BLOCKER] RPC_URL not set — cannot verify on-chain state: export RPC_URL=<rpc>
 [ENV BLOCKER] Slither failed with import errors: check slither_errors.log, try --solc-remaps
-[ENV BLOCKER] Foundry not in PATH: export PATH="/home/rootk1m/.foundry/bin:$PATH"
+[ENV BLOCKER] Foundry not in PATH: export PATH="$HOME/.foundry/bin:$PATH"
 [ENV WARNING] Mythril timed out on large contract — results may be incomplete
 [ENV WARNING] Semgrep Solidity rules unavailable — using auto config instead
 ```

@@ -18,7 +18,7 @@ SARIF_SCHEMA = "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/main/sari
 SARIF_VERSION = "2.1.0"
 TOOL_NAME = "Terminator"
 TOOL_VERSION = "1.0.0"
-TOOL_INFO_URI = "https://github.com/rootk1m/Terminator"
+TOOL_INFO_URI = "https://github.com/KH/Terminator"
 
 # Map Terminator severity to SARIF level and security-severity
 SEVERITY_MAP = {

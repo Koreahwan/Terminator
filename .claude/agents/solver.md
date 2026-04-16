@@ -4,6 +4,15 @@ description: Use this agent when solving reversing or crypto challenges through 
 model: opus
 color: magenta
 permissionMode: bypassPermissions
+effort: max
+maxTurns: 50
+requiredMcpServers:
+  - "gdb"
+  - "knowledge-fts"
+disallowedTools:
+  - "mcp__radare2__*"
+  - "mcp__nuclei__*"
+  - "mcp__semgrep__*"
 ---
 
 # Solver Agent

@@ -4,6 +4,13 @@ description: Use this agent when routing a firmware run after reading profile ar
 model: sonnet
 color: cyan
 permissionMode: bypassPermissions
+effort: low
+maxTurns: 15
+disallowedTools:
+  - "mcp__radare2__*"
+  - "mcp__nuclei__*"
+  - "mcp__semgrep__*"
+  - "mcp__codeql__*"
 ---
 
 # Firmware Profiler Agent

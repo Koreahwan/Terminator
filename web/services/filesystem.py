@@ -12,7 +12,7 @@ from pathlib import Path
 from datetime import datetime, timezone
 from typing import Optional
 
-from web.config import REPORTS_DIR, TARGETS_DIR, PIPELINE_PHASES, TEAMS_DIR, TOOL_HEALTH_MAP, TOOL_FULL_MAP
+from web.config import REPORTS_DIR, TARGETS_DIR, PID_DIR, PIPELINE_PHASES, TEAMS_DIR, TOOL_HEALTH_MAP, TOOL_FULL_MAP
 
 logger = logging.getLogger(__name__)
 
@@ -369,8 +369,37 @@ def scan_missions() -> list:
 # ── Agent Runs from Filesystem ──
 
 def get_agent_runs_from_filesystem(limit: int = 50) -> list:
-    """Fallback: scan ~/.claude/teams/ for agent team info."""
+    """Fallback: scan runtime pid metadata first, then ~/.claude/teams/."""
     runs = []
+    if PID_DIR.exists():
+        for meta_file in sorted(PID_DIR.glob("*.json"), reverse=True):
+            try:
+                with open(meta_file) as f:
+                    meta = json.load(f)
+                pid = meta.get("pid")
+                created = datetime.fromtimestamp(meta_file.stat().st_mtime, tz=timezone.utc).isoformat()
+                if pid:
+                    runs.append({
+                        "id": str(pid),
+                        "session_id": meta.get("session_id", meta_file.stem),
+                        "agent_role": meta.get("mode", "session"),
+                        "target": meta.get("target", ""),
+                        "model": meta.get("backend", "unknown"),
+                        "backend": meta.get("backend"),
+                        "parallel_group_id": meta.get("parallel_group_id"),
+                        "status": "RUNNING",
+                        "duration_seconds": None,
+                        "tokens_used": None,
+                        "output_summary": meta.get("report_dir"),
+                        "artifacts": None,
+                        "created_at": created,
+                        "completed_at": None,
+                    })
+            except Exception:
+                logger.exception("Failed to parse pid metadata %s", meta_file.name)
+            if len(runs) >= limit:
+                return runs[:limit]
+
     if not TEAMS_DIR.exists():
         logger.debug("Teams directory does not exist: %s", TEAMS_DIR)
         return runs
@@ -393,6 +422,8 @@ def get_agent_runs_from_filesystem(limit: int = 50) -> list:
                         "agent_role": member.get("name", member.get("agentType", "unknown")),
                         "target": team_name.replace("mission-", ""),
                         "model": member.get("agentType", "unknown"),
+                        "backend": "claude",
+                        "parallel_group_id": None,
                         "status": "COMPLETED",
                         "duration_seconds": None,
                         "tokens_used": None,

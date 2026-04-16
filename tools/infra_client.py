@@ -521,24 +521,48 @@ def cmd_db_log_run(args):
     try:
         conn = get_pg_conn()
         cur = conn.cursor()
-        cur.execute(
-            """INSERT INTO agent_runs
-               (session_id, agent_role, target, model, status,
-                duration_seconds, tokens_used, output_summary, completed_at)
-               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-               RETURNING id""",
-            (
-                args.session,
-                args.agent,
-                args.target,
-                args.model,
-                args.status or "RUNNING",
-                args.duration,
-                args.tokens,
-                args.summary,
-                completed_at,
-            ),
+        payload = (
+            args.session,
+            args.agent,
+            args.target,
+            args.model,
+            args.backend,
+            args.parallel_group_id,
+            args.status or "RUNNING",
+            args.duration,
+            args.tokens,
+            args.summary,
+            completed_at,
         )
+        try:
+            cur.execute(
+                """INSERT INTO agent_runs
+                   (session_id, agent_role, target, model, backend, parallel_group_id, status,
+                    duration_seconds, tokens_used, output_summary, completed_at)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                   RETURNING id""",
+                payload,
+            )
+        except Exception:
+            conn.rollback()
+            cur.execute(
+                """INSERT INTO agent_runs
+                   (session_id, agent_role, target, model, status,
+                    duration_seconds, tokens_used, output_summary, completed_at)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                   RETURNING id""",
+                (
+                    args.session,
+                    args.agent,
+                    args.target,
+                    args.model,
+                    args.status or "RUNNING",
+                    args.duration,
+                    args.tokens,
+                    args.summary,
+                    completed_at,
+                ),
+            )
         row = cur.fetchone()
         run_id = row[0] if row else None
         cur.close()
@@ -563,14 +587,25 @@ def cmd_db_list_runs(args):
     try:
         conn = get_pg_conn()
         cur = conn.cursor()
-        cur.execute(
-            f"""SELECT id, session_id, agent_role, target, model, status,
-                       duration_seconds, tokens_used, output_summary,
-                       created_at, completed_at
-                FROM agent_runs {clause}
-                ORDER BY created_at DESC""",
-            vals,
-        )
+        try:
+            cur.execute(
+                f"""SELECT id, session_id, agent_role, target, model, backend, parallel_group_id, status,
+                           duration_seconds, tokens_used, output_summary,
+                           created_at, completed_at
+                    FROM agent_runs {clause}
+                    ORDER BY created_at DESC""",
+                vals,
+            )
+        except Exception:
+            conn.rollback()
+            cur.execute(
+                f"""SELECT id, session_id, agent_role, target, model, status,
+                           duration_seconds, tokens_used, output_summary,
+                           created_at, completed_at
+                    FROM agent_runs {clause}
+                    ORDER BY created_at DESC""",
+                vals,
+            )
         cols = [desc[0] for desc in cur.description]
         rows = [dict(zip(cols, row)) for row in cur.fetchall()]
         cur.close()
@@ -578,6 +613,60 @@ def cmd_db_list_runs(args):
         output(rows, args)
     except Exception as e:
         err(f"list-runs failed: {e}")
+
+
+def cmd_db_cost_summary(args):
+    """Aggregate cost/token summary per target from agent_runs."""
+    where = []
+    vals = []
+    if args.target:
+        where.append("target = %s")
+        vals.append(args.target)
+
+    clause = f"WHERE {' AND '.join(where)}" if where else ""
+    try:
+        conn = get_pg_conn()
+        cur = conn.cursor()
+        cur.execute(
+            f"""SELECT target, agent_role,
+                       COUNT(*) as runs,
+                       COALESCE(SUM(tokens_used), 0) as total_tokens,
+                       COALESCE(SUM(duration_seconds), 0) as total_duration_sec,
+                       COUNT(CASE WHEN status = 'COMPLETED' THEN 1 END) as completed,
+                       COUNT(CASE WHEN status = 'FAILED' THEN 1 END) as failed
+                FROM agent_runs {clause}
+                GROUP BY target, agent_role
+                ORDER BY target, total_tokens DESC""",
+            vals,
+        )
+        cols = [desc[0] for desc in cur.description]
+        rows = [dict(zip(cols, row)) for row in cur.fetchall()]
+
+        # Add estimated cost (opus=$15/M input, sonnet=$3/M input — rough)
+        MODEL_COST_PER_M = {"opus": 15.0, "sonnet": 3.0, "haiku": 0.25}
+        for row in rows:
+            row["total_tokens"] = int(row["total_tokens"])
+            row["total_duration_sec"] = int(row["total_duration_sec"])
+
+        # Also produce per-target summary
+        if args.target:
+            total_tokens = sum(r["total_tokens"] for r in rows)
+            total_runs = sum(r["runs"] for r in rows)
+            summary = {
+                "target": args.target,
+                "total_runs": total_runs,
+                "total_tokens": total_tokens,
+                "total_duration_sec": sum(r["total_duration_sec"] for r in rows),
+                "agents": rows,
+            }
+            output(summary, args)
+        else:
+            output(rows, args)
+
+        cur.close()
+        conn.close()
+    except Exception as e:
+        err(f"cost-summary failed: {e}")
 
 
 # ── Argument Parsing ─────────────────────────────────────────────────────────
@@ -697,6 +786,8 @@ def build_parser():
     lr.add_argument("--duration", type=int, dest="duration", help="Duration in seconds")
     lr.add_argument("--tokens", type=int, help="Tokens used")
     lr.add_argument("--model", help="Model used (e.g. sonnet, opus)")
+    lr.add_argument("--backend", help="Backend used (e.g. claude, codex)")
+    lr.add_argument("--parallel-group-id", dest="parallel_group_id", help="Parallel execution group ID")
     lr.add_argument("--summary", help="Output summary text")
     lr.set_defaults(func=cmd_db_log_run)
 
@@ -705,6 +796,11 @@ def build_parser():
     lrs.add_argument("--session", help="Filter by session ID")
     lrs.add_argument("--target", help="Filter by target")
     lrs.set_defaults(func=cmd_db_list_runs)
+
+    # cost-summary
+    cs = db_sub.add_parser("cost-summary", help="Aggregate cost/token summary per target")
+    cs.add_argument("--target", help="Filter by target (omit for all targets)")
+    cs.set_defaults(func=cmd_db_cost_summary)
 
     return parser
 

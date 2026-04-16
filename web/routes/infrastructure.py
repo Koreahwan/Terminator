@@ -102,7 +102,7 @@ async def active_agent_runs():
         return {"active": rows}
     except Exception:
         logger.warning("DB unavailable for active agent runs, falling back to filesystem")
-        return {"active": [], "source": "filesystem"}
+        return {"active": get_agent_runs_from_filesystem(limit=50), "source": "filesystem"}
 
 
 @router.post("/api/rag/search")

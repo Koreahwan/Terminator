@@ -5,13 +5,14 @@ import json
 import os
 import tempfile
 from mcp.server.fastmcp import FastMCP
+from mcp.types import ToolAnnotations
 
 mcp = FastMCP("semgrep-mcp")
 
 SEMGREP_BIN = os.path.expanduser("~/.local/bin/semgrep")
 
 
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, idempotentHint=True))
 def scan(target: str, rules: str = "auto", severity: str = "", timeout: int = 300) -> str:
     """Run Semgrep static analysis scan.
 
@@ -86,7 +87,7 @@ def scan(target: str, rules: str = "auto", severity: str = "", timeout: int = 30
         return f"Semgrep not found at {SEMGREP_BIN}"
 
 
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, idempotentHint=True))
 def scan_with_rule(target: str, rule_yaml: str) -> str:
     """Run Semgrep with an inline rule definition.
 
@@ -127,7 +128,7 @@ def scan_with_rule(target: str, rule_yaml: str) -> str:
             os.unlink(tmp_rule)
 
 
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, idempotentHint=True))
 def list_rules(language: str = "", category: str = "") -> str:
     """List available Semgrep rule packs from the registry.
 
@@ -178,7 +179,7 @@ def list_rules(language: str = "", category: str = "") -> str:
     }, indent=2)
 
 
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, idempotentHint=True))
 def taint_analysis(target: str, language: str = "python") -> str:
     """Run taint-mode analysis to find source-to-sink data flows.
 

@@ -4,6 +4,12 @@ description: Use this agent when enforcing firmware validator policy, generating
 model: sonnet
 color: green
 permissionMode: bypassPermissions
+effort: medium
+maxTurns: 20
+disallowedTools:
+  - "mcp__radare2__*"
+  - "mcp__nuclei__*"
+  - "mcp__semgrep__*"
 ---
 
 # Firmware Validator Agent

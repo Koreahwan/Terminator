@@ -10,7 +10,7 @@ CWD=$(echo "$INPUT" | jq -r '.cwd // ""')
 SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // ""')
 
 # 프로젝트 루트
-PROJECT_DIR="/home/rootk1m/01_CYAI_Lab/01_Projects/Terminator"
+PROJECT_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
 COORD_CLI="$PROJECT_DIR/tools/coordination_cli.py"
 CONTEXT_DIGEST="$PROJECT_DIR/tools/context_digest.py"
 
@@ -133,6 +133,8 @@ python3 "$COORD_CLI" event \
     --session "$SESSION_ID" \
     --type "pre_compact_saved" \
     --payload-json "{\"state_file\": $(printf '%s' "$STATE_FILE" | jq -Rs .)}" >/dev/null 2>&1 || true
+
+printf '%s' "$INPUT" | bash "$PROJECT_DIR/.claude/hooks/sync_shared_memory.sh" >/dev/null 2>&1 || true
 
 # 6. 출력
 if [[ -n "$CONTEXT" ]]; then

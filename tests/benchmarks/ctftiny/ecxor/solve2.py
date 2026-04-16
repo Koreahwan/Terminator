@@ -8,11 +8,11 @@ import sys
 import os
 import re
 
-sys.path.insert(0, '/home/rootk1m/01_CYAI_Lab/01_Projects/Terminator/tests/benchmarks/ctftiny/ecxor')
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from rfc8032 import point_add, point_compress, point_mul, G
 
-CHALLENGE_DIR = '/home/rootk1m/01_CYAI_Lab/01_Projects/Terminator/tests/benchmarks/ctftiny/ecxor'
+CHALLENGE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 print("[*] Building lookup table n*G for n in 0..510 ...")
 

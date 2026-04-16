@@ -364,7 +364,7 @@ python3 tools/attack_graph/cli.py import --input graph_backup.json
 # 파이프라인 시각화
 python3 tools/dag_orchestrator/cli.py visualize ctf_pwn
 python3 tools/dag_orchestrator/cli.py visualize bounty
-# 사전 정의 파이프라인: ctf_pwn(6), ctf_rev(5), bounty(9), firmware(6)
+# 사전 정의 파이프라인: ctf_pwn(6), ctf_rev(5), bounty(9), firmware(6), ai_security(10), robotics(7), supplychain(10/7)
 # dry-run
 python3 tools/dag_orchestrator/cli.py run ctf_pwn --dry-run
 ```
@@ -418,7 +418,7 @@ python3 tests/benchmarks/benchmark.py --challenge dhcc
 ### Docker Infrastructure
 ```bash
 # 전체 기동
-cd /home/rootk1m/01_CYAI_Lab/01_Projects/Terminator
+cd <project-root>/All_Projects/Terminator
 docker compose up -d
 
 # 개별 서비스
@@ -508,6 +508,30 @@ mallocng-vis               # visualize musl heap
 # Compact mode
 set context-regs-show very # minimal register display
 ```
+
+---
+
+## AI/LLM Security
+
+| Tool | Path | Purpose |
+|------|------|---------|
+| **garak** | Python module | LLM vulnerability scanner (OWASP LLM Top 10 probes) |
+| **promptfoo** 0.121.3 | `~/.npm-global/bin/promptfoo` | LLM red-team evaluation framework |
+| **httpx** | Python module | Async HTTP client for API probing |
+
+## Supply Chain Security
+
+| Tool | Path | Purpose |
+|------|------|---------|
+| **syft** 1.42.3 | `~/bin/syft` | SBOM generator (CycloneDX/SPDX output) |
+| **grype** 0.110.0 | `~/bin/grype` | Vulnerability matcher (reads SBOM input) |
+| **pip-audit** 2.10.0 | `pip-audit` | Python dependency vulnerability scanner |
+
+## Robotics/ROS
+
+| Tool | Path | Purpose |
+|------|------|---------|
+| **ROS2 Humble** | `docker run ros:humble` | ROS CLI + simulation (Docker-only) |
 
 ---
 

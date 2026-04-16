@@ -2,6 +2,9 @@
 name: bounty
 description: Start Bug Bounty target analysis pipeline. Auto-matches "bounty", "target analysis", "find vulns", "bug hunting", "Immunefi", "Bugcrowd", "H1"
 argument-hint: [target-url-or-name] [scope]
+context: fork
+effort: high
+model: opus
 ---
 
 # Bug Bounty Pipeline (v4 — Explore Lane)
@@ -12,13 +15,11 @@ argument-hint: [target-url-or-name] [scope]
 3. **Orchestrator MUST NOT analyze directly** — delegate to agents. Reading code directly = context waste
 4. **Agent model parameter MANDATORY** — unspecified model inherits opus = 3-5x token waste
 
-## Pre-checks (auto-executed)
+## Pre-checks (manual — Orchestrator runs these)
 
-Program rules check:
-!`if [ -d "targets/$1" ]; then cat "targets/$1/program_rules_summary.md" 2>/dev/null | head -20 || echo "rules not generated"; fi`
+Program rules check — Orchestrator reads `targets/<target>/program_rules_summary.md` if it exists.
 
-Existing findings check:
-!`python3 /home/rootk1m/01_CYAI_Lab/01_Projects/Terminator/tools/knowledge_indexer.py search "$ARGUMENTS" 2>/dev/null | head -10 || echo "search unavailable"`
+Existing findings check — Orchestrator runs: `python3 tools/knowledge_indexer.py search "<target>"` via Bash.
 
 ## Pipeline Rules
 
@@ -33,10 +34,21 @@ Subagent spawn uses `Task` or `Agent` tool depending on Claude build, but `subag
 3. **Run `oos-check` skill** — full program OOS scan
 4. Use target-evaluator's `suggested_searches` for knowledge-fts → inject `[KNOWLEDGE CONTEXT]` into HANDOFF
 
-### Phase 0.2: Program Rules Generation (MANDATORY)
+### Phase 0.1: Program Fetch (v12.4 MANDATORY)
 ```bash
 python3 tools/bb_preflight.py init targets/<target>/
-# Fill program_rules_summary.md (auth format, Known Issues, exclusion list)
+python3 tools/bb_preflight.py fetch-program targets/<target>/ <program_url>
+# Deterministic per-platform handler (H1/Bugcrowd/Immunefi/Intigriti/YWH/
+# HackenProof/huntr/github_md) auto-fills verbatim scope/OOS/severity.
+# Exit 0 = PASS | 2 = HOLD (review) | 1 = FAIL (manual fallback)
+```
+
+### Phase 0.2: Program Rules Verification (MANDATORY)
+```bash
+# fetch-program already filled verbatim sections. Now:
+# 1. Verify auto-filled sections match the live page (spot-check)
+# 2. Fill OPERATIONAL sections from live API traffic (Auth, Mandatory
+#    Headers, Verified Curl) — these cannot come from fetch-program.
 python3 tools/bb_preflight.py rules-check targets/<target>/
 # FAIL = Phase 1 blocked
 ```
@@ -94,9 +106,22 @@ python3 tools/bb_preflight.py duplicate-graph-check targets/<target>/ --finding 
 - triager-sim outputs `triager_sim_result.json` → reporter auto-feedback loop (max 3 rounds)
 - No submission without triager-sim SUBMIT
 - **`checkpoint-validate` skill for idle agent detection** (as needed)
+- reporter generates `autofill_payload.json`: `python3 tools/bb_autofill_payload.py targets/<target>/submission/<name>/`
+
+### Phase 5.5: Submission Review Panel
+- `submission-review` (model=opus) → 3-perspective final check
+- Output: `submission_review.json` with verdict GO/HOLD/KILL + rejection_probability
+- GO → Phase 5.8 | HOLD → reporter fix (max 2 rounds) | KILL → archive
+
+### Phase 5.8: MCP Auto-Fill
+- Orchestrator uses MCP Playwright: `browser_navigate` → `browser_snapshot` → `browser_fill_form`
+- If login needed → user logs in manually → orchestrator continues filling
+- `browser_take_screenshot` → `pre_submit_screenshot.png`
+- **Human clicks Submit** — script NEVER clicks submit button
+- Phase 6 blocked until user confirms
 
 ### Phase 6: Cleanup
-- TeamDelete
+- TeamDelete — **only after user confirms submission done**
 
 ## Time-Box Enforcement
 - Phase 0: 45min MAX | Phase 0.5: 30min MAX | Phase 1: 2hr MAX

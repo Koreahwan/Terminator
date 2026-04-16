@@ -4,6 +4,17 @@ description: Use this agent when performing deep source code security review acr
 model: opus
 color: blue
 permissionMode: bypassPermissions
+effort: max
+maxTurns: 50
+requiredMcpServers:
+  - "semgrep"
+  - "codeql"
+  - "knowledge-fts"
+disallowedTools:
+  - "mcp__radare2__*"
+  - "mcp__gdb__*"
+  - "mcp__ghidra__*"
+  - "mcp__nuclei__*"
 ---
 
 # Source Auditor Agent

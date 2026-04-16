@@ -4,7 +4,7 @@
 
 set -euo pipefail
 
-PROJECT_ROOT="/home/rootk1m/01_CYAI_Lab/01_Projects/Terminator"
+PROJECT_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 COORD_CLI="$PROJECT_ROOT/tools/coordination_cli.py"
 CONTEXT_DIGEST="$PROJECT_ROOT/tools/context_digest.py"
 GRAPHRAG_ROOT="$(cd "$(dirname "$0")/../../tools/graphrag-security" && pwd)"
@@ -70,6 +70,8 @@ python3 "$COORD_CLI" event \
     --session "$SESSION_ID" \
     --type "session_knowledge_injected" \
     --payload-json "{\"skill_count\": $SKILL_COUNT, \"instruction_count\": $INSTRUCTION_COUNT}" >/dev/null 2>&1 || true
+
+printf '%s' "$INPUT" | bash "$PROJECT_ROOT/.claude/hooks/sync_shared_memory.sh" >/dev/null 2>&1 || true
 
 MESSAGE=$(echo "$DIGEST_JSON" | jq -r '.payload.summary_1liner // empty' 2>/dev/null || true)
 FACTS=$(echo "$DIGEST_JSON" | jq -r '.payload.high_signal_facts // [] | .[:5] | join("\n")' 2>/dev/null || true)

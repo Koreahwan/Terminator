@@ -45,6 +45,13 @@ def _read_text(path: Path, max_chars: int = 4000) -> str:
         return ""
 
 
+def _safe_stat_mtime(path: Path) -> float:
+    try:
+        return path.stat().st_mtime
+    except OSError:
+        return 0.0
+
+
 def _extract_skill_metadata(path: Path) -> dict[str, str]:
     text = _read_text(path, max_chars=2500)
     lines = [line.strip() for line in text.splitlines()]
@@ -978,6 +985,184 @@ class CoordinationStore:
         )
         return result
 
+    def sync_claude_state(self, session_id: str, *, cwd: str | os.PathLike[str] | None = None) -> dict[str, Any]:
+        resolved_cwd = Path(cwd or self._session_cwd(session_id)).resolve()
+        home = Path.home()
+        claude_root = home / ".claude"
+        tasks_dir = claude_root / "tasks"
+        teams_dir = claude_root / "teams"
+        compaction_state_path = self.project_root / ".omc" / "compaction_state.json"
+
+        synced_artifacts: list[dict[str, Any]] = []
+        source_refs: list[str] = []
+        summary_lines: list[str] = [
+            f"- Claude root: {self._display_path(claude_root) if claude_root.exists() else str(claude_root)}",
+            f"- Sync cwd: {self._display_path(resolved_cwd)}",
+        ]
+
+        recent_tasks = sorted(
+            (candidate for candidate in tasks_dir.glob("*.json") if candidate.is_file()),
+            key=_safe_stat_mtime,
+            reverse=True,
+        ) if tasks_dir.exists() else []
+        active_task_lines: list[str] = []
+        for task_path in recent_tasks[:12]:
+            task_payload = self._read_json(task_path, {})
+            status = str(task_payload.get("status", "unknown"))
+            subject = str(task_payload.get("subject") or task_payload.get("prompt") or task_path.stem)
+            if status in {"in_progress", "pending", "running", "completed", "failed"}:
+                active_task_lines.append(f"- {status}: {subject[:160]}")
+            source_refs.append(self._display_path(task_path))
+            synced_artifacts.append(
+                self.register_artifact(
+                    session_id,
+                    artifact_path=str(task_path),
+                    artifact_type="claude_task",
+                    producer="claude_sync",
+                    metadata={"status": status, "subject": subject[:160]},
+                )
+            )
+        summary_lines.append(f"- Claude tasks discovered: {len(recent_tasks)}")
+        if active_task_lines:
+            summary_lines.append("- Recent Claude tasks:")
+            summary_lines.extend(f"  {line}" for line in active_task_lines[:8])
+
+        recent_teams = sorted(
+            (candidate for candidate in teams_dir.glob("*/config.json") if candidate.is_file()),
+            key=_safe_stat_mtime,
+            reverse=True,
+        ) if teams_dir.exists() else []
+        team_lines: list[str] = []
+        for team_path in recent_teams[:8]:
+            team_payload = self._read_json(team_path, {})
+            team_name = str(team_payload.get("team_name") or team_payload.get("name") or team_path.parent.name)
+            member_count = len(team_payload.get("members") or [])
+            team_lines.append(f"- {team_name} ({member_count} members)")
+            source_refs.append(self._display_path(team_path))
+            synced_artifacts.append(
+                self.register_artifact(
+                    session_id,
+                    artifact_path=str(team_path),
+                    artifact_type="claude_team",
+                    producer="claude_sync",
+                    metadata={"team_name": team_name, "member_count": member_count},
+                )
+            )
+        summary_lines.append(f"- Claude team configs discovered: {len(recent_teams)}")
+        if team_lines:
+            summary_lines.append("- Recent Claude teams:")
+            summary_lines.extend(f"  {line}" for line in team_lines[:6])
+
+        if compaction_state_path.exists():
+            source_refs.append(self._display_path(compaction_state_path))
+            synced_artifacts.append(
+                self.register_artifact(
+                    session_id,
+                    artifact_path=str(compaction_state_path),
+                    artifact_type="claude_compaction_state",
+                    producer="claude_sync",
+                )
+            )
+            compaction_text = _read_text(compaction_state_path, max_chars=6000)
+            self.write_digest(
+                session_id,
+                build_digest_payload(
+                    title="Claude compaction state snapshot",
+                    text=compaction_text,
+                    kind="claude_compaction_state",
+                    source_refs=[self._display_path(compaction_state_path)],
+                    generated_by="sync_claude_state",
+                    model="claude-runtime",
+                ),
+                update_latest=False,
+            )
+            summary_lines.append("- Claude compaction state: present")
+        else:
+            summary_lines.append("- Claude compaction state: absent")
+
+        checkpoint_roots = [resolved_cwd, self.project_root / "targets", self.project_root / "tests"]
+        checkpoint_candidates: list[Path] = []
+        seen_paths: set[Path] = set()
+        for root in checkpoint_roots:
+            if not root.exists():
+                continue
+            for candidate in root.rglob("checkpoint*.json"):
+                if candidate.is_file() and candidate not in seen_paths:
+                    checkpoint_candidates.append(candidate)
+                    seen_paths.add(candidate)
+                if len(checkpoint_candidates) >= 24:
+                    break
+        checkpoint_files = sorted(checkpoint_candidates, key=_safe_stat_mtime, reverse=True)[:8]
+        checkpoint_lines: list[str] = []
+        for checkpoint_path in checkpoint_files:
+            payload = self._read_json(checkpoint_path, {})
+            status = str(payload.get("status", "unknown"))
+            agent = str(payload.get("agent", "unknown"))
+            phase = str(payload.get("phase_name") or payload.get("phase") or "?")
+            checkpoint_lines.append(f"- {agent} status={status} phase={phase} path={self._display_path(checkpoint_path)}")
+        if checkpoint_lines:
+            summary_lines.append("- Recent checkpoint snapshots:")
+            summary_lines.extend(f"  {line}" for line in checkpoint_lines[:6])
+
+        self.merge_manifest_metadata(
+            session_id,
+            {
+                "claude_task_count": len(recent_tasks),
+                "claude_team_count": len(recent_teams),
+                "claude_compaction_state_present": compaction_state_path.exists(),
+            },
+        )
+
+        sync_digest = self.write_digest(
+            session_id,
+            build_digest_payload(
+                title="Claude runtime synchronization",
+                text="\n".join(summary_lines),
+                kind="claude_state_sync",
+                source_refs=source_refs,
+                generated_by="sync_claude_state",
+                model="claude-runtime",
+                metadata={
+                    "artifact_count": len(synced_artifacts),
+                    "task_count": len(recent_tasks),
+                    "team_count": len(recent_teams),
+                    "has_compaction_state": compaction_state_path.exists(),
+                },
+            ),
+            update_latest=True,
+        )
+        checkpoint = self.update_checkpoint(
+            session_id,
+            actor="claude_sync",
+            stage="runtime_sync",
+            status="completed",
+            payload={
+                "cwd": str(resolved_cwd),
+                "artifact_count": len(synced_artifacts),
+                "task_count": len(recent_tasks),
+                "team_count": len(recent_teams),
+                "latest_digest_ref": sync_digest["path"],
+            },
+        )
+        result = {
+            "session_id": session_id,
+            "cwd": str(resolved_cwd),
+            "artifacts": synced_artifacts,
+            "latest_digest": sync_digest,
+            "checkpoint": checkpoint,
+        }
+        self.append_event(
+            session_id,
+            "claude_state_synced",
+            {
+                "artifact_count": len(synced_artifacts),
+                "task_count": len(recent_tasks),
+                "team_count": len(recent_teams),
+                "latest_digest_ref": sync_digest["path"],
+            },
+        )
+        return result
+
     def bootstrap_codex(self, *, session_id: str | None = None, cwd: str | os.PathLike[str] | None = None) -> dict[str, Any]:
         resolved_cwd = Path(cwd or ".").resolve()
         omx_session_path, omx_session = self._read_omx_session(resolved_cwd)
@@ -996,6 +1181,7 @@ class CoordinationStore:
         )
         skills = self.discover_skills(actual_session)
         instructions = self.discover_instruction_docs(actual_session)
+        claude_sync_result = self.sync_claude_state(actual_session, cwd=resolved_cwd)
         sync_result = self.sync_omx_state(actual_session, cwd=resolved_cwd)
         leader_state = self.set_leader(
             actual_session,
@@ -1012,8 +1198,10 @@ class CoordinationStore:
                 f"- Session id: {actual_session}",
                 f"- Skill count: {skills.get('count', 0)}",
                 f"- Instruction doc count: {instructions.get('count', 0)}",
+                f"- Latest Claude sync digest: {claude_sync_result['latest_digest']['path']}",
                 f"- Latest digest: {sync_result['latest_digest']['path']}",
                 "- Read latest digest and latest handoff before re-reading long docs.",
+                "- Treat coordination Claude sync snapshots as shared memory from Claude.",
                 "- Write structured handoffs before switching leader back to Claude.",
             ]
         )
@@ -1026,6 +1214,7 @@ class CoordinationStore:
                 source_refs=[
                     refreshed_manifest.get("latest_skill_index_ref", ""),
                     refreshed_manifest.get("latest_instruction_index_ref", ""),
+                    claude_sync_result["latest_digest"]["path"],
                     sync_result["latest_digest"]["path"],
                 ],
                 generated_by="bootstrap_codex",

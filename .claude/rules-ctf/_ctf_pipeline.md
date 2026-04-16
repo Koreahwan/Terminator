@@ -66,8 +66,16 @@ TeamCreate("ctf-<challenge_name>")
 **@ critic** (subagent_type="critic", model=opus, mode=bypassPermissions):
 - Cross-verify solve.py + reversal_map.md + chain_report.md
 - Independent verification of addresses/offsets/constants via GDB/Ghidra MCP
-- APPROVED → verifier | REJECTED → specific fixes back to chain/solver
+- APPROVED → **codex cross-review** → verifier | REJECTED → specific fixes back to chain/solver
 - Artifact: `critic_review.md`
+
+**@ codex cross-review** (Orchestrator runs directly, after critic APPROVED) [OPTIONAL but RECOMMENDED]:
+- `/codex:adversarial-review --wait` on solve.py + chain_report.md
+- Cross-model verification: GPT-5.4 independently reviews Claude's exploit
+- Focus: offset correctness, gadget validity, assumption challenges
+- PASS (no critical issues) → verifier | CRITICAL ISSUE → back to chain/solver with Codex feedback
+- **Skip conditions**: trivial challenges, ctf-solver 1-agent pipeline, time pressure
+- Artifact: Codex review output appended to `critic_review.md`
 
 **@ verifier** (subagent_type="verifier", model=sonnet, mode=bypassPermissions):
 - After critic APPROVED: local 3x reproduction (PASS/RETRY/FAIL)
@@ -93,15 +101,32 @@ reverser → critic(lightweight, model=sonnet) → chain/solver → critic(full)
 ```
 Early Critic scope: fact-check reversal_map.md addresses/offsets/constants only (not full review).
 
-## Dual-Approach Auto-Trigger (after 2 failures)
+## Dual-Approach Auto-Trigger & Best@N Parallel Retry (after 2 failures)
+
+SCONE-bench 연구에서 Best@8이 Best@1 대비 2-3x 성공률 향상 검증.
 
 When chain/solver fails 2x consecutively on same challenge:
 ```
-Orchestrator spawns 2 agents simultaneously:
-  chain-A (approach A: different strategy) + chain-B (approach B: entirely different technique)
+Option A (Cross-Model — default):
+  chain-A (Claude opus, different strategy hint)
+  + codex:rescue (GPT-5.4 independent attempt, --write --background)
   First success adopted, other terminated.
+
+Option B (Best@3 Same-Model — when codex unavailable or depth needed):
+  chain-A (strategy: traditional ROP)
+  + chain-B (strategy: ret2libc/one_gadget)
+  + chain-C (strategy: FSOP/stack pivot)
+  All 3 run in parallel. First local shell wins.
+  Orchestrator picks based on: success > stability > code simplicity.
 ```
-After 4 failures: mandatory external writeup search (WebSearch).
+
+**Selection**: Orchestrator uses Option A by default. Option B when:
+- codex plugin unavailable
+- Previous dual-approach both failed (escalate to 3-way)
+- Challenge type benefits from strategy diversity (heap feng shui)
+
+Cross-model dual-approach eliminates single-model blind spots.
+After 4 total failures: mandatory external writeup search (WebSearch).
 
 ## Fake Flag vs Real Flag (CRITICAL)
 

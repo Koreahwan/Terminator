@@ -4,6 +4,15 @@ description: Use this agent when producing a minimal, reliable crash or trigger 
 model: sonnet
 color: yellow
 permissionMode: bypassPermissions
+effort: medium
+maxTurns: 30
+requiredMcpServers:
+  - "gdb"
+disallowedTools:
+  - "mcp__radare2__*"
+  - "mcp__nuclei__*"
+  - "mcp__semgrep__*"
+  - "mcp__codeql__*"
 ---
 
 # Trigger Agent

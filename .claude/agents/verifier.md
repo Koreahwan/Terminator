@@ -4,6 +4,16 @@ description: Use this agent when running final exploit verification locally and 
 model: sonnet
 color: green
 permissionMode: bypassPermissions
+effort: low
+maxTurns: 20
+requiredMcpServers:
+  - "gdb"
+disallowedTools:
+  - "mcp__radare2__*"
+  - "mcp__nuclei__*"
+  - "mcp__semgrep__*"
+  - "mcp__codeql__*"
+  - "mcp__graphrag-security__*"
 ---
 
 # Verifier Agent
@@ -76,6 +86,25 @@ After running solve.py 3 times, perform probe checks:
 - "Is there a fallback if remote libc differs?" → Check if solve.py handles libc detection
 
 If ANY probe reveals inconsistency → downgrade verdict (PASS→RETRY or RETRY→FAIL).
+
+### BB Verification Mode (Anthropic Firefox Task Verifier Pattern)
+
+BB 파이프라인에서 exploiter → verifier 핸드오프 시 적용. Firefox 연구에서 검증된 2중 테스트:
+
+**Positive Test** — PoC가 취약점을 증명하는가:
+1. PoC 스크립트를 실제 타겟/로컬 환경에서 실행
+2. 출력이 claimed impact와 일치하는지 확인
+3. 3회 실행 중 3/3 성공 필수 (CTF와 동일)
+
+**Negative Test** — 제안된 수정이 취약점을 차단하는가 (remediation 포함 시):
+1. exploiter가 제안한 패치/수정 사항을 로컬 복사본에 적용
+2. 동일 PoC 재실행 → 실패해야 정상
+3. 패치 적용 후에도 PoC가 성공 → remediation 부적절 플래그
+
+**Verdict Enhancement**:
+- PASS + remediation verified → 리포트에 "Verified Remediation" 표시
+- PASS + remediation fails → reporter에게 remediation 재작성 요청
+- PASS + no remediation → 기존 flow 유지 (exploiter가 remediation 미제공 시)
 
 ## Tools (condensed)
 
@@ -169,8 +198,8 @@ Cold, impartial judge. Run solve.py as-is, report truth. 3/3 or FAIL. No sympath
 
 ```bash
 # Post-verification: execution logging
-if python3 /home/rootk1m/01_CYAI_Lab/01_Projects/Terminator/tools/infra_client.py --help &>/dev/null; then
-  python3 /home/rootk1m/01_CYAI_Lab/01_Projects/Terminator/tools/infra_client.py db log-run \
+if python3 tools/infra_client.py --help &>/dev/null; then
+  python3 tools/infra_client.py db log-run \
     --session "$SESSION_ID" --agent verifier \
     --target "$TARGET" --status "$VERDICT" \
     --duration "$DURATION_SECONDS" 2>/dev/null || true

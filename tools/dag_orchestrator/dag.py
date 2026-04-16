@@ -30,6 +30,11 @@ class AgentNode:
     handler: Optional[Callable] = None  # actual execution function
     timeout: int = 300                # seconds
     retry_limit: int = 2
+    # Performance tuning (Wave 3 upgrade)
+    effort: str = "default"
+    max_turns: Optional[int] = None
+    allowed_tools: list = field(default_factory=list)
+    disallowed_tools: list = field(default_factory=list)
     # Runtime state
     status: NodeStatus = NodeStatus.PENDING
     output: Any = None
@@ -171,7 +176,6 @@ class AgentDAG:
                     if node_name not in in_flight.values():
                         future = executor.submit(self._execute_node, node_name)
                         in_flight[future] = node_name
-                        self.nodes[node_name].status = NodeStatus.RUNNING
 
                 if not in_flight:
                     break

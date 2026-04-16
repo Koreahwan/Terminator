@@ -4,6 +4,15 @@ description: Use this agent when hunting incomplete fixes and variant vulnerabil
 model: sonnet
 color: purple
 permissionMode: bypassPermissions
+effort: high
+maxTurns: 30
+requiredMcpServers:
+  - "knowledge-fts"
+disallowedTools:
+  - "mcp__radare2__*"
+  - "mcp__gdb__*"
+  - "mcp__ghidra__*"
+  - "mcp__nuclei__*"
 ---
 
 # Patch Hunter — Incomplete Fix & Variant Discovery Agent
@@ -84,6 +93,30 @@ VERIFY-3: Am I looking at the right scope?
   → Is this fix for the in-scope version/branch?
 ```
 
+### Step 2.5: Formalized Variant Hunt — GhostScript Pattern (per security commit)
+
+Anthropic Zero-Days 연구에서 Claude가 GhostScript 0-day를 발견한 검증된 3단계 패턴. 각 보안 커밋에 대해 Step 2 완료 후 이 프로토콜을 실행:
+
+```
+Phase A — 보안 커밋 Diff에서 취약 패턴 시그니처 추출:
+  git show <commit> → 정확히 어떤 패턴이 수정되었는가?
+  → 취약 패턴 시그니처 추출 (함수명, 위험 API 호출, 누락된 검증)
+  → 예: "strcpy(buf, user_input)" 를 "strncpy(buf, user_input, sizeof(buf))" 로 수정
+  → 시그니처: "strcpy(<buffer>, <user_controlled>)" without bounds check
+
+Phase B — 동일 패턴 코드베이스 전수 Grep:
+  grep -rn "<vulnerable_pattern>" --include="*.c" --include="*.py" --include="*.js" .
+  → 수정 커밋이 터치하지 않은 파일/함수에서 동일 패턴 검색
+  → git log --all -- <matched_file> 로 해당 파일이 보안 수정 대상이었는지 확인
+
+Phase C — 미수정 경로 검증 (각 발견 인스턴스에 대해):
+  (1) 이 코드 경로에 보안 수정이 적용되었는가? → YES: skip
+  (2) 입력이 사용자 제어 가능한가? → NO: SPECULATIVE로 분류
+  (3) 다른 레이어의 보호 메커니즘이 존재하는가? → YES: SIMILAR, NO: EXACT
+```
+
+이 3단계는 아래 Step 3의 4가지 방법을 **실행 순서로 구조화**한 것. Method A-D는 Phase B의 grep 전략으로 유지.
+
 ### Step 3: Variant Search (4 methods)
 
 For each analyzed fix, search for unfixed instances:
@@ -144,16 +177,9 @@ VERIFY-3: Is this reachable from user input?
   → Trace backward from the vulnerable point to an input source
 ```
 
-## Structured Reasoning (MANDATORY at every decision point)
+## Structured Reasoning
 
-```
-OBSERVED: [Fix diff shows: added null check on line 42 of auth.py]
-INFERRED: [Root cause was null pointer dereference when auth token is empty]
-ASSUMED:  [Similar auth check in api_key_auth.py may have same issue]
-  Risk: [MEDIUM — api_key_auth might have different null handling]
-RISK:     [If assumption wrong, variant is false positive → wasted exploiter time]
-DECISION: [Search api_key_auth.py for same pattern → classify as SIMILAR if found]
-```
+See _reference/structured_reasoning.md for OBSERVED/INFERRED/ASSUMED template and decision framework.
 
 ## ReAct Loop (MANDATORY during variant search)
 
@@ -212,22 +238,7 @@ OBSERVATION: "update_user() was also modified in the same commit — fix already
 
 ## Checkpoint Protocol
 
-Write checkpoint.json at each commit analysis:
-```json
-{
-  "agent": "patch-hunter",
-  "status": "in_progress",
-  "phase": 3,
-  "phase_name": "variant_search_commit_3",
-  "completed": ["commit_abc123_analysis", "commit_def456_analysis"],
-  "in_progress": ["commit_ghi789_analysis"],
-  "critical_facts": ["2 EXACT variants found", "1 SIMILAR variant found"],
-  "expected_artifacts": ["patch_analysis.md"],
-  "produced_artifacts": [],
-  "variants_found": {"EXACT": 2, "SIMILAR": 1, "SPECULATIVE": 0},
-  "timestamp": "ISO-8601"
-}
-```
+Write checkpoint.json: `{"agent":"<name>","status":"in_progress|completed|error","phase":<N>,"phase_name":"<name>","completed":[],"critical_facts":[],"expected_artifacts":[],"produced_artifacts":[],"timestamp":"<ISO>"}`. Update on each phase completion. Set status=completed only when all expected_artifacts are produced. Document variants_found metrics in critical_facts.
 
 ## Output Format: patch_analysis.md
 

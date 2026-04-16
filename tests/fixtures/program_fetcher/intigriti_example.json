@@ -1,0 +1,101 @@
+{
+  "_note": "Real Intigriti public API shape (simplified). See tools/program_fetcher/intigriti.py _populate_from_api.",
+  "handle": "demo",
+  "companyHandle": "demo",
+  "name": "Demo Intigriti Program",
+  "companyName": "Demo",
+  "lastActivity": "2026-03-15T10:00:00Z",
+  "programId": "00000000-0000-0000-0000-000000000001",
+  "inScopes": [
+    {
+      "content": {
+        "content": "* \\*.example.com\n* app.example.com\n* api.example.com",
+        "attachments": []
+      },
+      "createdAt": 1700000000
+    }
+  ],
+  "outOfScopes": [
+    {
+      "content": {
+        "content": "- CSRF on logout\n- Self-XSS without impact\n- Text injection without execution",
+        "attachments": []
+      },
+      "createdAt": 1700000000
+    }
+  ],
+  "severityAssessments": [
+    {
+      "content": {
+        "content": "We use CVSSv3 with business impact modifiers.",
+        "attachments": []
+      },
+      "createdAt": 1700000000
+    }
+  ],
+  "rulesOfEngagements": [
+    {
+      "content": {
+        "content": {
+          "description": "Report vulnerabilities through Intigriti. Each report must include a reproducible PoC with clear impact. Out-of-scope issues will be closed as Not Applicable without payout. We appreciate high-quality reports with comprehensive reproduction steps."
+        }
+      },
+      "createdAt": 1700000000
+    }
+  ],
+  "assetsCollection": [
+    {
+      "content": {
+        "assetsAndGroups": [
+          {"type": "web", "endpoint": "https://app.example.com", "tier": "tier1", "description": "Main web app"},
+          {"type": "api", "endpoint": "https://api.example.com", "tier": "tier1", "description": "Public API"},
+          {"type": "wildcard", "endpoint": "*.example.com", "tier": "tier2", "description": "All subdomains"}
+        ]
+      },
+      "createdAt": 1700000000
+    }
+  ],
+  "bountyTables": [
+    {
+      "content": {
+        "currency": "EUR",
+        "bountyRows": [
+          {
+            "minScore": 9.0,
+            "maxScore": 10.0,
+            "bountyRanges": [
+              {
+                "minBounty": {"value": 2000, "currency": "EUR"},
+                "maxBounty": {"value": 5000, "currency": "EUR"},
+                "domainTier": "tier1"
+              }
+            ]
+          },
+          {
+            "minScore": 7.0,
+            "maxScore": 8.9,
+            "bountyRanges": [
+              {
+                "minBounty": {"value": 1000, "currency": "EUR"},
+                "maxBounty": {"value": 2500, "currency": "EUR"},
+                "domainTier": "tier1"
+              }
+            ]
+          },
+          {
+            "minScore": 4.0,
+            "maxScore": 6.9,
+            "bountyRanges": [
+              {
+                "minBounty": {"value": 300, "currency": "EUR"},
+                "maxBounty": {"value": 1000, "currency": "EUR"},
+                "domainTier": "tier1"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "cvssVersion": "3.1"
+}

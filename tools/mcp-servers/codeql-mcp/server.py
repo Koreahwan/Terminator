@@ -5,6 +5,7 @@ import json
 import os
 import tempfile
 from mcp.server.fastmcp import FastMCP
+from mcp.types import ToolAnnotations
 
 mcp = FastMCP("codeql-mcp")
 
@@ -23,7 +24,7 @@ def run_codeql(args: list, timeout: int = 600) -> tuple[str, str, int]:
     return result.stdout, result.stderr, result.returncode
 
 
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=False, idempotentHint=False))
 def create_database(source_dir: str, db_path: str, language: str = "python") -> str:
     """Create a CodeQL database from source code.
 
@@ -55,7 +56,7 @@ def create_database(source_dir: str, db_path: str, language: str = "python") -> 
         return f"CodeQL not found at {CODEQL_BIN}"
 
 
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, idempotentHint=True))
 def run_query(db_path: str, query: str = "", query_file: str = "", output_format: str = "csv") -> str:
     """Run a CodeQL query against a database.
 
@@ -109,7 +110,7 @@ def run_query(db_path: str, query: str = "", query_file: str = "", output_format
             os.unlink(tmp_query)
 
 
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, idempotentHint=True))
 def list_queries(language: str = "", category: str = "") -> str:
     """List available CodeQL queries.
 
@@ -143,7 +144,7 @@ def list_queries(language: str = "", category: str = "") -> str:
     }, indent=2)
 
 
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, idempotentHint=True))
 def analyze(db_path: str, language: str = "python", suite: str = "security") -> str:
     """Run CodeQL analysis with a standard query suite.
 

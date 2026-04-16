@@ -1,0 +1,1440 @@
+[
+  {
+    "platform": "hackerone",
+    "url": "https://hackerone.com/github",
+    "main": {
+      "ok": true,
+      "elapsed": 0.66,
+      "body_len": 17212,
+      "fields": {
+        "name": "",
+        "scope_in": "GitHub runs a number of services but only submissions under the following domains are eligible for rewards. Any GitHub-owned domains not listed below are _not_ in scope, _not_ eligible for rewards, and _not_ covered by [our legal safe harbor](https://bounty.github.com/#legal_safe_harbor).",
+        "scope_out": "",
+        "submission_rules": "",
+        "severity_table": "All bounty submissions are rated by GitHub using a purposefully simple scale. Each vulnerability is unique, but the following is a rough guideline we use internally for rating and rewarding submissions:"
+      },
+      "populated": 2
+    },
+    "dev": {
+      "ok": true,
+      "elapsed": 0.56,
+      "verdict": "PASS",
+      "confidence": 0.9,
+      "source": "hackerone.graphql",
+      "name": "GitHub",
+      "scope_in_count": 27,
+      "scope_out_count": 12,
+      "severity_count": 4,
+      "rules_len": 17310,
+      "raw_md_len": 17312,
+      "bounty_range": {
+        "min": "$617",
+        "max": "$20,000",
+        "currency": "USD"
+      },
+      "warnings": []
+    },
+    "regression_bugs": [],
+    "quality_score": 10
+  },
+  {
+    "platform": "hackerone",
+    "url": "https://hackerone.com/tiktok",
+    "main": {
+      "ok": true,
+      "elapsed": 0.58,
+      "body_len": 12199,
+      "fields": {
+        "name": "",
+        "scope_in": "",
+        "scope_out": "",
+        "submission_rules": "*   Provide detailed reports with reproducible steps. If the report is not detailed enough to reproduce the issue, the issue will not be eligible for a reward.\n*   Submit one vulnerability per report unless you need to chain vulnerabilities to provide impact.\n*   If more than one person reports the same security vulnerability, the reward will generally be given to the first person to successfully submit the report. Exceptions may be made on a case by case basis.\n*   Multiple vulnerabilities caused by one underlying issue may be awarded one bounty.\n*   Social engineering of any kind (including without limitation phishing, vishing, smishing) is prohibited.\n*   Do not commit privacy violations, destruction of data, or interruption or degradation of our service. \n*   Create test accounts or test content to avoid affecting real users. \n*   Do not test/exploit vulnerabilities on user accounts that you do not own or have rights to access or control.\n\n*   `Example: Do not generate millions of fraudulent \"likes\" for your own videos`\n\n*   If you encounter user information / internal resources during research, stop there and report the issue immediately via HackerOne. We will evaluate the impact and reward accordingly.\n*   Do not attack or enumerate any internal resources for testing SSRF vulnerability. Please only use the program provided SSRF sheriff for testing (Refer to the \"SSRF Testing Rules\" section below for more details).\n*   Always read and adhere to [community guidelines](https://www.tiktok.com/community-guidelines), terms of service, or privacy policies.\n*   If you have any questions about a particular report, please reach out via the corresponding HackerOne ticket for tracking purposes.",
+        "severity_table": "| Vulnerability | Severity |\n| --- | --- |\n| Remote Code Execution, Command injection, shell upload | Critical |\n| SQL Injection, XML External Entity Injection (XXE), Command injection, unsafe deserialization, exploitable memory corruption | High - Critical |\n| Leaked Credential, Cryptographic flaw | Medium - High |\n| Cross-Site Scripting (XSS) | Medium - High |\n| Server-Side Request Forgery | Medium - High |\n| Directory Traversal | Medium - High |\n| Authentication/Authorization Bypass (Broken Access Control) | Medium - High |\n| File Inclusion | Medium - Critical |\n| Insecure Direct Object Reference | Medium - Critical |\n| Misconfiguration/ Open Redirect | Low - Medium |\n| CRLF Injection | Low - Medium |\n| Cross Site Request Forgery | Low - High |\n| Information Disclosure | Low - Medium |\n| Subdomain takeover | Medium - High |\n| XSS on harmless subdomains, attacks requiring unlikely user interaction | Low - Medium |\n| All blind SSRF vulnerabilities that include a valid sheriff flag and a stable, reproducible proof of concept (PoC) | Low |\n\nHigh-quality reports may be awarded an extra bonus. A high-quality report is a thoroughly written vulnerability report that includes (when applicable) a working proof-of-concept, root cause analysis, a suggested fix, and any other relevant information. We also ask that researchers be responsive and collaborative which helps us efficiently implement and deliver fixes in a timely manner.\n\nThe criteria used to determine reward amount, bonuses, and eligibility are solely at our discretion."
+      },
+      "populated": 2
+    },
+    "dev": {
+      "ok": true,
+      "elapsed": 0.26,
+      "verdict": "PASS",
+      "confidence": 0.9,
+      "source": "hackerone.graphql",
+      "name": "TikTok",
+      "scope_in_count": 39,
+      "scope_out_count": 1,
+      "severity_count": 4,
+      "rules_len": 11821,
+      "raw_md_len": 11821,
+      "bounty_range": {
+        "min": "$500",
+        "max": "$15,000",
+        "currency": "USD"
+      },
+      "warnings": []
+    },
+    "regression_bugs": [],
+    "quality_score": 10
+  },
+  {
+    "platform": "hackerone",
+    "url": "https://hackerone.com/snapchat",
+    "main": {
+      "ok": true,
+      "elapsed": 0.61,
+      "body_len": 11818,
+      "fields": {
+        "name": "",
+        "scope_in": "",
+        "scope_out": "",
+        "submission_rules": "",
+        "severity_table": ""
+      },
+      "populated": 0
+    },
+    "dev": {
+      "ok": true,
+      "elapsed": 0.22,
+      "verdict": "PASS",
+      "confidence": 0.9,
+      "source": "hackerone.graphql",
+      "name": "Snapchat",
+      "scope_in_count": 40,
+      "scope_out_count": 6,
+      "severity_count": 4,
+      "rules_len": 12028,
+      "raw_md_len": 12029,
+      "bounty_range": {
+        "min": "$4,000",
+        "max": "$35,000",
+        "currency": "USD"
+      },
+      "warnings": []
+    },
+    "regression_bugs": [],
+    "quality_score": 10
+  },
+  {
+    "platform": "hackerone",
+    "url": "https://hackerone.com/twilio",
+    "main": {
+      "ok": true,
+      "elapsed": 0.63,
+      "body_len": 11101,
+      "fields": {
+        "name": "",
+        "scope_in": "",
+        "scope_out": "",
+        "submission_rules": "",
+        "severity_table": ""
+      },
+      "populated": 0
+    },
+    "dev": {
+      "ok": true,
+      "elapsed": 0.24,
+      "verdict": "PASS",
+      "confidence": 0.9,
+      "source": "hackerone.graphql",
+      "name": "Twilio",
+      "scope_in_count": 24,
+      "scope_out_count": 32,
+      "severity_count": 4,
+      "rules_len": 10992,
+      "raw_md_len": 10992,
+      "bounty_range": {
+        "min": "$200",
+        "max": "$8,000",
+        "currency": "USD"
+      },
+      "warnings": []
+    },
+    "regression_bugs": [],
+    "quality_score": 10
+  },
+  {
+    "platform": "immunefi",
+    "url": "https://immunefi.com/bug-bounty/aave/",
+    "main": {
+      "ok": true,
+      "elapsed": 0.71,
+      "body_len": 43596,
+      "fields": {
+        "name": "AAVE Bug Bounties | Immunefi",
+        "scope_in": "",
+        "scope_out": "",
+        "submission_rules": "",
+        "severity_table": "AAVE provides rewards in **AAVE and stablecoins**on **Ethereum**, denominated in USD."
+      },
+      "populated": 2
+    },
+    "dev": {
+      "ok": true,
+      "elapsed": 2.06,
+      "verdict": "HOLD",
+      "confidence": 0.8,
+      "source": "immunefi.next_flight",
+      "name": "AAVE",
+      "scope_in_count": 83,
+      "scope_out_count": 0,
+      "severity_count": 4,
+      "rules_len": 1325,
+      "raw_md_len": 1142,
+      "bounty_range": {
+        "min": "",
+        "max": "1000000",
+        "currency": "USD",
+        "token": "AAVE and stablecoins",
+        "network": "Ethereum"
+      },
+      "warnings": []
+    },
+    "regression_bugs": [],
+    "quality_score": 6
+  },
+  {
+    "platform": "immunefi",
+    "url": "https://immunefi.com/bug-bounty/balancer/",
+    "main": {
+      "ok": true,
+      "elapsed": 0.61,
+      "body_len": 6964,
+      "fields": {
+        "name": "",
+        "scope_in": "",
+        "scope_out": "",
+        "submission_rules": "",
+        "severity_table": "Balancer\n\nprovides rewards in **USDC, ETH**\n\non **Ethereum**, denominated in USD."
+      },
+      "populated": 1
+    },
+    "dev": {
+      "ok": true,
+      "elapsed": 2.11,
+      "verdict": "PASS",
+      "confidence": 0.95,
+      "source": "immunefi.next_flight",
+      "name": "Balancer",
+      "scope_in_count": 38,
+      "scope_out_count": 23,
+      "severity_count": 3,
+      "rules_len": 1453,
+      "raw_md_len": 2348,
+      "bounty_range": {
+        "min": "",
+        "max": "1000000",
+        "currency": "USD",
+        "token": "USDC, ETH",
+        "network": "Ethereum"
+      },
+      "warnings": []
+    },
+    "regression_bugs": [],
+    "quality_score": 9
+  },
+  {
+    "platform": "immunefi",
+    "url": "https://immunefi.com/bug-bounty/chainlink/",
+    "main": {
+      "ok": true,
+      "elapsed": 0.63,
+      "body_len": 7885,
+      "fields": {
+        "name": "",
+        "scope_in": "",
+        "scope_out": "",
+        "submission_rules": "",
+        "severity_table": "Chainlink\n\nprovides rewards in **USDC**\n\non **Ethereum**, denominated in USD."
+      },
+      "populated": 1
+    },
+    "dev": {
+      "ok": true,
+      "elapsed": 1.58,
+      "verdict": "PASS",
+      "confidence": 0.95,
+      "source": "immunefi.next_flight",
+      "name": "Chainlink",
+      "scope_in_count": 25,
+      "scope_out_count": 42,
+      "severity_count": 8,
+      "rules_len": 2058,
+      "raw_md_len": 5030,
+      "bounty_range": {
+        "min": "",
+        "max": "3000000",
+        "currency": "USD",
+        "token": "USDC",
+        "network": "Ethereum"
+      },
+      "warnings": []
+    },
+    "regression_bugs": [],
+    "quality_score": 10
+  },
+  {
+    "platform": "immunefi",
+    "url": "https://immunefi.com/bug-bounty/ethena/",
+    "main": {
+      "ok": true,
+      "elapsed": 0.63,
+      "body_len": 21028,
+      "fields": {
+        "name": "Ethena Bug Bounties | Immunefi",
+        "scope_in": "",
+        "scope_out": "",
+        "submission_rules": "",
+        "severity_table": "Ethena provides rewards in **USDC**on **Ethereum**, denominated in USD."
+      },
+      "populated": 2
+    },
+    "dev": {
+      "ok": true,
+      "elapsed": 1.97,
+      "verdict": "PASS",
+      "confidence": 0.95,
+      "source": "immunefi.next_flight",
+      "name": "Ethena",
+      "scope_in_count": 26,
+      "scope_out_count": 45,
+      "severity_count": 6,
+      "rules_len": 449,
+      "raw_md_len": 3548,
+      "bounty_range": {
+        "min": "",
+        "max": "3000000",
+        "currency": "USD",
+        "token": "USDC",
+        "network": "Ethereum"
+      },
+      "warnings": []
+    },
+    "regression_bugs": [],
+    "quality_score": 10
+  },
+  {
+    "platform": "bugcrowd",
+    "url": "https://bugcrowd.com/optus-mbb-og",
+    "main": {
+      "ok": true,
+      "elapsed": 0.67,
+      "body_len": 18437,
+      "fields": {
+        "name": "",
+        "scope_in": "",
+        "scope_out": "*   Application level DDOS can be submitted but please do not test your POC without first submitting your finding and requesting permission from our team\n*   Other forms DDOS and DOS testing are out of scope.\n*   Optus utilises and hosts a number of third party providers and services which may be listed as subdomains of those which are in scope. We cannot authorise testing against these systems and will update the out of scope list as best we can as they are discovered.\n*   Utilizing customer or leaked credentials.\n\n* * *",
+        "submission_rules": "",
+        "severity_table": ""
+      },
+      "populated": 1
+    },
+    "dev": {
+      "ok": true,
+      "elapsed": 1.7,
+      "verdict": "PASS",
+      "confidence": 0.95,
+      "source": "bugcrowd.changelog_api",
+      "name": "Optus Managed Bug Bounty",
+      "scope_in_count": 167,
+      "scope_out_count": 40,
+      "severity_count": 4,
+      "rules_len": 3745,
+      "raw_md_len": 3773,
+      "bounty_range": {
+        "min": "$150",
+        "max": "$5,000",
+        "currency": "USD"
+      },
+      "warnings": []
+    },
+    "regression_bugs": [],
+    "quality_score": 10
+  },
+  {
+    "platform": "bugcrowd",
+    "url": "https://bugcrowd.com/moovit-mbb-og",
+    "main": {
+      "ok": true,
+      "elapsed": 0.63,
+      "body_len": 13034,
+      "fields": {
+        "name": "",
+        "scope_in": "",
+        "scope_out": "*   According to the general policy [moovitapp.com](http://moovitapp.com/) or any web apps are OOS\n*   According to the general policy [moovitapp.com](http://moovitapp.com/) every app not related to the Moovit mobile application is OOS",
+        "submission_rules": "",
+        "severity_table": ""
+      },
+      "populated": 1
+    },
+    "dev": {
+      "ok": true,
+      "elapsed": 1.82,
+      "verdict": "PASS",
+      "confidence": 0.95,
+      "source": "bugcrowd.changelog_api",
+      "name": "Moovit Managed Bug Bounty Program",
+      "scope_in_count": 4,
+      "scope_out_count": 5,
+      "severity_count": 8,
+      "rules_len": 8556,
+      "raw_md_len": 8593,
+      "bounty_range": {
+        "min": "$100",
+        "max": "$7,000",
+        "currency": "USD"
+      },
+      "warnings": []
+    },
+    "regression_bugs": [],
+    "quality_score": 10
+  },
+  {
+    "platform": "bugcrowd",
+    "url": "https://bugcrowd.com/fireblocks-mbb-og",
+    "main": {
+      "ok": true,
+      "elapsed": 2.86,
+      "body_len": 477,
+      "fields": {
+        "name": "",
+        "scope_in": "",
+        "scope_out": "",
+        "submission_rules": "",
+        "severity_table": ""
+      },
+      "populated": 0
+    },
+    "dev": {
+      "ok": true,
+      "elapsed": 1.48,
+      "verdict": "PASS",
+      "confidence": 0.95,
+      "source": "bugcrowd.changelog_api",
+      "name": "Fireblocks Web Managed Bug Bounty Engagement",
+      "scope_in_count": 3,
+      "scope_out_count": 7,
+      "severity_count": 4,
+      "rules_len": 4684,
+      "raw_md_len": 4732,
+      "bounty_range": {
+        "min": "$20",
+        "max": "$12,000",
+        "currency": "USD"
+      },
+      "warnings": []
+    },
+    "regression_bugs": [],
+    "quality_score": 9
+  },
+  {
+    "platform": "bugcrowd",
+    "url": "https://bugcrowd.com/luno-og",
+    "main": {
+      "ok": true,
+      "elapsed": 0.59,
+      "body_len": 15879,
+      "fields": {
+        "name": "",
+        "scope_in": "",
+        "scope_out": "*   Interacting or manipulate other stakeholders and their associated accounts including: \n    *   Social engineering attacks\n    *   Phishing attacks\n    *   Physical attacks\n\n*   Third party providers and services\n*   **Potential post-exploitation scenarios**: If you believe you've identified a vulnerability that may lead to post-exploitation activity including modification or destruction of data please stop testing and submit your finding. We will work with you to evaluate the vulnerability and award you accordingly for the final impact and severity.",
+        "submission_rules": "",
+        "severity_table": ""
+      },
+      "populated": 1
+    },
+    "dev": {
+      "ok": true,
+      "elapsed": 1.48,
+      "verdict": "PASS",
+      "confidence": 0.95,
+      "source": "bugcrowd.changelog_api",
+      "name": "Luno Bug Bounty Program",
+      "scope_in_count": 7,
+      "scope_out_count": 7,
+      "severity_count": 8,
+      "rules_len": 5895,
+      "raw_md_len": 5922,
+      "bounty_range": {
+        "min": "$100",
+        "max": "$7,500",
+        "currency": "USD"
+      },
+      "warnings": []
+    },
+    "regression_bugs": [],
+    "quality_score": 10
+  },
+  {
+    "platform": "bugcrowd",
+    "url": "https://bugcrowd.com/hostgator-latam-bb",
+    "main": {
+      "ok": true,
+      "elapsed": 0.57,
+      "body_len": 7980,
+      "fields": {
+        "name": "",
+        "scope_in": "",
+        "scope_out": "*   No DMARC, nor SPF \n*   Dos/DDos(Rate Limiting) \n*   OAuth session token is not invalidated on logout or password change/reset \n*   Open redirect vulnerabilities\n*   Error messages (e.g. verbose error messages, stack traces, application or server errors, version disclosure) \n*   Clickjacking \n*   Missing or misconfigured HTTP security header \n*   HTTP/DNS cache poisoning \n*   Cloudflare related issues \n*   Self-XSS reports will not be accepted\n*   Broken links hosted on our website\n*   Secrets such as API keys or passwords obtained from external aggregation/indexed data sources (e.g., dehashed.com or intelx.io). Cross-Site Request Forgery (CSRF) on unauthenticated forms or forms with non-sensitive actions (including logout CSRF) \n*   Recently disclosed (<30 days) zero-day vulnerabilities\n*   Please do not test chatboxes on the applications, etc. \n*   Use of third-party vulnerable components\n*   Anti Automation attacks, missing captcha, missing rate limiting, HTTP headers, SSL/TLS configuration and missing Secure flag on cookies are out of scope \n*   Any source code disclosure\n*   Info.php (without providing an exploitable scenario) \n*   Subdomain takeovers\n\n* * *",
+        "submission_rules": "*   Do not create multiple accounts for testing purposes within HostGator LATAM applications and services. \n*   Refrain from using brute force techniques to assess API rate limiting or other functionalities.\n*   Phishing, vishing, smishing, or any other forms of social engineering are strictly prohibited. \n*   Ensure efforts are made to avoid privacy violations, data destruction, and disruption or degradation of service. \n*   Only interact with accounts you own or have explicit permission to use. Unblocking restricted accounts is not guaranteed. Requests for review can be submitted through Bugcrowd for consideration by the HostGator LATAM InfoSec team. \n*   Testing is only permitted on components directly controlled by our program; third-party assets are excluded. \n*   Interacting with real customers or real customer accounts is forbidden. \n*   When a vulnerability consists of different parameters but having the same endpoint, please group this together in the same report else will be considered as duplicate. \n*   Multiple vulnerabilities caused by one underlying issue will be awarded one bounty (Ex: Centralized vulnerable parameters). \n*   Cross-Site Scripting (XSS) attacks are considered at maximum a medium severity. \n\n* * *",
+        "severity_table": ""
+      },
+      "populated": 2
+    },
+    "dev": {
+      "ok": true,
+      "elapsed": 1.46,
+      "verdict": "PASS",
+      "confidence": 0.95,
+      "source": "bugcrowd.changelog_api",
+      "name": "HostGator LATAM Bug Bounty",
+      "scope_in_count": 2,
+      "scope_out_count": 20,
+      "severity_count": 3,
+      "rules_len": 5909,
+      "raw_md_len": 5939,
+      "bounty_range": {
+        "min": "$250",
+        "max": "$2,500",
+        "currency": "USD"
+      },
+      "warnings": []
+    },
+    "regression_bugs": [],
+    "quality_score": 9
+  },
+  {
+    "platform": "yeswehack",
+    "url": "https://yeswehack.com/programs/coindcx-bug-bounty-program",
+    "main": {
+      "ok": true,
+      "elapsed": 0.69,
+      "body_len": 10984,
+      "fields": {
+        "name": "",
+        "scope_in": "| Scope | Type | Asset value |  |\n| --- | --- | --- | --- |\n| *.coindcx.com | Wildcard | Critical |  |\n| Low $100 Medium $300 High $1,000 Critical $2,000 |\n| api.coindcx.com | API | Critical |  |\n| Low $100 Medium $300 High $1,000 Critical $2,000 |\n| https://play.google.com/store/apps/details?id=com.coindcx.btc | Mobile application Android | Critical |  |\n| Low $100 Medium $300 High $1,000 Critical $2,000 |\n| https://apps.apple.com/in/app/coindcx-trade-bitcoin-crypto/id1517787269 | Mobile application IOS | Critical |  |\n| Low $100 Medium $300 High $1,000 Critical $2,000 |",
+        "scope_out": "*   All domains or subdomains not listed in the above list of 'Scopes'\n\n*   Zendesk and other third parties\n\n*   CMS websites own by Coindcx (Anything related to Wordpress etc)\n\n*   coindcx.com/blog\n\n*   info.coindcx.com\n\n*   otcdesk.coindcx.com\n\n*   careers.coindcx.com\n\n* * *",
+        "submission_rules": "",
+        "severity_table": ""
+      },
+      "populated": 2
+    },
+    "dev": {
+      "ok": true,
+      "elapsed": 1.07,
+      "verdict": "PASS",
+      "confidence": 0.95,
+      "source": "yeswehack.public_api",
+      "name": "Coindcx - Bug Bounty Program",
+      "scope_in_count": 4,
+      "scope_out_count": 55,
+      "severity_count": 4,
+      "rules_len": 4481,
+      "raw_md_len": 7388,
+      "bounty_range": {
+        "min": "50",
+        "max": "2000",
+        "currency": "EUR"
+      },
+      "warnings": []
+    },
+    "regression_bugs": [],
+    "quality_score": 10
+  },
+  {
+    "platform": "yeswehack",
+    "url": "https://yeswehack.com/programs/okto-bug-bounty-program",
+    "main": {
+      "ok": true,
+      "elapsed": 0.61,
+      "body_len": 11156,
+      "fields": {
+        "name": "",
+        "scope_in": "| Scope | Type | Asset value |  |\n| --- | --- | --- | --- |\n| https://apps.apple.com/in/app/okto-wallet/id6450688229 | Mobile application IOS | Critical |  |\n| Low $50 Medium $250 High $1,000 Critical $2,000 |\n| https://play.google.com/store/apps/details?id=com.coindcx.okto | Mobile application Android | Critical |  |\n| Low $50 Medium $250 High $1,000 Critical $2,000 |",
+        "scope_out": "*   All domains or subdomains not listed in the above list of 'Scopes'\n\n*   CMS websites own by Okto (Anything related to Wordpress etc)\n\n*   Customer support form (https://help-okto.sprinklr.com/help/)\n\n*   All other third parties\n\n* * *",
+        "submission_rules": "",
+        "severity_table": ""
+      },
+      "populated": 2
+    },
+    "dev": {
+      "ok": true,
+      "elapsed": 1.02,
+      "verdict": "PASS",
+      "confidence": 0.95,
+      "source": "yeswehack.public_api",
+      "name": "Okto - Bug Bounty Program",
+      "scope_in_count": 2,
+      "scope_out_count": 52,
+      "severity_count": 4,
+      "rules_len": 4356,
+      "raw_md_len": 6982,
+      "bounty_range": {
+        "min": "0",
+        "max": "2000",
+        "currency": "EUR"
+      },
+      "warnings": []
+    },
+    "regression_bugs": [],
+    "quality_score": 9
+  },
+  {
+    "platform": "yeswehack",
+    "url": "https://yeswehack.com/programs/bitoasis-bug-bounty-program",
+    "main": {
+      "ok": true,
+      "elapsed": 0.64,
+      "body_len": 10667,
+      "fields": {
+        "name": "",
+        "scope_in": "| Scope | Type | Asset value |  |\n| --- | --- | --- | --- |\n| *.bitoasis.net | Wildcard | Critical |  |\n| Low $100 Medium $300 High $1,000 Critical $2,000 |\n| https://play.google.com/store/apps/details?id=com.bitoasis&hl=en | Mobile application Android | Critical |  |\n| Low $100 Medium $300 High $1,000 Critical $2,000 |\n| https://apps.apple.com/ae/app/bitoasis-buy-bitcoin-crypto/id1521661794 | Mobile application IOS | Critical |  |\n| Low $100 Medium $300 High $1,000 Critical $2,000 |",
+        "scope_out": "*   All domains or subdomains not listed in the above list of 'Scopes'\n\n*   Websites under Bitoasis that utilize CMS frameworks (e.g., WordPress, Joomla, Sitecore).\n\n*   https://blog.bitoasis.net\n\n*   All other third parties\n\n* * *",
+        "submission_rules": "",
+        "severity_table": ""
+      },
+      "populated": 2
+    },
+    "dev": {
+      "ok": true,
+      "elapsed": 1.07,
+      "verdict": "PASS",
+      "confidence": 0.95,
+      "source": "yeswehack.public_api",
+      "name": "BitOasis - Bug Bounty Program",
+      "scope_in_count": 3,
+      "scope_out_count": 52,
+      "severity_count": 4,
+      "rules_len": 4330,
+      "raw_md_len": 6953,
+      "bounty_range": {
+        "min": "5",
+        "max": "2000",
+        "currency": "EUR"
+      },
+      "warnings": []
+    },
+    "regression_bugs": [],
+    "quality_score": 10
+  },
+  {
+    "platform": "yeswehack",
+    "url": "https://yeswehack.com/programs/pine-labs-bug-bounty-program",
+    "main": {
+      "ok": true,
+      "elapsed": 0.74,
+      "body_len": 11661,
+      "fields": {
+        "name": "",
+        "scope_in": "| Scope | Type | Asset value |  |\n| --- | --- | --- | --- |\n| https://billingserver.pinelabs.com | Web application | High |  |\n| Low $50 Medium $250 High $500 Critical $1,000 |\n| dashboard.pluralonline.com | Web application | High |  |\n| Low $50 Medium $250 High $500 Critical $1,000 |\n| https://lounge.pinelabs.com/loungeui/login | Web application | High |  |\n| Low $50 Medium $250 High $500 Critical $1,000 |\n| https://pinepgconsole.in:9099 | Web application | High |  |\n| Low $50 Medium $250 High $500 Critical $1,000 |\n| analytics.pinelabs.com | Web application | Medium |  |\n| Low $50 Medium $200 High $350 Critical $500 |\n| https://myplutus.pinelabs.my | Web application | Medium |  |\n| Low $50 Medium $200 High $350 Critical $500 |\n| trm.pinepaymentsolutions.com | Web application | Medium |  |\n| Low $50 Medium $200 High $350 Critical $500 |\n| https://trm.pinelabs.ae | Web application | Medium |  |\n| Low $50 Medium $200 High $350 Critical $500 |\n| https://www.letspaylater.ph | Web application | Medium |  |\n| Low $50 Medium $200 High $350 Critical $500 |\n| https://credit.pinelabs.com | Web application | Medium |  |\n| Low $50 Medium $200 High $350 Critical $500 |\n| https://plmcixt.pinelabs.com | Web application | Medium |  |\n| Low $50 Medium $200 High $350 Critical $500 |\n| https://play.google.com/store/apps/details?id=com.pinelabs.emicatalogue.pinelabs&hl=uz | Mobile application Android | Low |  |\n| Low $25 Medium $50 High $75 Critical $100 |\n| https://emistores.pinelabs.com | Web application | Low |  |\n| Low $25 Medium $50 High $75 Critical $100 |\n| https://www.pinelabs.com | Web application | Low |  |\n| Low $25 Medium $50 High $75 Critical $100 |\n| https://www.pinelabs.my | Web application | Low |  |\n| Low $25 Medium $50 High $75 Critical $100 |\n| https://www.pinelabs.ae | Web application | Low |  |\n| Low $25 Medium $50 High $75 Critical $100 |\n| https://www.pinelabs.us | Web application | Low |  |\n| Low $25 Medium $50 High $75 Critical $100 |\n| https://board.pinelabs.com | Web application | High |  |\n| Low $50 Medium $250 High $500 Critical $1,000 |\n| https://nbs.pinelabs.com | Web application | Medium |  |\n| Low $50 Medium $200 High $350 Critical $500 |\n| https://api.pluralonline.com | API | Critical |  |\n| Low $50 Medium $300 High $700 Critical $1,000 |\n| https://api.pluralpay.in | API | Critical |  |\n| Low $50 Medium $300 High $700 Critical $1,000 |\n| https://pinepg.in | API | Critical |  |\n| Low $50 Medium $300 High $700 Critical $1,000 |\n| https://pluralcheckout.pinepg.in | API | Critical |  |\n| Low $50 Medium $300 High $700 Critical $1,000 |",
+        "scope_out": "*   All other Pine Labs assets that are not listed above are to be treated as out of scope\n\n* * *",
+        "submission_rules": "At Pine Labs we recognize the important role that security researchers play in helping to keep Pine Labs and our customers secure.\n\nBy participating in this program you acknowledge that you have read and agreed to the **Program Rules**, which is defined as this entire document.",
+        "severity_table": ""
+      },
+      "populated": 3
+    },
+    "dev": {
+      "ok": true,
+      "elapsed": 0.99,
+      "verdict": "PASS",
+      "confidence": 0.95,
+      "source": "yeswehack.public_api",
+      "name": "Pine Labs Bug Bounty Program",
+      "scope_in_count": 23,
+      "scope_out_count": 49,
+      "severity_count": 20,
+      "rules_len": 3447,
+      "raw_md_len": 5905,
+      "bounty_range": {
+        "min": "0",
+        "max": "1000",
+        "currency": "EUR"
+      },
+      "warnings": []
+    },
+    "regression_bugs": [],
+    "quality_score": 10
+  },
+  {
+    "platform": "yeswehack",
+    "url": "https://yeswehack.com/programs/thuringer-aufbaubank-bug-bounty-program",
+    "main": {
+      "ok": true,
+      "elapsed": 0.61,
+      "body_len": 9669,
+      "fields": {
+        "name": "",
+        "scope_in": "| Scope | Type | Asset value |  |\n| --- | --- | --- | --- |\n| https://thueringer-foerderportal.eu | Web application | Critical |  |\n| Low \u20ac50 Medium \u20ac200 High \u20ac2,000 Critical \u20ac7,000 |\n| https://login.aufbaubank.de | Web application | Critical |  |\n| Low \u20ac50 Medium \u20ac200 High \u20ac2,000 Critical \u20ac7,000 |",
+        "scope_out": "*   All domains not listed In-Scope\n\n*   All 3rd parties are out of scope\n\n* * *",
+        "submission_rules": "*   We believe that no technology is perfect and that working with skilled security researchers is crucial in identifying weaknesses in our technology.\n*   If you believe you\\'ve found a security bug in our service, we are happy to work with you to resolve the issue promptly and ensure you are fairly rewarded for your discovery.\n*   Any type of denial of service attacks is strictly forbidden, as well as any interference with network equipment and Th\u00fcringer Aufbaubank infrastructure.",
+        "severity_table": ""
+      },
+      "populated": 3
+    },
+    "dev": {
+      "ok": true,
+      "elapsed": 1.04,
+      "verdict": "PASS",
+      "confidence": 0.95,
+      "source": "yeswehack.public_api",
+      "name": "Th\u00fcringer Aufbaubank Bug Bounty Program",
+      "scope_in_count": 2,
+      "scope_out_count": 39,
+      "severity_count": 12,
+      "rules_len": 3745,
+      "raw_md_len": 5819,
+      "bounty_range": {
+        "min": "50",
+        "max": "7000",
+        "currency": "EUR"
+      },
+      "warnings": []
+    },
+    "regression_bugs": [],
+    "quality_score": 9
+  },
+  {
+    "platform": "hackenproof",
+    "url": "https://hackenproof.com/programs/internet-computer-protocol-icp",
+    "main": {
+      "ok": true,
+      "elapsed": 3.05,
+      "body_len": 545,
+      "fields": {
+        "name": "",
+        "scope_in": "",
+        "scope_out": "",
+        "submission_rules": "",
+        "severity_table": ""
+      },
+      "populated": 0
+    },
+    "dev": {
+      "ok": true,
+      "elapsed": 1.61,
+      "verdict": "PASS",
+      "confidence": 0.9,
+      "source": "hackenproof.googlebot_html",
+      "name": "Internet Computer Protocol (ICP): Program Info | HackenProof",
+      "scope_in_count": 3,
+      "scope_out_count": 3,
+      "severity_count": 4,
+      "rules_len": 1776,
+      "raw_md_len": 20679,
+      "bounty_range": {
+        "min": "$0",
+        "max": "$50,000",
+        "currency": "USD",
+        "total_paid": "$26,850"
+      },
+      "warnings": []
+    },
+    "regression_bugs": [],
+    "quality_score": 9
+  },
+  {
+    "platform": "hackenproof",
+    "url": "https://hackenproof.com/programs/tapbit-web-and-mobile",
+    "main": {
+      "ok": true,
+      "elapsed": 4.32,
+      "body_len": 536,
+      "fields": {
+        "name": "",
+        "scope_in": "",
+        "scope_out": "",
+        "submission_rules": "",
+        "severity_table": ""
+      },
+      "populated": 0
+    },
+    "dev": {
+      "ok": true,
+      "elapsed": 15.94,
+      "verdict": "HOLD",
+      "confidence": 0.5,
+      "source": "hackenproof.googlebot_html",
+      "name": "Tapbit Web &amp; Mobile: Program Info | HackenProof",
+      "scope_in_count": 3,
+      "scope_out_count": 0,
+      "severity_count": 4,
+      "rules_len": 4363,
+      "raw_md_len": 8645,
+      "bounty_range": {
+        "min": "$200",
+        "max": "$10,000",
+        "currency": "USD",
+        "total_paid": "$2,850"
+      },
+      "warnings": []
+    },
+    "regression_bugs": [],
+    "quality_score": 6
+  },
+  {
+    "platform": "hackenproof",
+    "url": "https://hackenproof.com/programs/linear-protocol",
+    "main": {
+      "ok": true,
+      "elapsed": 4.63,
+      "body_len": 530,
+      "fields": {
+        "name": "",
+        "scope_in": "",
+        "scope_out": "",
+        "submission_rules": "",
+        "severity_table": ""
+      },
+      "populated": 0
+    },
+    "dev": {
+      "ok": true,
+      "elapsed": 5.01,
+      "verdict": "HOLD",
+      "confidence": 0.4,
+      "source": "hackenproof.googlebot_html",
+      "name": "LiNEAR Protocol: Program Info | HackenProof",
+      "scope_in_count": 0,
+      "scope_out_count": 0,
+      "severity_count": 4,
+      "rules_len": 905,
+      "raw_md_len": 7523,
+      "bounty_range": {
+        "min": "$100",
+        "max": "$5,000",
+        "currency": "USD",
+        "total_paid": "$100"
+      },
+      "warnings": [
+        "HackenProof is behind Cloudflare bot protection. The fetcher retried with a Googlebot User-Agent but still got no program data. Use the Playwright MCP fallback (Phase 0.1 manual path) or paste the verbatim sections from the live page by hand."
+      ]
+    },
+    "regression_bugs": [],
+    "quality_score": 3
+  },
+  {
+    "platform": "hackenproof",
+    "url": "https://hackenproof.com/programs/kai-finance-yield-protocol",
+    "main": {
+      "ok": true,
+      "elapsed": 4.53,
+      "body_len": 541,
+      "fields": {
+        "name": "",
+        "scope_in": "",
+        "scope_out": "",
+        "submission_rules": "",
+        "severity_table": ""
+      },
+      "populated": 0
+    },
+    "dev": {
+      "ok": true,
+      "elapsed": 7.15,
+      "verdict": "HOLD",
+      "confidence": 0.5,
+      "source": "hackenproof.googlebot_html",
+      "name": "Kai Finance Yield Protocol: Program Info | HackenProof",
+      "scope_in_count": 2,
+      "scope_out_count": 0,
+      "severity_count": 4,
+      "rules_len": 1770,
+      "raw_md_len": 6196,
+      "bounty_range": {
+        "min": "$5,000",
+        "max": "$100,000",
+        "currency": "USD",
+        "total_paid": "$0"
+      },
+      "warnings": []
+    },
+    "regression_bugs": [],
+    "quality_score": 5
+  },
+  {
+    "platform": "hackenproof",
+    "url": "https://hackenproof.com/programs/phemex-web-and-mobile",
+    "main": {
+      "ok": true,
+      "elapsed": 4.02,
+      "body_len": 536,
+      "fields": {
+        "name": "",
+        "scope_in": "",
+        "scope_out": "",
+        "submission_rules": "",
+        "severity_table": ""
+      },
+      "populated": 0
+    },
+    "dev": {
+      "ok": true,
+      "elapsed": 17.06,
+      "verdict": "HOLD",
+      "confidence": 0.5,
+      "source": "hackenproof.googlebot_html",
+      "name": "Phemex Web &amp; Mobile: Program Info | HackenProof",
+      "scope_in_count": 4,
+      "scope_out_count": 0,
+      "severity_count": 4,
+      "rules_len": 3797,
+      "raw_md_len": 17404,
+      "bounty_range": {
+        "min": "$50",
+        "max": "$500,000",
+        "currency": "USD",
+        "total_paid": "$3,750"
+      },
+      "warnings": []
+    },
+    "regression_bugs": [],
+    "quality_score": 6
+  },
+  {
+    "platform": "github_md",
+    "url": "https://github.com/code-423n4/2024-04-renzo",
+    "main": {
+      "ok": true,
+      "elapsed": 0.71,
+      "body_len": 27156,
+      "fields": {
+        "name": "",
+        "scope_in": "[](https://github.com/code-423n4/2024-04-renzo#scope)\n_See [scope.txt](https://github.com/code-423n4/2024-04-renzo/blob/main/scope.txt)_",
+        "scope_out": "",
+        "submission_rules": "",
+        "severity_table": ""
+      },
+      "populated": 1
+    },
+    "dev": {
+      "ok": true,
+      "elapsed": 1.62,
+      "verdict": "HOLD",
+      "confidence": 0.45,
+      "source": "github.contents_api",
+      "name": "code-423n4/2024-04-renzo",
+      "scope_in_count": 1,
+      "scope_out_count": 0,
+      "severity_count": 4,
+      "rules_len": 515,
+      "raw_md_len": 26627,
+      "bounty_range": {
+        "max": "$112,500",
+        "currency": "USD",
+        "note": "Total audit contest prize pool"
+      },
+      "warnings": []
+    },
+    "regression_bugs": [],
+    "quality_score": 5
+  },
+  {
+    "platform": "github_md",
+    "url": "https://github.com/sherlock-audit/2024-08-flayer",
+    "main": {
+      "ok": true,
+      "elapsed": 0.81,
+      "body_len": 15646,
+      "fields": {
+        "name": "",
+        "scope_in": "",
+        "scope_out": "",
+        "submission_rules": "",
+        "severity_table": ""
+      },
+      "populated": 0
+    },
+    "dev": {
+      "ok": true,
+      "elapsed": 0.77,
+      "verdict": "FAIL",
+      "confidence": 0.2,
+      "source": "github.contents_api",
+      "name": "sherlock-audit/2024-08-flayer",
+      "scope_in_count": 0,
+      "scope_out_count": 0,
+      "severity_count": 0,
+      "rules_len": 0,
+      "raw_md_len": 0,
+      "bounty_range": {},
+      "warnings": []
+    },
+    "regression_bugs": [],
+    "quality_score": 1
+  },
+  {
+    "platform": "github_md",
+    "url": "https://github.com/sherlock-audit/2024-04-titles",
+    "main": {
+      "ok": true,
+      "elapsed": 0.63,
+      "body_len": 15023,
+      "fields": {
+        "name": "",
+        "scope_in": "",
+        "scope_out": "",
+        "submission_rules": "",
+        "severity_table": ""
+      },
+      "populated": 0
+    },
+    "dev": {
+      "ok": true,
+      "elapsed": 0.74,
+      "verdict": "FAIL",
+      "confidence": 0.2,
+      "source": "github.contents_api",
+      "name": "sherlock-audit/2024-04-titles",
+      "scope_in_count": 0,
+      "scope_out_count": 0,
+      "severity_count": 0,
+      "rules_len": 0,
+      "raw_md_len": 0,
+      "bounty_range": {},
+      "warnings": []
+    },
+    "regression_bugs": [],
+    "quality_score": 1
+  },
+  {
+    "platform": "huntr",
+    "url": "https://huntr.com/repos/langchain-ai/langchain",
+    "main": {
+      "ok": true,
+      "elapsed": 6.5,
+      "body_len": 33652,
+      "fields": {
+        "name": "huntr: langchain-ai/langchain",
+        "scope_in": "",
+        "scope_out": "",
+        "submission_rules": "",
+        "severity_table": ""
+      },
+      "populated": 1
+    },
+    "dev": {
+      "ok": true,
+      "elapsed": 4.57,
+      "verdict": "PASS",
+      "confidence": 0.85,
+      "source": "huntr.next_flight",
+      "name": "langchain-ai/langchain",
+      "scope_in_count": 1,
+      "scope_out_count": 6,
+      "severity_count": 0,
+      "rules_len": 421,
+      "raw_md_len": 8664,
+      "bounty_range": {
+        "min": "$20",
+        "max": "$1,500",
+        "currency": "USD",
+        "note": "Historical payout range across 46 paid submissions; huntr global max for Open Source Repository is $1,500 and Model File Format is $3,000."
+      },
+      "warnings": []
+    },
+    "regression_bugs": [],
+    "quality_score": 9
+  },
+  {
+    "platform": "huntr",
+    "url": "https://huntr.com/repos/scikit-learn/scikit-learn",
+    "main": {
+      "ok": true,
+      "elapsed": 0.62,
+      "body_len": 7358,
+      "fields": {
+        "name": "huntr: scikit-learn/scikit-learn",
+        "scope_in": "",
+        "scope_out": "",
+        "submission_rules": "",
+        "severity_table": ""
+      },
+      "populated": 1
+    },
+    "dev": {
+      "ok": true,
+      "elapsed": 1.7,
+      "verdict": "PASS",
+      "confidence": 0.85,
+      "source": "huntr.next_flight",
+      "name": "scikit-learn/scikit-learn",
+      "scope_in_count": 1,
+      "scope_out_count": 6,
+      "severity_count": 0,
+      "rules_len": 421,
+      "raw_md_len": 1799,
+      "bounty_range": {
+        "min": "$20",
+        "max": "$1,500",
+        "currency": "USD",
+        "note": "Historical payout range across 21 paid submissions; huntr global max for Open Source Repository is $1,500 and Model File Format is $3,000."
+      },
+      "warnings": []
+    },
+    "regression_bugs": [],
+    "quality_score": 9
+  },
+  {
+    "platform": "huntr",
+    "url": "https://huntr.com/repos/huggingface/transformers",
+    "main": {
+      "ok": true,
+      "elapsed": 11.42,
+      "body_len": 53495,
+      "fields": {
+        "name": "huntr: huggingface/transformers",
+        "scope_in": "",
+        "scope_out": "",
+        "submission_rules": "",
+        "severity_table": ""
+      },
+      "populated": 1
+    },
+    "dev": {
+      "ok": true,
+      "elapsed": 5.34,
+      "verdict": "PASS",
+      "confidence": 0.85,
+      "source": "huntr.next_flight",
+      "name": "huggingface/transformers",
+      "scope_in_count": 1,
+      "scope_out_count": 6,
+      "severity_count": 0,
+      "rules_len": 421,
+      "raw_md_len": 15101,
+      "bounty_range": {
+        "min": "$25",
+        "max": "$1,500",
+        "currency": "USD",
+        "note": "Historical payout range across 298 paid submissions; huntr global max for Open Source Repository is $1,500 and Model File Format is $3,000."
+      },
+      "warnings": []
+    },
+    "regression_bugs": [],
+    "quality_score": 9
+  },
+  {
+    "platform": "huntr",
+    "url": "https://huntr.com/repos/pandas-dev/pandas",
+    "main": {
+      "ok": true,
+      "elapsed": 0.65,
+      "body_len": 7899,
+      "fields": {
+        "name": "huntr: pandas-dev/pandas",
+        "scope_in": "",
+        "scope_out": "",
+        "submission_rules": "",
+        "severity_table": ""
+      },
+      "populated": 1
+    },
+    "dev": {
+      "ok": true,
+      "elapsed": 1.43,
+      "verdict": "PASS",
+      "confidence": 0.85,
+      "source": "huntr.next_flight",
+      "name": "pandas-dev/pandas",
+      "scope_in_count": 1,
+      "scope_out_count": 6,
+      "severity_count": 0,
+      "rules_len": 421,
+      "raw_md_len": 2047,
+      "bounty_range": {
+        "min": "$25",
+        "max": "$1,500",
+        "currency": "USD",
+        "note": "Historical payout range across 11 paid submissions; huntr global max for Open Source Repository is $1,500 and Model File Format is $3,000."
+      },
+      "warnings": []
+    },
+    "regression_bugs": [],
+    "quality_score": 9
+  },
+  {
+    "platform": "hackerone",
+    "url": "https://hackerone.com/reddit",
+    "main": {
+      "ok": true,
+      "elapsed": 0.64,
+      "body_len": 12744,
+      "fields": {
+        "name": "",
+        "scope_in": "",
+        "scope_out": "We generally do not accept logic bugs unless they result in the disclosure of security information, financial data, or cause disruption to our services.",
+        "submission_rules": "",
+        "severity_table": "We will determine rewards for reports based on the **criticality of the asset, the impact of the issue, and the sensitivity of any leaked data**. Each report will be evaluated individually by our security team. We may offer higher rewards for unique, hard-to-discover bugs. We may also pay less for bugs with complex prerequisites that lower risk of exploitation."
+      },
+      "populated": 2
+    },
+    "dev": {
+      "ok": true,
+      "elapsed": 0.24,
+      "verdict": "PASS",
+      "confidence": 0.9,
+      "source": "hackerone.graphql",
+      "name": "Reddit",
+      "scope_in_count": 28,
+      "scope_out_count": 2,
+      "severity_count": 4,
+      "rules_len": 12431,
+      "raw_md_len": 12432,
+      "bounty_range": {
+        "min": "$500",
+        "max": "$15,000",
+        "currency": "USD"
+      },
+      "warnings": []
+    },
+    "regression_bugs": [],
+    "quality_score": 10
+  },
+  {
+    "platform": "immunefi",
+    "url": "https://immunefi.com/bug-bounty/aave/",
+    "main": {
+      "ok": true,
+      "elapsed": 0.72,
+      "body_len": 43596,
+      "fields": {
+        "name": "AAVE Bug Bounties | Immunefi",
+        "scope_in": "",
+        "scope_out": "",
+        "submission_rules": "",
+        "severity_table": "AAVE provides rewards in **AAVE and stablecoins**on **Ethereum**, denominated in USD."
+      },
+      "populated": 2
+    },
+    "dev": {
+      "ok": true,
+      "elapsed": 1.73,
+      "verdict": "HOLD",
+      "confidence": 0.8,
+      "source": "immunefi.next_flight",
+      "name": "AAVE",
+      "scope_in_count": 83,
+      "scope_out_count": 0,
+      "severity_count": 4,
+      "rules_len": 1325,
+      "raw_md_len": 1142,
+      "bounty_range": {
+        "min": "",
+        "max": "1000000",
+        "currency": "USD",
+        "token": "AAVE and stablecoins",
+        "network": "Ethereum"
+      },
+      "warnings": []
+    },
+    "regression_bugs": [],
+    "quality_score": 6
+  },
+  {
+    "platform": "github_md",
+    "url": "https://github.com/code-423n4/2026-04-layerzero",
+    "main": {
+      "ok": true,
+      "elapsed": 1.44,
+      "body_len": 44197,
+      "fields": {
+        "name": "GitHub - code-423n4/2026-04-layerzero \u00b7 GitHub",
+        "scope_in": "[](https://github.com/code-423n4/2026-04-layerzero#scope)",
+        "scope_out": "",
+        "submission_rules": "",
+        "severity_table": ""
+      },
+      "populated": 2
+    },
+    "dev": {
+      "ok": true,
+      "elapsed": 1.87,
+      "verdict": "HOLD",
+      "confidence": 0.4,
+      "source": "generic.jina_or_fixture",
+      "name": "GitHub - code-423n4/2026-04-layerzero \u00b7 GitHub",
+      "scope_in_count": 1,
+      "scope_out_count": 0,
+      "severity_count": 0,
+      "rules_len": 0,
+      "raw_md_len": 44197,
+      "bounty_range": {},
+      "warnings": []
+    },
+    "regression_bugs": [],
+    "quality_score": 3
+  },
+  {
+    "platform": "github_md",
+    "url": "https://github.com/code-423n4/2026-03-chainlink",
+    "main": {
+      "ok": true,
+      "elapsed": 1.52,
+      "body_len": 30424,
+      "fields": {
+        "name": "GitHub - code-423n4/2026-03-chainlink \u00b7 GitHub",
+        "scope_in": "[](https://github.com/code-423n4/2026-03-chainlink#scope)\n\n_See [scope.txt](https://github.com/code-423n4/2026-03-chainlink/blob/main/scope.txt)_",
+        "scope_out": "",
+        "submission_rules": "",
+        "severity_table": ""
+      },
+      "populated": 2
+    },
+    "dev": {
+      "ok": true,
+      "elapsed": 1.64,
+      "verdict": "HOLD",
+      "confidence": 0.4,
+      "source": "generic.jina_or_fixture",
+      "name": "GitHub - code-423n4/2026-03-chainlink \u00b7 GitHub",
+      "scope_in_count": 2,
+      "scope_out_count": 0,
+      "severity_count": 0,
+      "rules_len": 0,
+      "raw_md_len": 30424,
+      "bounty_range": {},
+      "warnings": []
+    },
+    "regression_bugs": [],
+    "quality_score": 3
+  },
+  {
+    "platform": "intigriti",
+    "url": "https://app.intigriti.com/programs/ubisoft/ubisoftgamesecbbp",
+    "main": {
+      "ok": true,
+      "elapsed": 1.02,
+      "body_len": 52908,
+      "fields": {
+        "name": "Ubisoft Game Security BBP - Bug Bounty Program - I",
+        "scope_in": "",
+        "scope_out": "",
+        "submission_rules": "",
+        "severity_table": ""
+      },
+      "populated": 1
+    },
+    "dev": {
+      "ok": true,
+      "elapsed": 2.35,
+      "verdict": "HOLD",
+      "confidence": 0.4,
+      "source": "intigriti",
+      "name": "",
+      "scope_in_count": 0,
+      "scope_out_count": 0,
+      "severity_count": 0,
+      "rules_len": 0,
+      "raw_md_len": 0,
+      "bounty_range": {},
+      "warnings": [
+        "intigriti: program is invitation-only (detail API returned 403). Listing shows the program exists but its scope is not publicly readable. This is HOLD, not FAIL \u2014 the handler is working correctly."
+      ]
+    },
+    "regression_bugs": [],
+    "quality_score": 1
+  },
+  {
+    "platform": "intigriti",
+    "url": "https://app.intigriti.com/programs/solarwinds/Serv-u",
+    "main": {
+      "ok": true,
+      "elapsed": 0.69,
+      "body_len": 51559,
+      "fields": {
+        "name": "SolarWinds Serv-U - Bug Bounty Program - Intigriti",
+        "scope_in": "",
+        "scope_out": "",
+        "submission_rules": "",
+        "severity_table": ""
+      },
+      "populated": 1
+    },
+    "dev": {
+      "ok": true,
+      "elapsed": 2.69,
+      "verdict": "HOLD",
+      "confidence": 0.4,
+      "source": "intigriti",
+      "name": "",
+      "scope_in_count": 0,
+      "scope_out_count": 0,
+      "severity_count": 0,
+      "rules_len": 0,
+      "raw_md_len": 0,
+      "bounty_range": {},
+      "warnings": [
+        "intigriti: program is invitation-only (detail API returned 403). Listing shows the program exists but its scope is not publicly readable. This is HOLD, not FAIL \u2014 the handler is working correctly."
+      ]
+    },
+    "regression_bugs": [],
+    "quality_score": 1
+  },
+  {
+    "platform": "intigriti",
+    "url": "https://app.intigriti.com/programs/colruyt/newpharma",
+    "main": {
+      "ok": false,
+      "elapsed": 0.53,
+      "error": "HTTP Error 429: Too Many Requests",
+      "fields": {},
+      "populated": 0,
+      "body_len": 0
+    },
+    "dev": {
+      "ok": true,
+      "elapsed": 7.15,
+      "verdict": "HOLD",
+      "confidence": 0.4,
+      "source": "intigriti",
+      "name": "",
+      "scope_in_count": 0,
+      "scope_out_count": 0,
+      "severity_count": 0,
+      "rules_len": 0,
+      "raw_md_len": 0,
+      "bounty_range": {},
+      "warnings": [
+        "intigriti: program is invitation-only (detail API returned 403). Listing shows the program exists but its scope is not publicly readable. This is HOLD, not FAIL \u2014 the handler is working correctly."
+      ]
+    },
+    "regression_bugs": [],
+    "quality_score": 1
+  },
+  {
+    "platform": "intigriti",
+    "url": "https://app.intigriti.com/programs/rivian/rivianbugbounty",
+    "main": {
+      "ok": true,
+      "elapsed": 1.02,
+      "body_len": 66617,
+      "fields": {
+        "name": "Rivian Bug Bounty - Bug Bounty Program - Intigriti",
+        "scope_in": "",
+        "scope_out": "",
+        "submission_rules": "",
+        "severity_table": ""
+      },
+      "populated": 1
+    },
+    "dev": {
+      "ok": true,
+      "elapsed": 1.59,
+      "verdict": "PASS",
+      "confidence": 0.95,
+      "source": "intigriti.public_api",
+      "name": "Rivian Bug Bounty",
+      "scope_in_count": 6,
+      "scope_out_count": 66,
+      "severity_count": 10,
+      "rules_len": 10289,
+      "raw_md_len": 30914,
+      "bounty_range": {
+        "min": "100.0",
+        "max": "3500.0",
+        "currency": "USD"
+      },
+      "warnings": []
+    },
+    "regression_bugs": [],
+    "quality_score": 10
+  }
+]

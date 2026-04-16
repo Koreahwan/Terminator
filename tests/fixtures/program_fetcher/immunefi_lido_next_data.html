@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head><title>Lido — Immunefi</title></head>
+<body>
+<div id="__next">Loading...</div>
+<script id="__NEXT_DATA__" type="application/json">{
+  "props": {
+    "pageProps": {
+      "bounty": {
+        "id": "lido",
+        "project": "Lido",
+        "updatedDate": "2026-03-01",
+        "maxReward": "2000000",
+        "minReward": "1000",
+        "currency": "USD",
+        "cvssVersion": "3.1",
+        "assets": [
+          {"type": "smart_contract", "url": "0xae7ab96520de3a18e5e111b5eaab095312d7fe84", "description": "Lido stETH token"},
+          {"type": "smart_contract", "url": "0x442af784A788A5bd6F42A01Ebe9F287a871243fb", "description": "Oracle"},
+          {"type": "websites_and_applications", "url": "https://stake.lido.fi/", "description": "Staking UI"}
+        ],
+        "outOfScope": [
+          "Incorrect data supplied by third party oracles",
+          "Attacks requiring MEV",
+          "Social engineering attacks on team members",
+          "Issues already reported to the team"
+        ],
+        "knownIssues": [
+          "Known: Oracle update latency up to 24 hours",
+          "Known: slashing risk per Lido whitepaper"
+        ],
+        "rewardRules": "Report submissions must include a full PoC against a local mainnet fork and describe clear impact on protocol TVL. Rewards are paid per the Immunefi classification system v2.2.",
+        "impactInScope": "Theft of principal, permanent freezing of funds, direct theft of rewards.",
+        "rewards": [
+          {"severity": "Critical", "amount": "Up to 2000000", "assetType": "Smart Contract", "note": "10% of economic damage capped"},
+          {"severity": "High", "amount": "Up to 100000", "assetType": "Smart Contract"},
+          {"severity": "Medium", "amount": "5000", "assetType": "Website/App"}
+        ]
+      }
+    }
+  }
+}</script>
+</body>
+</html>

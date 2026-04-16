@@ -19,9 +19,46 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "../
 from knowledge_indexer import KnowledgeIndexer
 
 from mcp.server.fastmcp import FastMCP
+from mcp.types import ToolAnnotations
 
 mcp = FastMCP("knowledge-fts")
 _indexer = KnowledgeIndexer()
+
+# --- Query cache (TTL-based, no external deps) ---
+import time as _time
+_cache: dict[tuple, tuple[float, list]] = {}
+_CACHE_TTL = 300  # 5 minutes
+_CACHE_MAX = 1000  # max entries
+
+
+def _cache_put(key: tuple, results: list) -> None:
+    """Store result in cache, evicting oldest if over max size."""
+    if len(_cache) >= _CACHE_MAX:
+        oldest_key = min(_cache, key=lambda k: _cache[k][0])
+        del _cache[oldest_key]
+    _cache[key] = (_time.time(), results)
+
+
+def _cached_search(query: str, table: str, category: str = "", limit: int = 5) -> list[dict]:
+    """Cache wrapper around _indexer.search() with TTL expiry."""
+    key = (query, table, category, limit)
+    now = _time.time()
+    if key in _cache and now - _cache[key][0] < _CACHE_TTL:
+        return _cache[key][1]
+    results = _indexer.search(query, table=table, category=category, limit=limit)
+    _cache_put(key, results)
+    return results
+
+
+def _cached_snippet_search(query: str, table: str, category: str = "", limit: int = 5) -> list[dict]:
+    """Cache wrapper around _snippet_search() with TTL expiry."""
+    key = ("snippet", query, table, category, limit)
+    now = _time.time()
+    if key in _cache and now - _cache[key][0] < _CACHE_TTL:
+        return _cache[key][1]
+    results = _snippet_search(query, table=table, category=category, limit=limit)
+    _cache_put(key, results)
+    return results
 
 
 def _fmt_snippet(text: str, max_chars: int = 200) -> str:
@@ -35,7 +72,55 @@ def _fmt_snippet(text: str, max_chars: int = 200) -> str:
     return text[:max_chars]
 
 
-@mcp.tool()
+def _snippet_search(query: str, table: str, category: str = "", limit: int = 5) -> list[dict]:
+    """Search with FTS5 snippet() for token-efficient results.
+
+    Returns results with 'snippet' field (match-highlighted, ~64 tokens)
+    instead of full 'content' field. Saves 80%+ tokens per result.
+    """
+    from knowledge_indexer import escape_fts5
+    escaped = escape_fts5(query)
+    if not escaped.strip():
+        return []
+
+    weights = _indexer.BM25_WEIGHTS.get(table, ())
+    if weights:
+        weight_args = ", ".join(str(w) for w in weights)
+        rank_expr = f"bm25({table}, {weight_args})"
+    else:
+        rank_expr = "rank"
+
+    conn = _indexer._connect()
+    try:
+        fetch_limit = limit * 3
+        # snippet(table, col_idx=-1, open, close, ellipsis, max_tokens)
+        snippet_expr = f"snippet({table}, -1, '>>>', '<<<', '...', 64)"
+        if category:
+            cat_escaped = escape_fts5(category)
+            sql = (f"SELECT *, {snippet_expr} as snippet, {rank_expr} as rank "
+                   f"FROM {table} WHERE {table} MATCH ? AND category MATCH ? "
+                   f"ORDER BY rank LIMIT ?")
+            cur = conn.execute(sql, (escaped, cat_escaped, fetch_limit))
+        else:
+            sql = (f"SELECT *, {snippet_expr} as snippet, {rank_expr} as rank "
+                   f"FROM {table} WHERE {table} MATCH ? ORDER BY rank LIMIT ?")
+            cur = conn.execute(sql, (escaped, fetch_limit))
+        results = [dict(row) for row in cur.fetchall()]
+        results = _indexer._dedup_results(results)[:limit]
+    except Exception as e:
+        print(f"Snippet search error: {e}", file=_import_sys().stderr)
+        results = []
+    finally:
+        conn.close()
+    return results
+
+
+def _import_sys():
+    import sys
+    return sys
+
+
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, idempotentHint=True))
 def technique_search(query: str, category: str = "", limit: int = 5) -> str:
     """Search internal + external security technique documents using BM25 FTS5.
 
@@ -55,13 +140,13 @@ def technique_search(query: str, category: str = "", limit: int = 5) -> str:
         category: Optional category filter, e.g. "heap", "web", "kernel", "ctf"
         limit:    Max results per table (default 5, returned up to 2x limit combined)
     """
-    int_results = _indexer.search(query, table="techniques", category=category, limit=limit)
-    ext_results = _indexer.search(query, table="external_techniques", category=category, limit=limit)
+    int_results = _cached_snippet_search(query, table="techniques", category=category, limit=limit)
+    ext_results = _cached_snippet_search(query, table="external_techniques", category=category, limit=limit)
 
     # Also search web_articles if table exists
     web_results = []
     try:
-        web_results = _indexer.search(query, table="web_articles", category=category, limit=limit)
+        web_results = _cached_snippet_search(query, table="web_articles", category=category, limit=limit)
     except (ValueError, Exception):
         pass  # Table may not exist in older DBs
 
@@ -89,8 +174,7 @@ def technique_search(query: str, category: str = "", limit: int = 5) -> str:
         tags = r.get("tags", "")
         file_path = r.get("file_path", "")
         source_repo = r.get("source_repo", r.get("source", ""))
-        content = r.get("content", "")
-        snippet = _fmt_snippet(content)
+        snippet = r.get("snippet", _fmt_snippet(r.get("content", "")))
 
         lines.append(f"{i}. [{label}] {title}")
         meta_parts = []
@@ -105,13 +189,13 @@ def technique_search(query: str, category: str = "", limit: int = 5) -> str:
         if file_path:
             lines.append(f"   Path: {file_path}")
         if snippet:
-            lines.append(f"   Preview: {snippet}")
+            lines.append(f"   Match: {snippet}")
         lines.append("")
 
     return "\n".join(lines)
 
 
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, idempotentHint=True))
 def exploit_search(query: str, platform: str = "", severity: str = "", limit: int = 10) -> str:
     """Search ExploitDB, Nuclei templates, PoC-in-GitHub, and Trickest-CVE for exploits.
 
@@ -134,12 +218,16 @@ def exploit_search(query: str, platform: str = "", severity: str = "", limit: in
         limit:    Max results per source (default 10)
     """
     results = _indexer.search_exploits(query, platform=platform, severity=severity, limit=limit)
+    # Strip content field from exploit results to save tokens
+    for r in results:
+        r.pop("content", None)
 
     # Also search web_articles for exploit/CVE writeups
     try:
-        web_results = _indexer.search(query, table="web_articles", limit=limit)
+        web_results = _cached_search(query, table="web_articles", limit=limit)
         for r in web_results:
             r["_source_table"] = "web_articles"
+            r.pop("content", None)
         results.extend(web_results)
     except (ValueError, Exception):
         pass
@@ -267,7 +355,7 @@ def exploit_search(query: str, platform: str = "", severity: str = "", limit: in
     return "\n".join(lines)
 
 
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, idempotentHint=True))
 def challenge_search(query: str, status: str = "", limit: int = 5) -> str:
     """Search CTF challenge writeups in the internal knowledge base.
 
@@ -307,8 +395,7 @@ def challenge_search(query: str, status: str = "", limit: int = 5) -> str:
         tags = r.get("tags", "")
         file_path = r.get("file_path", "")
         source = r.get("source", "")
-        content = r.get("content", "")
-        snippet = _fmt_snippet(content)
+        snippet = r.get("snippet", _fmt_snippet(r.get("content", "")))
 
         lines.append(f"{i}. {title}")
         parts = []
@@ -323,13 +410,63 @@ def challenge_search(query: str, status: str = "", limit: int = 5) -> str:
         if file_path:
             lines.append(f"   Path: {file_path}")
         if snippet:
-            lines.append(f"   Preview: {snippet}")
+            lines.append(f"   Match: {snippet}")
+        lines.append("")
+
+    return "\n".join(lines)
+
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, idempotentHint=True))
+def triage_search(query: str, program: str = "", limit: int = 10) -> str:
+    """Search triage objections and kill reasons from past bug bounty submissions.
+
+    Searches the 'triage_objections' table which contains documented reasons
+    why findings were killed at Gate 1, Gate 2, or Phase 4.5, organized by
+    program and kill reason.
+
+    Use this BEFORE Gate 1/Gate 2 to check if similar findings were previously
+    killed for the same program or vulnerability class. This prevents repeating
+    known-bad submissions.
+
+    Args:
+        query:   Kill reason or vulnerability type, e.g. "oracle staleness", "intended behavior"
+        program: Optional program name filter, e.g. "paradex", "okto"
+        limit:   Max results (default 10)
+    """
+    if program:
+        results = _cached_snippet_search(query, table="triage_objections", category=program, limit=limit)
+    else:
+        results = _cached_snippet_search(query, table="triage_objections", limit=limit)
+
+    if not results:
+        return f"No triage objections for '{query}'" + (f" (program={program})" if program else "") + "."
+
+    lines = [f"## Triage Objections: \"{query}\" ({len(results)} results)\n"]
+
+    for i, r in enumerate(results, 1):
+        title = r.get("title", "untitled")
+        prog = r.get("program", "")
+        snippet = r.get("snippet", r.get("kill_reason", "")[:200])
+        tags = r.get("tags", "")
+        file_path = r.get("file_path", "")
+
+        lines.append(f"{i}. {title}")
+        parts = []
+        if prog:
+            parts.append(f"Program: {prog}")
+        if tags:
+            parts.append(f"Tags: {tags[:80]}")
+        if parts:
+            lines.append("   " + " | ".join(parts))
+        if snippet:
+            lines.append(f"   Match: {snippet}")
+        if file_path:
+            lines.append(f"   Path: {file_path}")
         lines.append("")
 
     return "\n".join(lines)
 
 
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, idempotentHint=True))
 def search_all(query: str, limit: int = 10) -> str:
     """Search ALL 6 knowledge tables simultaneously for the broadest coverage.
 
@@ -397,11 +534,9 @@ def search_all(query: str, limit: int = 10) -> str:
             tags = r.get("tags", "")
             if tags:
                 detail_parts.append(f"tags={tags[:60]}")
-            content = r.get("content", "")
-            if content:
-                snippet = _fmt_snippet(content)
-                if snippet:
-                    detail_parts.append(f"preview: {snippet}")
+            snippet = r.get("snippet", _fmt_snippet(r.get("content", "")))
+            if snippet:
+                detail_parts.append(f"match: {snippet}")
         elif source_table == "nuclei":
             sev = r.get("severity", "")
             if sev:
@@ -440,7 +575,7 @@ def search_all(query: str, limit: int = 10) -> str:
     return "\n".join(lines)
 
 
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, idempotentHint=True))
 def smart_search(query: str, limit: int = 10) -> str:
     """Search all knowledge tables with automatic query relaxation.
 
@@ -538,7 +673,7 @@ def smart_search(query: str, limit: int = 10) -> str:
     return "\n".join(lines)
 
 
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, idempotentHint=True))
 def get_technique_content(file_path: str, max_lines: int = 100) -> str:
     """Read the full content of a specific knowledge file (drill-down after search).
 
@@ -567,7 +702,7 @@ def get_technique_content(file_path: str, max_lines: int = 100) -> str:
     return header + content
 
 
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, idempotentHint=True))
 def knowledge_stats() -> str:
     """Show statistics about the FTS5 knowledge database.
 
@@ -582,7 +717,7 @@ def knowledge_stats() -> str:
 
     lines = ["## Knowledge FTS5 Database Statistics\n"]
 
-    tables = ["techniques", "external_techniques", "exploitdb", "nuclei", "poc_github", "trickest_cve", "web_articles"]
+    tables = ["techniques", "external_techniques", "exploitdb", "nuclei", "poc_github", "trickest_cve", "web_articles", "triage_objections"]
     table_labels = {
         "techniques": "Internal techniques + challenges",
         "external_techniques": "External repos (PayloadsAllTheThings, HackTricks, how2heap, etc.)",
@@ -591,6 +726,7 @@ def knowledge_stats() -> str:
         "poc_github": "PoC-in-GitHub CVE repos",
         "trickest_cve": "Trickest CVE database",
         "web_articles": "Web articles (crawled security writeups)",
+        "triage_objections": "Triage kill reasons + objections",
     }
 
     total = 0

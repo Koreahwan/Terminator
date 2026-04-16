@@ -44,21 +44,22 @@ def cmd_run(args):
     target = args.target or "target"
     dag = get_pipeline(args.pipeline, target)
 
-    # Attach Claude handler if --execute mode
+    # Attach backend handler if --execute mode
     if getattr(args, 'execute', False):
         try:
-            from .claude_handler import ClaudeAgentHandler
+            from .claude_handler import BackendAgentHandler
         except ImportError:
-            from tools.dag_orchestrator.claude_handler import ClaudeAgentHandler
+            from tools.dag_orchestrator.claude_handler import BackendAgentHandler
         import uuid
         session_id = getattr(args, 'session_id', None) or str(uuid.uuid4())[:8]
-        handler = ClaudeAgentHandler(
+        handler = BackendAgentHandler(
             work_dir=os.path.abspath(getattr(args, 'work_dir', '.')),
             session_id=session_id,
             target=target,
+            backend=getattr(args, 'backend', 'claude'),
         )
         handler.attach_to_dag(dag)
-        print(f"[Orchestrator] Execute mode: agents will be spawned via Claude CLI")
+        print(f"[Orchestrator] Execute mode: agents will be spawned via {handler.backend}")
         print(f"[Orchestrator] Session: {session_id}, Work dir: {handler.work_dir}")
     else:
         print(f"[Orchestrator] Dry-run mode (use --execute for real execution)")
@@ -119,6 +120,8 @@ def main():
                         help="Working directory for agent artifacts")
     parser.add_argument("--session-id", "-s", default=None,
                         help="Session ID for DB tracking")
+    parser.add_argument("--backend", default="claude",
+                        help="Execution backend: claude | codex")
 
     args = parser.parse_args()
 

@@ -154,6 +154,13 @@ def cmd_sync_omx_state(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_sync_claude_state(args: argparse.Namespace) -> int:
+    store = CoordinationStore.from_env()
+    payload = store.sync_claude_state(args.session, cwd=args.cwd)
+    print(json.dumps(payload, indent=2, ensure_ascii=False))
+    return 0
+
+
 def cmd_bootstrap_codex(args: argparse.Namespace) -> int:
     store = CoordinationStore.from_env()
     payload = store.bootstrap_codex(session_id=args.session, cwd=args.cwd)
@@ -270,6 +277,11 @@ def build_parser() -> argparse.ArgumentParser:
     sync.add_argument("--session", required=True)
     sync.add_argument("--cwd", default=".")
     sync.set_defaults(func=cmd_sync_omx_state)
+
+    claude_sync = sub.add_parser("sync-claude-state")
+    claude_sync.add_argument("--session", required=True)
+    claude_sync.add_argument("--cwd", default=".")
+    claude_sync.set_defaults(func=cmd_sync_claude_state)
 
     bootstrap = sub.add_parser("bootstrap-codex")
     bootstrap.add_argument("--session")

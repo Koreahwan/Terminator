@@ -31,7 +31,7 @@ Read targets/<target>/program_rules_summary.md
 ### Step 2: Common Exclusion Pattern Matching
 Load OOS pattern DB (`scripts/oos_patterns.json`) and cross-match with finding-type:
 
-!`cat /home/rootk1m/01_CYAI_Lab/01_Projects/Terminator/.claude/skills/oos-check/scripts/oos_patterns.json 2>/dev/null || echo "pattern DB not found"`
+!`cat .claude/skills/oos-check/scripts/oos_patterns.json 2>/dev/null || echo "pattern DB not found"`
 
 ### Step 3: Platform OOS Verification
 - Immunefi: `immunefi.com/common-vulnerabilities-to-exclude/` default exclusion list

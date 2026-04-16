@@ -4,6 +4,17 @@ description: Use this agent when a trivial CTF problem should be solved end-to-e
 model: sonnet
 color: magenta
 permissionMode: bypassPermissions
+effort: high
+maxTurns: 40
+requiredMcpServers:
+  - "gdb"
+  - "ghidra"
+  - "knowledge-fts"
+disallowedTools:
+  - "mcp__radare2__*"
+  - "mcp__nuclei__*"
+  - "mcp__semgrep__*"
+  - "mcp__codeql__*"
 ---
 
 # CTF Solver Agent (Legacy — Single Agent Mode)

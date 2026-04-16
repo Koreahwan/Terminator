@@ -1,6 +1,6 @@
 # Security Papers Index
 
-**Source**: `/home/rootk1m/tools/paper_collection/` (814 papers, organized by category)
+**Source**: `~/tools/paper_collection/` (814 papers, organized by category)
 **Updated**: 2026-02-24
 **Purpose**: Quick reference index for offensive security research, CTF, and bug bounty contexts
 
@@ -192,4 +192,4 @@
 
 **Total Papers Indexed**: 814 (read/tagged: 50+, unread: 760+)
 **Last Updated**: Feb 2026
-**Maintained at**: `/home/rootk1m/tools/paper_collection/README.md`
+**Maintained at**: `~/tools/paper_collection/README.md`

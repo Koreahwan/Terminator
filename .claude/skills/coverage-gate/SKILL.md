@@ -21,7 +21,7 @@ Lesson: NAMUHX had 40% coverage at Phase 2 entry; the real IDOR was in the untes
 ## Procedure
 
 ### Step 1: Run bb_preflight.py coverage-check
-!`python3 /home/rootk1m/01_CYAI_Lab/01_Projects/Terminator/tools/bb_preflight.py coverage-check "$ARGUMENTS" 2>&1`
+!`python3 tools/bb_preflight.py coverage-check "$ARGUMENTS" 2>&1`
 
 ### Step 2: Parse Result
 

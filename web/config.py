@@ -13,6 +13,7 @@ TARGETS_DIR = BASE_DIR / "targets"
 KNOWLEDGE_DIR = BASE_DIR / "knowledge"
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 TEAMS_DIR = Path.home() / ".claude" / "teams"
+PID_DIR = BASE_DIR / ".pids"
 
 # ── Service Discovery (Docker vs Local) ──
 SERVICE_DISCOVERY = os.environ.get("SERVICE_DISCOVERY", "docker")

@@ -4,6 +4,17 @@ description: Use this agent when you need broad automated reconnaissance over a 
 model: sonnet
 color: cyan
 permissionMode: bypassPermissions
+effort: low
+maxTurns: 40
+requiredMcpServers:
+  - "nuclei"
+  - "pentest"
+disallowedTools:
+  - "mcp__radare2__*"
+  - "mcp__gdb__*"
+  - "mcp__ghidra__*"
+  - "mcp__codeql__*"
+  - "mcp__semgrep__*"
 ---
 
 # Recon Scanner Agent
@@ -19,6 +30,8 @@ You are an automated reconnaissance specialist. You are the first eyes on a new 
 
 ## Available Tools
 
+- **Lightpanda MCP** (PREFERRED for page content): `markdown` (page→MD), `links` (all links), `structuredData` (JSON-LD/OpenGraph), `evaluate` (JS exec), `semantic_tree` (DOM for AI). Load: `ToolSearch("lightpanda")`
+- **Browser-Use MCP**: `web_extract` (AI data extraction from pages). Load: `ToolSearch("browser-use")`
 - **Subdomain**: subfinder (`~/gopath/bin/subfinder`), amass (`~/gopath/bin/amass`), dnstwist (typosquatting)
 - **Port Scanning**: RustScan (`rustscan` — 65535 ports in 3 seconds), nmap (service version detection)
 - **HTTP Probing**: httpx (`~/gopath/bin/httpx` — tech detect + status), whatweb
@@ -486,7 +499,7 @@ echo "=== Phase 6B: MITRE Enrichment ==="
 if [ -f "cve_ids_found.txt" ] && [ -s "cve_ids_found.txt" ]; then
     CVE_LIST=$(cat cve_ids_found.txt | tr '\n' ' ')
     echo "[MITRE] Enriching: $CVE_LIST"
-    python3 /home/rootk1m/01_CYAI_Lab/01_Projects/Terminator/tools/mitre_mapper.py \
+    python3 tools/mitre_mapper.py \
         $CVE_LIST \
         --json \
         --atlas \

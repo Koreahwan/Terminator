@@ -1,0 +1,28 @@
+{
+  "_note": "Curated URL set for program_fetcher benchmark. Keep ground_truth/<id>.md frozen and only regenerate when the live page materially changes. Every entry: id (unique), platform (for dispatcher routing), url (program page), ground_truth (file in ground_truth/ or null to skip accuracy check).",
+  "urls": [
+    {"id": "h1-security",          "platform": "hackerone",   "url": "https://hackerone.com/security",                    "ground_truth": null, "notes": "Meta-program — policy has collapsed <details> sub-sections that break jina"},
+    {"id": "h1-gitlab",            "platform": "hackerone",   "url": "https://hackerone.com/gitlab",                      "ground_truth": null, "notes": "Large policy with severity table"},
+    {"id": "h1-shopify",           "platform": "hackerone",   "url": "https://hackerone.com/shopify",                     "ground_truth": null, "notes": "Heavy structured_scopes"},
+    {"id": "h1-hackerone",         "platform": "hackerone",   "url": "https://hackerone.com/hackerone",                   "ground_truth": null, "notes": "Classic Okto-style collapsed OOS incident reproducer"},
+
+    {"id": "bc-tesla",             "platform": "bugcrowd",    "url": "https://bugcrowd.com/tesla",                        "ground_truth": null, "notes": "Large SPA with react-props blob"},
+    {"id": "bc-indeed",            "platform": "bugcrowd",    "url": "https://bugcrowd.com/indeed",                       "ground_truth": null, "notes": "Medium, VRT table"},
+    {"id": "bc-vrt-reference",     "platform": "bugcrowd",    "url": "https://bugcrowd.com/bugcrowd",                     "ground_truth": null, "notes": "Bugcrowd's own program"},
+
+    {"id": "imm-lido",             "platform": "immunefi",    "url": "https://immunefi.com/bug-bounty/lido/",             "ground_truth": null, "notes": "Large payout, full __NEXT_DATA__"},
+    {"id": "imm-compound",         "platform": "immunefi",    "url": "https://immunefi.com/bug-bounty/compoundfinance/",  "ground_truth": null, "notes": "Multi-chain"},
+    {"id": "imm-makerdao",         "platform": "immunefi",    "url": "https://immunefi.com/bug-bounty/makerdao/",         "ground_truth": null, "notes": "Complex severity matrix"},
+
+    {"id": "it-intigriti",         "platform": "intigriti",   "url": "https://app.intigriti.com/programs/intigriti/intigriti", "ground_truth": null, "notes": "Intigriti's own program"},
+    {"id": "it-visma",             "platform": "intigriti",   "url": "https://app.intigriti.com/programs/visma/visma",    "ground_truth": null, "notes": "Enterprise"},
+
+    {"id": "ywh-yeswehack",        "platform": "yeswehack",   "url": "https://yeswehack.com/programs/yeswehack",          "ground_truth": null, "notes": "YWH's own program"},
+    {"id": "ywh-owasp",            "platform": "yeswehack",   "url": "https://yeswehack.com/programs/owasp",              "ground_truth": null, "notes": "OWASP community"},
+
+    {"id": "hp-dcentral",          "platform": "hackenproof", "url": "https://hackenproof.com/dcentral",                  "ground_truth": null, "notes": "Web3 program"},
+
+    {"id": "c4-example",           "platform": "github_md",   "url": "https://github.com/code-423n4/2024-01-salty",       "ground_truth": null, "notes": "Code4rena audit contest README"},
+    {"id": "sherlock-example",     "platform": "github_md",   "url": "https://github.com/sherlock-audit/2024-01-napier",  "ground_truth": null, "notes": "Sherlock audit README"}
+  ]
+}

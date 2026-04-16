@@ -22,8 +22,9 @@ AI-generated reports are a problem in 40%+ of submissions — triagers actively 
 
 | Score | Verdict | Action |
 |-------|---------|--------|
-| **0-2** | PASS | Ready for submission |
-| **3-5** | STRENGTHEN | Rewrite required — remove slop patterns, re-check |
+| **0-1** | PASS | Ready for submission |
+| **2** | STRENGTHEN | Compact rewrite — cut filler, add specifics, re-check |
+| **3-5** | STRENGTHEN | Major rewrite — remove all slop patterns, cut 40%, re-check |
 | **6-10** | KILL | Submission forbidden — full rewrite or delete finding |
 
 ## Few-Shot Examples
@@ -95,7 +96,7 @@ score = clamp(score, 0, 10)
 
 ### Step 5: Cross-validation with validation_prompts.py (if available)
 !`python3 -c "
-import sys; sys.path.insert(0, '/home/rootk1m/01_CYAI_Lab/01_Projects/Terminator')
+import sys; sys.path.insert(0, '<project-root>/All_Projects/Terminator')
 from tools.validation_prompts import check_ai_slop
 with open('$ARGUMENTS') as f: text = f.read()
 result = check_ai_slop(text)

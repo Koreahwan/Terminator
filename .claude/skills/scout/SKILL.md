@@ -6,9 +6,9 @@ argument-hint: <firmware-path> [--rootfs <extracted-rootfs>] [--profile exploit]
 
 # SCOUT — Firmware-to-Exploit Evidence Engine
 
-SCOUT location: `/home/rootk1m/SCOUT`
-Launcher: `/home/rootk1m/SCOUT/scout`
-Runs output: `/home/rootk1m/SCOUT/aiedge-runs/`
+SCOUT location: `~/SCOUT`
+Launcher: `~/SCOUT/scout`
+Runs output: `~/SCOUT/aiedge-runs/`
 
 ## What SCOUT Does
 
@@ -24,14 +24,14 @@ Firmware file info:
 !`if [ -n "$1" ] && [ -e "$1" ]; then file "$1" 2>/dev/null && ls -lh "$1" 2>/dev/null; fi`
 
 Recent SCOUT runs:
-!`ls -lt /home/rootk1m/SCOUT/aiedge-runs/ 2>/dev/null | head -6 || echo "no runs yet"`
+!`ls -lt ~/SCOUT/aiedge-runs/ 2>/dev/null | head -6 || echo "no runs yet"`
 
 ## Usage Patterns
 
 ### 1. Quick Deterministic Analysis (no LLM, most common)
 
 ```bash
-/home/rootk1m/SCOUT/scout analyze <firmware.bin> \
+~/SCOUT/scout analyze <firmware.bin> \
   --ack-authorization --no-llm \
   --case-id <descriptive-id>
 ```
@@ -39,7 +39,7 @@ Recent SCOUT runs:
 ### 2. Analysis with Pre-extracted Rootfs (when binwalk extraction is weak)
 
 ```bash
-/home/rootk1m/SCOUT/scout analyze <firmware.bin> \
+~/SCOUT/scout analyze <firmware.bin> \
   --ack-authorization --no-llm \
   --case-id <id> \
   --rootfs /path/to/extracted/rootfs
@@ -53,7 +53,7 @@ Recent SCOUT runs:
 #   threat_model, findings, llm_synthesis, dynamic_validation, emulation,
 #   exploit_chain, exploit_autopoc, poc_validation, exploit_policy
 
-/home/rootk1m/SCOUT/scout analyze <firmware.bin> \
+~/SCOUT/scout analyze <firmware.bin> \
   --ack-authorization --no-llm --case-id <id> \
   --stages tooling,extraction,structure,carving,firmware_profile,inventory
 ```
@@ -61,14 +61,14 @@ Recent SCOUT runs:
 ### 4. Rerun Stages on Existing Run
 
 ```bash
-/home/rootk1m/SCOUT/scout stages /home/rootk1m/SCOUT/aiedge-runs/<run_id> \
+~/SCOUT/scout stages ~/SCOUT/aiedge-runs/<run_id> \
   --no-llm --stages inventory,surfaces,findings
 ```
 
 ### 5. Full Exploit Profile (lab-gated, requires authorization)
 
 ```bash
-/home/rootk1m/SCOUT/scout analyze <firmware.bin> \
+~/SCOUT/scout analyze <firmware.bin> \
   --ack-authorization --case-id <id> \
   --profile exploit \
   --exploit-flag lab \
@@ -80,16 +80,16 @@ Recent SCOUT runs:
 
 ```bash
 # TUI dashboard (interactive)
-/home/rootk1m/SCOUT/scout tui /home/rootk1m/SCOUT/aiedge-runs/<run_id> --interactive
+~/SCOUT/scout tui ~/SCOUT/aiedge-runs/<run_id> --interactive
 
 # TUI live-refresh
-/home/rootk1m/SCOUT/scout tw /home/rootk1m/SCOUT/aiedge-runs/<run_id> -t 2
+~/SCOUT/scout tw ~/SCOUT/aiedge-runs/<run_id> -t 2
 
 # One-shot summary
-/home/rootk1m/SCOUT/scout to /home/rootk1m/SCOUT/aiedge-runs/<run_id>
+~/SCOUT/scout to ~/SCOUT/aiedge-runs/<run_id>
 
 # Web viewer
-/home/rootk1m/SCOUT/scout serve /home/rootk1m/SCOUT/aiedge-runs/<run_id>
+~/SCOUT/scout serve ~/SCOUT/aiedge-runs/<run_id>
 ```
 
 ## Orchestrator Workflow
@@ -164,12 +164,12 @@ aiedge-runs/<timestamp>_<sha256-prefix>/
 
 ```bash
 # Evidence integrity
-python3 /home/rootk1m/SCOUT/scripts/verify_analyst_digest.py --run-dir <run_dir>
-python3 /home/rootk1m/SCOUT/scripts/verify_aiedge_analyst_report.py --run-dir <run_dir>
+python3 ~/SCOUT/scripts/verify_analyst_digest.py --run-dir <run_dir>
+python3 ~/SCOUT/scripts/verify_aiedge_analyst_report.py --run-dir <run_dir>
 
 # Verified chain gates
-python3 /home/rootk1m/SCOUT/scripts/verify_verified_chain.py --run-dir <run_dir>
-python3 /home/rootk1m/SCOUT/scripts/verify_run_dir_evidence_only.py --run-dir <run_dir>
+python3 ~/SCOUT/scripts/verify_verified_chain.py --run-dir <run_dir>
+python3 ~/SCOUT/scripts/verify_run_dir_evidence_only.py --run-dir <run_dir>
 ```
 
 ## Key Rules

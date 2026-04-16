@@ -4,6 +4,13 @@ description: Use this agent when mapping trust boundaries, role matrices, state 
 model: sonnet
 color: orange
 permissionMode: bypassPermissions
+effort: medium
+maxTurns: 25
+disallowedTools:
+  - "mcp__radare2__*"
+  - "mcp__gdb__*"
+  - "mcp__ghidra__*"
+  - "mcp__nuclei__*"
 ---
 
 # Threat Modeler — Trust Boundary & Invariant Discovery Agent
@@ -141,14 +148,7 @@ Each invariant becomes a direct test case for @web-tester and @workflow-auditor.
 
 ## Structured Reasoning (MANDATORY at every decision point)
 
-```
-OBSERVED: [What recon artifacts show — endpoints, auth mechanism, roles mentioned]
-INFERRED: [What the architecture implies — trust boundaries, data flow directions]
-ASSUMED:  [What is NOT confirmed — role hierarchy, permission propagation timing]
-  Risk: [HIGH/MED/LOW — what breaks if this assumption is wrong]
-RISK:     [Biggest modeling gap — what could we be completely wrong about]
-DECISION: [Which boundary/workflow to model next + 1-sentence justification]
-```
+See `_reference/structured_reasoning.md`
 
 ## Tree of Thoughts: Modeling Approach Selection
 
@@ -210,21 +210,7 @@ OBSERVATION: "Auth uses JWT with role claim, but no tenant isolation middleware 
 
 ## Checkpoint Protocol
 
-Write checkpoint.json at each step completion:
-```json
-{
-  "agent": "threat-modeler",
-  "status": "in_progress",
-  "phase": 2,
-  "phase_name": "role_matrix",
-  "completed": ["trust_boundary_map"],
-  "in_progress": ["role_matrix"],
-  "critical_facts": ["4 trust boundaries found", "5 role types identified"],
-  "expected_artifacts": ["trust_boundary_map.md", "role_matrix.md", "state_machines.md", "invariants.md"],
-  "produced_artifacts": ["trust_boundary_map.md"],
-  "timestamp": "ISO-8601"
-}
-```
+Write checkpoint.json: `{"agent":"<name>","status":"in_progress|completed|error","phase":<N>,"phase_name":"<name>","completed":[],"critical_facts":[],"expected_artifacts":[],"produced_artifacts":[],"timestamp":"<ISO>"}`. Update on each phase completion. Set status=completed only when all expected_artifacts are produced.
 
 ## Output Summary Format
 

@@ -4,11 +4,40 @@ PostgreSQL connection and all DB query helpers.
 """
 
 import logging
-from typing import Optional
+from typing import Any, Optional, Sequence
 
 from web.config import DB_CONFIG
 
 logger = logging.getLogger(__name__)
+_AGENT_RUN_COLUMNS: set[str] | None = None
+
+_ALLOWED_FINDING_FIELDS: set[str] = {
+    "target",
+    "title",
+    "severity",
+    "status",
+    "poc_tier",
+    "cvss_score",
+    "description",
+    "poc_summary",
+    "platform",
+    "submitted_at",
+    "triager_outcome",
+    "bounty_amount",
+}
+
+
+def _fetchall_dicts(cur) -> list[dict[str, Any]]:
+    cols = [d[0] for d in cur.description]
+    return [dict(zip(cols, row)) for row in cur.fetchall()]
+
+
+def _isoformat_fields(rows: Sequence[dict[str, Any]], fields: Sequence[str]) -> None:
+    for r in rows:
+        for k in fields:
+            v = r.get(k)
+            if v:
+                r[k] = v.isoformat()
 
 
 def get_connection():
@@ -20,6 +49,63 @@ def get_connection():
     """
     import psycopg2
     return psycopg2.connect(**DB_CONFIG)
+
+
+def _get_agent_run_columns() -> set[str]:
+    global _AGENT_RUN_COLUMNS
+    if _AGENT_RUN_COLUMNS is not None:
+        return _AGENT_RUN_COLUMNS
+
+    conn = get_connection()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            """SELECT column_name
+               FROM information_schema.columns
+               WHERE table_name = 'agent_runs'"""
+        )
+        _AGENT_RUN_COLUMNS = {row[0] for row in cur.fetchall()}
+        cur.close()
+        return _AGENT_RUN_COLUMNS
+    finally:
+        conn.close()
+
+
+def _agent_run_select_sql(where: str, *, active_only: bool = False, recent_window: bool = False) -> str:
+    columns = _get_agent_run_columns()
+    select_parts = [
+        "id",
+        "session_id",
+        "agent_role",
+        "target",
+        "model",
+        "status",
+        "duration_seconds",
+        "tokens_used",
+        "output_summary",
+        "artifacts",
+        "created_at",
+        "completed_at",
+    ]
+    if "backend" in columns:
+        select_parts.append("backend")
+    else:
+        select_parts.append("NULL AS backend")
+    if "parallel_group_id" in columns:
+        select_parts.append("parallel_group_id")
+    else:
+        select_parts.append("NULL AS parallel_group_id")
+
+    base = f"SELECT {', '.join(select_parts)} FROM agent_runs"
+    if active_only:
+        return base + " WHERE status = 'RUNNING' ORDER BY created_at DESC"
+    if recent_window:
+        return (
+            base
+            + " WHERE status = 'RUNNING' OR (completed_at IS NOT NULL AND completed_at > NOW() - INTERVAL '30 seconds')"
+            + " ORDER BY created_at DESC"
+        )
+    return f"{base} {where} ORDER BY created_at DESC LIMIT %s"
 
 
 # ── Agent Runs ──
@@ -39,20 +125,9 @@ def list_agent_runs(session: Optional[str] = None, target: Optional[str] = None,
             params.append(target)
         where = ("WHERE " + " AND ".join(conditions)) if conditions else ""
         params.append(limit)
-        cur.execute(
-            f"""SELECT id, session_id, agent_role, target, model, status,
-                       duration_seconds, tokens_used, output_summary, artifacts,
-                       created_at, completed_at
-                FROM agent_runs {where}
-                ORDER BY created_at DESC LIMIT %s""",
-            params,
-        )
-        cols = [d[0] for d in cur.description]
-        rows = [dict(zip(cols, row)) for row in cur.fetchall()]
-        for r in rows:
-            for k in ("created_at", "completed_at"):
-                if r.get(k):
-                    r[k] = r[k].isoformat()
+        cur.execute(_agent_run_select_sql(where), params)
+        rows = _fetchall_dicts(cur)
+        _isoformat_fields(rows, ("created_at", "completed_at"))
         cur.close()
         return rows
     finally:
@@ -64,19 +139,9 @@ def list_active_agent_runs() -> list:
     conn = get_connection()
     try:
         cur = conn.cursor()
-        cur.execute(
-            """SELECT id, session_id, agent_role, target, model, status,
-                      duration_seconds, tokens_used, output_summary, artifacts,
-                      created_at, completed_at
-               FROM agent_runs WHERE status = 'RUNNING'
-               ORDER BY created_at DESC"""
-        )
-        cols = [d[0] for d in cur.description]
-        rows = [dict(zip(cols, row)) for row in cur.fetchall()]
-        for r in rows:
-            for k in ("created_at", "completed_at"):
-                if r.get(k):
-                    r[k] = r[k].isoformat()
+        cur.execute(_agent_run_select_sql("", active_only=True))
+        rows = _fetchall_dicts(cur)
+        _isoformat_fields(rows, ("created_at", "completed_at"))
         cur.close()
         return rows
     finally:
@@ -88,22 +153,9 @@ def list_recent_and_running_agents() -> list:
     conn = get_connection()
     try:
         cur = conn.cursor()
-        cur.execute(
-            """SELECT id, session_id, agent_role, target, model, status,
-                      duration_seconds, tokens_used, output_summary, artifacts,
-                      created_at, completed_at
-               FROM agent_runs
-               WHERE status = 'RUNNING'
-                  OR (completed_at IS NOT NULL
-                      AND completed_at > NOW() - INTERVAL '30 seconds')
-               ORDER BY created_at DESC"""
-        )
-        cols = [d[0] for d in cur.description]
-        rows = [dict(zip(cols, row)) for row in cur.fetchall()]
-        for r in rows:
-            for k in ("created_at", "completed_at"):
-                if r.get(k):
-                    r[k] = r[k].isoformat()
+        cur.execute(_agent_run_select_sql("", recent_window=True))
+        rows = _fetchall_dicts(cur)
+        _isoformat_fields(rows, ("created_at", "completed_at"))
         cur.close()
         return rows
     finally:
@@ -135,12 +187,8 @@ def list_findings(target: Optional[str] = None, status: Optional[str] = None, li
                 ORDER BY created_at DESC LIMIT %s""",
             params,
         )
-        cols = [d[0] for d in cur.description]
-        rows = [dict(zip(cols, row)) for row in cur.fetchall()]
-        for r in rows:
-            for k in ("submitted_at", "created_at", "updated_at"):
-                if r.get(k):
-                    r[k] = r[k].isoformat()
+        rows = _fetchall_dicts(cur)
+        _isoformat_fields(rows, ("submitted_at", "created_at", "updated_at"))
         total = len(rows)
         cur.close()
         return rows, total
@@ -159,8 +207,7 @@ def get_findings_stats() -> tuple:
                GROUP BY target, severity, status
                ORDER BY count DESC"""
         )
-        cols = [d[0] for d in cur.description]
-        rows = [dict(zip(cols, row)) for row in cur.fetchall()]
+        rows = _fetchall_dicts(cur)
         cur.execute("SELECT COUNT(*) FROM findings")
         total = cur.fetchone()[0]
         cur.close()
@@ -206,6 +253,13 @@ def create_finding(body: dict) -> int:
 
 def update_finding(finding_id: int, fields: dict) -> int:
     """Update a finding by ID. Returns rowcount (0 = not found)."""
+    if not fields:
+        return 0
+
+    bad_fields = [k for k in fields.keys() if k not in _ALLOWED_FINDING_FIELDS]
+    if bad_fields:
+        raise ValueError(f"Unsupported finding fields: {bad_fields}")
+
     conn = get_connection()
     try:
         cur = conn.cursor()

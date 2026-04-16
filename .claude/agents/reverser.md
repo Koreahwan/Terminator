@@ -4,6 +4,16 @@ description: Use this agent when reverse engineering a binary or challenge to pr
 model: sonnet
 color: cyan
 permissionMode: bypassPermissions
+effort: high
+maxTurns: 40
+requiredMcpServers:
+  - "ghidra"
+  - "gdb"
+  - "knowledge-fts"
+disallowedTools:
+  - "mcp__radare2__*"
+  - "mcp__nuclei__*"
+  - "mcp__semgrep__*"
 ---
 
 # Reverser Agent
@@ -87,7 +97,7 @@ ls ~/PoC-in-GitHub/2024/ ~/PoC-in-GitHub/2023/ 2>/dev/null | grep -i <keyword>
 ```bash
 # Get pseudocode via Ghidra MCP, save to file, send to Gemini for initial analysis
 # (Use mcp__ghidra__get_pseudocode for each key function, redirect output to /tmp/decompiled.c)
-/home/rootk1m/01_CYAI_Lab/01_Projects/Terminator/tools/gemini_query.sh reverse /tmp/decompiled.c > /tmp/gemini_analysis.md
+tools/gemini_query.sh reverse /tmp/decompiled.c > /tmp/gemini_analysis.md
 ```
 Gemini output is a starting point, not gospel. Verify critical findings via GDB. Model: `gemini-3-pro-preview` fixed. Skip for <500 lines.
 
@@ -290,14 +300,14 @@ Example: `<remember priority>reverser: BOF at 0x401234, offset=0x48 to RIP, libc
 
 ```bash
 # Pre-analysis: binary cache check
-if python3 /home/rootk1m/01_CYAI_Lab/01_Projects/Terminator/tools/infra_client.py --help &>/dev/null; then
+if python3 tools/infra_client.py --help &>/dev/null; then
   MD5=$(md5sum ./binary 2>/dev/null | cut -d' ' -f1)
-  [ -n "$MD5" ] && python3 /home/rootk1m/01_CYAI_Lab/01_Projects/Terminator/tools/infra_client.py db check-binary --md5 "$MD5" --json 2>/dev/null
+  [ -n "$MD5" ] && python3 tools/infra_client.py db check-binary --md5 "$MD5" --json 2>/dev/null
 fi
 
 # Post-analysis: cache + RAG storage
-if python3 /home/rootk1m/01_CYAI_Lab/01_Projects/Terminator/tools/infra_client.py --help &>/dev/null; then
-  python3 /home/rootk1m/01_CYAI_Lab/01_Projects/Terminator/tools/infra_client.py db cache-binary --file ./binary \
+if python3 tools/infra_client.py --help &>/dev/null; then
+  python3 tools/infra_client.py db cache-binary --file ./binary \
     --summary "$(cat reversal_map.md | head -100)" 2>/dev/null || true
 fi
 ```

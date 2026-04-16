@@ -61,6 +61,12 @@ CREATE VIRTUAL TABLE IF NOT EXISTS trickest_cve USING fts5(
     tokenize = 'porter ascii'
 );
 
+CREATE VIRTUAL TABLE IF NOT EXISTS triage_objections USING fts5(
+    title, content, category, tags, program, kill_reason,
+    file_path UNINDEXED, source UNINDEXED,
+    tokenize = 'porter ascii'
+);
+
 CREATE TABLE IF NOT EXISTS db_metadata (key TEXT PRIMARY KEY, value TEXT);
 """
 
@@ -281,9 +287,18 @@ class KnowledgeIndexer:
         self.db_path = db_path
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
 
+    _pragma_set: set = set()  # Track which DB files have had PRAGMAs applied
+
     def _connect(self) -> sqlite3.Connection:
         conn = sqlite3.connect(str(self.db_path))
         conn.row_factory = sqlite3.Row
+        # Performance PRAGMAs — once per DB file per process (WAL persists across connections)
+        db_key = str(self.db_path)
+        if db_key not in KnowledgeIndexer._pragma_set:
+            conn.execute("PRAGMA journal_mode = WAL")
+            conn.execute("PRAGMA mmap_size = 268435456")  # 256MB mmap
+            conn.execute("PRAGMA cache_size = -64000")     # 64MB page cache
+            KnowledgeIndexer._pragma_set.add(db_key)
         return conn
 
     def build(self):
@@ -321,8 +336,8 @@ class KnowledgeIndexer:
         print(f"  DB size: {self.db_path.stat().st_size / (1024*1024):.1f} MB")
 
     def update_internal(self):
-        """Fast incremental re-index of Tier 1 only (knowledge/techniques + challenges).
-        Drops and rebuilds techniques table. <1 second."""
+        """Fast incremental re-index of Tier 1 only (knowledge/techniques + challenges + triage_objections).
+        Drops and rebuilds techniques + triage_objections tables. <1 second."""
         if not self.db_path.exists():
             print("DB not found. Run 'build' first.")
             return
@@ -332,11 +347,23 @@ class KnowledgeIndexer:
             conn.execute("BEGIN")
             conn.execute("DELETE FROM techniques")
             n = self._index_tier1(conn)
+            # Also re-index triage_objections
+            try:
+                conn.execute("DELETE FROM triage_objections")
+            except sqlite3.OperationalError:
+                # Table may not exist in older DBs — create it
+                conn.execute(
+                    "CREATE VIRTUAL TABLE IF NOT EXISTS triage_objections USING fts5("
+                    "title, content, category, tags, program, kill_reason, "
+                    "file_path UNINDEXED, source UNINDEXED, "
+                    "tokenize = 'porter ascii')"
+                )
+            n_triage = self._index_triage_objections(conn)
             ts = time.strftime("%Y-%m-%dT%H:%M:%S")
             conn.execute("INSERT OR REPLACE INTO db_metadata VALUES (?, ?)",
                          ("last_internal_update", ts))
             conn.commit()
-            print(f"Internal update: {n} docs in {time.time()-t0:.2f}s")
+            print(f"Internal update: {n} docs + {n_triage} triage objections in {time.time()-t0:.2f}s")
         except Exception as e:
             conn.rollback()
             print(f"Update error: {e}", file=sys.stderr)
@@ -369,6 +396,38 @@ class KnowledgeIndexer:
                 count += len(rows)
                 print(f"[Tier 1] Indexed {dirpath.name}/ — {len(rows)} docs")
         return count
+
+    def _index_triage_objections(self, conn: sqlite3.Connection) -> int:
+        """Index knowledge/triage_objections/ into FTS5 for Gate pre-checks."""
+        dirpath = PROJECT_ROOT / "knowledge" / "triage_objections"
+        if not dirpath.is_dir():
+            print("[Triage] Skipping triage_objections/ (not found)")
+            return 0
+        rows = []
+        for f in sorted(dirpath.glob("*.md")):
+            text = read_file(f)
+            if not text.strip():
+                continue
+            title = extract_md_title(text) or f.stem
+            category = category_from_filename(f.name)
+            tags = extract_md_tags(text)
+            # Extract program name from filename (e.g., "paradex_gate1_kill.md" → "paradex")
+            program = f.stem.split("_")[0] if "_" in f.stem else f.stem
+            # Extract kill reason from first non-heading paragraph
+            kill_reason = ""
+            for line in text.split("\n"):
+                stripped = line.strip()
+                if stripped and not stripped.startswith("#") and len(stripped) > 20:
+                    kill_reason = stripped[:300]
+                    break
+            rows.append((title, text, category, tags, program, kill_reason, str(f), "triage_objections"))
+        if rows:
+            conn.executemany(
+                "INSERT INTO triage_objections (title,content,category,tags,program,kill_reason,file_path,source) "
+                "VALUES (?,?,?,?,?,?,?,?)", rows
+            )
+            print(f"[Triage] Indexed triage_objections/ — {len(rows)} docs")
+        return len(rows)
 
     def _index_tier2(self, conn: sqlite3.Connection) -> int:
         total = 0
@@ -895,7 +954,44 @@ class KnowledgeIndexer:
         print(f"[Tier 3] Indexed trickest-cve — {total:,} CVEs ({file_count:,} files)")
         return total
 
-    VALID_TABLES = {"techniques", "external_techniques", "exploitdb", "nuclei", "poc_github", "trickest_cve", "web_articles"}
+    VALID_TABLES = {"techniques", "external_techniques", "exploitdb", "nuclei", "poc_github", "trickest_cve", "web_articles", "triage_objections"}
+
+    # BM25 column weights per table (column order must match CREATE VIRTUAL TABLE)
+    # Higher weight = matches in that column rank higher
+    BM25_WEIGHTS = {
+        # techniques: title, content, category, tags, vulnerability, platform
+        "techniques":           (10.0, 1.0, 5.0, 3.0, 2.0, 1.0),
+        # external_techniques: title, content, category, tags, platform
+        "external_techniques":  (10.0, 1.0, 5.0, 3.0, 1.0),
+        # exploitdb: exploit_id, description, platform, exploit_type, cve_codes, tags
+        "exploitdb":            (1.0, 5.0, 2.0, 2.0, 8.0, 3.0),
+        # nuclei: template_id, name, description, severity, tags, cve_id, cwe_id, framework
+        "nuclei":               (1.0, 8.0, 3.0, 1.0, 3.0, 8.0, 5.0, 1.0),
+        # poc_github: cve_id, repo_name, description
+        "poc_github":           (8.0, 3.0, 2.0),
+        # trickest_cve: cve_id, description, products, cwe, poc_urls
+        "trickest_cve":         (8.0, 3.0, 5.0, 5.0, 1.0),
+        # web_articles: title, content, category, tags, domain, source_url
+        "web_articles":         (10.0, 1.0, 5.0, 3.0, 2.0, 1.0),
+        # triage_objections: title, content, category, tags, program, kill_reason
+        "triage_objections":    (10.0, 1.0, 3.0, 3.0, 5.0, 2.0),
+    }
+
+    @staticmethod
+    def _dedup_results(results: list[dict]) -> list[dict]:
+        """Remove duplicate results by title+path, keeping best rank."""
+        seen = set()
+        deduped = []
+        for r in results:
+            title = (r.get("title") or r.get("description") or r.get("name") or "").strip().lower()
+            path = (r.get("file_path") or r.get("github_url") or r.get("source_url") or "").strip().lower()
+            # Combine title + path for dedup — same title from different files are NOT duplicates
+            key = f"{title}|{path}" if path else title
+            if not key or key not in seen:
+                if key:
+                    seen.add(key)
+                deduped.append(r)
+        return deduped
 
     def search(self, query: str, table: str = "techniques",
                category: str = "", limit: int = 5) -> list[dict]:
@@ -906,17 +1002,27 @@ class KnowledgeIndexer:
             return []
         conn = self._connect()
         try:
+            # Fetch extra rows to compensate for dedup filtering
+            fetch_limit = limit * 3
+            # Use custom BM25 weights if defined for this table
+            weights = self.BM25_WEIGHTS.get(table)
+            if weights:
+                weight_args = ", ".join(str(w) for w in weights)
+                rank_expr = f"bm25({table}, {weight_args})"
+            else:
+                rank_expr = "rank"
             if category:
                 cat_escaped = escape_fts5(category)
-                sql = (f"SELECT *, rank FROM {table} "
+                sql = (f"SELECT *, {rank_expr} as rank FROM {table} "
                        f"WHERE {table} MATCH ? AND category MATCH ? "
                        f"ORDER BY rank LIMIT ?")
-                cur = conn.execute(sql, (escaped, cat_escaped, limit))
+                cur = conn.execute(sql, (escaped, cat_escaped, fetch_limit))
             else:
-                sql = (f"SELECT *, rank FROM {table} "
+                sql = (f"SELECT *, {rank_expr} as rank FROM {table} "
                        f"WHERE {table} MATCH ? ORDER BY rank LIMIT ?")
-                cur = conn.execute(sql, (escaped, limit))
+                cur = conn.execute(sql, (escaped, fetch_limit))
             results = [dict(row) for row in cur.fetchall()]
+            results = self._dedup_results(results)[:limit]
         except sqlite3.OperationalError as e:
             print(f"Search error: {e}", file=sys.stderr)
             results = []
@@ -973,14 +1079,21 @@ class KnowledgeIndexer:
             return []
         conn = self._connect()
         try:
+            # Use custom BM25 weights if defined
+            weights = self.BM25_WEIGHTS.get(table)
+            if weights:
+                weight_args = ", ".join(str(w) for w in weights)
+                rank_expr = f"bm25({table}, {weight_args})"
+            else:
+                rank_expr = "rank"
             if category:
                 cat_escaped = escape_fts5(category)
-                sql = (f"SELECT *, rank FROM {table} "
+                sql = (f"SELECT *, {rank_expr} as rank FROM {table} "
                        f"WHERE {table} MATCH ? AND category MATCH ? "
                        f"ORDER BY rank LIMIT ?")
                 cur = conn.execute(sql, (fts_query, cat_escaped, limit))
             else:
-                sql = (f"SELECT *, rank FROM {table} "
+                sql = (f"SELECT *, {rank_expr} as rank FROM {table} "
                        f"WHERE {table} MATCH ? ORDER BY rank LIMIT ?")
                 cur = conn.execute(sql, (fts_query, limit))
             results = [dict(row) for row in cur.fetchall()]
@@ -1104,19 +1217,25 @@ class KnowledgeIndexer:
         conn = self._connect()
         results = []
         try:
+            # exploitdb with BM25 weights
+            edb_w = self.BM25_WEIGHTS.get("exploitdb", ())
+            edb_rank = f"bm25(exploitdb, {', '.join(str(w) for w in edb_w)})" if edb_w else "rank"
             if platform:
                 plat_escaped = escape_fts5(platform)
-                sql = ("SELECT *, rank, 'exploitdb' as _source_table FROM exploitdb "
+                sql = (f"SELECT *, {edb_rank} as rank, 'exploitdb' as _source_table FROM exploitdb "
                        "WHERE exploitdb MATCH ? AND platform MATCH ? "
                        "ORDER BY rank LIMIT ?")
                 cur = conn.execute(sql, (escaped, plat_escaped, limit))
             else:
-                sql = ("SELECT *, rank, 'exploitdb' as _source_table FROM exploitdb "
+                sql = (f"SELECT *, {edb_rank} as rank, 'exploitdb' as _source_table FROM exploitdb "
                        "WHERE exploitdb MATCH ? ORDER BY rank LIMIT ?")
                 cur = conn.execute(sql, (escaped, limit))
             results.extend(dict(row) for row in cur.fetchall())
 
-            nuc_sql = ("SELECT *, rank, 'nuclei' as _source_table FROM nuclei "
+            # nuclei with BM25 weights
+            nuc_w = self.BM25_WEIGHTS.get("nuclei", ())
+            nuc_rank = f"bm25(nuclei, {', '.join(str(w) for w in nuc_w)})" if nuc_w else "rank"
+            nuc_sql = (f"SELECT *, {nuc_rank} as rank, 'nuclei' as _source_table FROM nuclei "
                        "WHERE nuclei MATCH ? ORDER BY rank LIMIT ?")
             cur = conn.execute(nuc_sql, (escaped, limit))
             nuc_rows = [dict(row) for row in cur.fetchall()]
@@ -1125,12 +1244,18 @@ class KnowledgeIndexer:
                 nuc_rows = [r for r in nuc_rows if r.get("severity", "").lower() == sev_lower]
             results.extend(nuc_rows)
 
-            poc_sql = ("SELECT *, rank, 'poc_github' as _source_table FROM poc_github "
+            # poc_github with BM25 weights
+            poc_w = self.BM25_WEIGHTS.get("poc_github", ())
+            poc_rank = f"bm25(poc_github, {', '.join(str(w) for w in poc_w)})" if poc_w else "rank"
+            poc_sql = (f"SELECT *, {poc_rank} as rank, 'poc_github' as _source_table FROM poc_github "
                        "WHERE poc_github MATCH ? ORDER BY rank LIMIT ?")
             cur = conn.execute(poc_sql, (escaped, limit))
             results.extend(dict(row) for row in cur.fetchall())
 
-            tri_sql = ("SELECT *, rank, 'trickest_cve' as _source_table FROM trickest_cve "
+            # trickest_cve with BM25 weights
+            tri_w = self.BM25_WEIGHTS.get("trickest_cve", ())
+            tri_rank = f"bm25(trickest_cve, {', '.join(str(w) for w in tri_w)})" if tri_w else "rank"
+            tri_sql = (f"SELECT *, {tri_rank} as rank, 'trickest_cve' as _source_table FROM trickest_cve "
                        "WHERE trickest_cve MATCH ? ORDER BY rank LIMIT ?")
             cur = conn.execute(tri_sql, (escaped, limit))
             results.extend(dict(row) for row in cur.fetchall())
@@ -1162,7 +1287,7 @@ class KnowledgeIndexer:
             return {"error": "Database not found. Run 'build' first."}
         conn = self._connect()
         info = {}
-        for table in ["techniques", "external_techniques", "exploitdb", "nuclei", "poc_github", "trickest_cve", "web_articles"]:
+        for table in ["techniques", "external_techniques", "exploitdb", "nuclei", "poc_github", "trickest_cve", "web_articles", "triage_objections"]:
             try:
                 cur = conn.execute(f"SELECT COUNT(*) FROM {table}")
                 info[table] = cur.fetchone()[0]

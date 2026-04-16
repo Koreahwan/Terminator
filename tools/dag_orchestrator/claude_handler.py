@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Claude Code CLI handler for DAG nodes.
-Bridges dag.py execution to actual Claude Code agent spawning via subprocess.
+Backend-aware CLI handler for DAG nodes.
+Bridges dag.py execution to Claude Code or Codex/OMX subprocess execution.
 """
 import json
 import os
@@ -19,35 +19,38 @@ class ArtifactMissingError(Exception):
     pass
 
 
-class ClaudeAgentHandler:
+class BackendAgentHandler:
     """
     DAG node handler that spawns Claude Code agents via CLI subprocess.
     Used by dag.py's AgentDAG.run() to execute each pipeline node.
     """
 
-    # Model mapping per CLAUDE.md spec
     ROLE_MODELS = {
-        "reverser": "sonnet",
-        "trigger": "sonnet",
-        "solver": "opus",
-        "chain": "opus",
-        "critic": "opus",
-        "verifier": "sonnet",
-        "reporter": "sonnet",
-        "scout": "sonnet",
-        "analyst": "sonnet",
-        "exploiter": "opus",
-        "target_evaluator": "sonnet",
-        "triager_sim": "opus",
-        "architect": "opus",
+        "claude": {
+            "reverser": "sonnet",
+            "trigger": "sonnet",
+            "solver": "opus",
+            "chain": "opus",
+            "critic": "opus",
+            "verifier": "sonnet",
+            "reporter": "sonnet",
+            "scout": "sonnet",
+            "analyst": "sonnet",
+            "exploiter": "opus",
+            "target_evaluator": "sonnet",
+            "triager_sim": "opus",
+            "architect": "opus",
+        },
+        "codex": {},
     }
 
     def __init__(self, work_dir: str, session_id: str, target: str,
-                 claude_path: str = "claude", dry_run: bool = False):
+                 backend: str = "claude", cli_path: str | None = None, dry_run: bool = False):
         self.work_dir = work_dir
         self.session_id = session_id
         self.target = target
-        self.claude_path = claude_path
+        self.backend = backend
+        self.cli_path = cli_path or ("omx" if backend == "codex" else "claude")
         self.dry_run = dry_run
 
     def create_handler(self, role: str) -> Callable:
@@ -88,15 +91,35 @@ Working directory: {self.work_dir}
 - When done, output a summary of your findings.
 - Follow all rules from your agent definition (.claude/agents/{role}.md)
 """
+
+        # Include performance constraints in handoff
+        constraints = []
+        if hasattr(node, 'effort') and node.effort != "default":
+            constraints.append(f"effort: {node.effort}")
+        if hasattr(node, 'max_turns') and node.max_turns:
+            constraints.append(f"max_turns: {node.max_turns}")
+        if constraints:
+            prompt += f"\n[CONSTRAINTS] {', '.join(constraints)}\n"
+
         return prompt
 
     def _execute_agent(self, node: AgentNode, role: str, context: dict) -> dict:
         """Execute a single agent via Claude Code CLI."""
         prompt = self._build_handoff_prompt(role, node, context)
-        model = node.model or self.ROLE_MODELS.get(role, "sonnet")
+        default_model = self.ROLE_MODELS.get(self.backend, {}).get(role)
+        if not default_model:
+            default_model = "gpt-5.4" if self.backend == "codex" else "sonnet"
+        model = node.model or default_model
 
         # DB logging
-        run_id = log_run_start(self.session_id, role, self.target, model)
+        run_id = log_run_start(
+            self.session_id,
+            role,
+            self.target,
+            model,
+            backend=self.backend,
+            parallel_group_id=os.getenv("TERMINATOR_PARALLEL_GROUP_ID"),
+        )
         start_time = time.time()
 
         if self.dry_run:
@@ -106,17 +129,40 @@ Working directory: {self.work_dir}
             log_run_complete(run_id, "DRY_RUN", 0, f"Dry run for {role}")
             return {"status": "dry_run", "role": role, "artifacts": []}
 
-        # Execute via Claude Code CLI
-        cmd = [
-            self.claude_path, "-p", prompt,
-            "--permission-mode", "bypassPermissions",
-            "--model", model,
-            "--output-format", "json",
-        ]
+        if self.backend == "codex":
+            cmd = [
+                self.cli_path,
+                "exec",
+                "--dangerously-bypass-approvals-and-sandbox",
+                "-C",
+                self.work_dir,
+                "-m",
+                model,
+                "--json",
+                "-",
+            ]
+            input_text = prompt
+        else:
+            cmd = [
+                self.cli_path, "-p", prompt,
+                "--permission-mode", "bypassPermissions",
+                "--model", model,
+                "--output-format", "json",
+            ]
+            input_text = None
+
+        # Propagate effort level
+        if hasattr(node, 'effort') and node.effort and node.effort != "default":
+            cmd.extend(["--effort", node.effort])
+
+        # Propagate maxTurns
+        if hasattr(node, 'max_turns') and node.max_turns:
+            cmd.extend(["--max-turns", str(node.max_turns)])
 
         try:
             result = subprocess.run(
                 cmd,
+                input=input_text,
                 capture_output=True,
                 timeout=node.timeout,
                 cwd=self.work_dir,
@@ -172,3 +218,6 @@ Working directory: {self.work_dir}
         """Attach handlers to all nodes in a DAG based on their roles."""
         for name, node in dag.nodes.items():
             node.handler = self.create_handler(node.role)
+
+
+ClaudeAgentHandler = BackendAgentHandler

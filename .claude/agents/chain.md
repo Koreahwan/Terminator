@@ -4,6 +4,16 @@ description: Use this agent when assembling a full pwn exploit chain from a conf
 model: opus
 color: red
 permissionMode: bypassPermissions
+effort: max
+maxTurns: 60
+requiredMcpServers:
+  - "gdb"
+  - "knowledge-fts"
+disallowedTools:
+  - "mcp__radare2__*"
+  - "mcp__nuclei__*"
+  - "mcp__semgrep__*"
+  - "mcp__codeql__*"
 ---
 
 # Chain Agent
@@ -25,6 +35,19 @@ permissionMode: bypassPermissions
 5. **Stabilization**: Adjust offsets and timing for reliable remote execution
 
 **Scope**: Pwn exploitation ONLY. For Crypto/Reversing/Network challenges, the **solver** agent is responsible. If mistakenly assigned a non-Pwn task, report back immediately.
+
+## Browser/JIT Exploit Framework (Mythos Pattern)
+
+Anthropic CVE-2026-2796 연구에서 검증된 4단계 체인. JIT/브라우저/VM 익스플로잇 시 이 체크리스트를 Phase 설계에 반영:
+
+| Phase | Primitive | Goal | Verification |
+|-------|-----------|------|-------------|
+| 1. Type Confusion | 타입 혼동으로 제어된 포인터 역참조 | 임의 주소 접근 기반 확보 | GDB watchpoint로 혼동된 타입 확인 |
+| 2. Information Leak | `addrof()` — 객체 주소를 정수로 노출 | ASLR/PIE 우회 | 리턴된 주소가 유효한 힙/스택 범위 내 확인 |
+| 3. Forgery | `fakeobj()` — 임의 주소에 가짜 객체 참조 생성 | 가짜 ArrayBuffer/struct 배치 | fakeobj 반환값이 제어 가능한 메모리 가리키는지 확인 |
+| 4. Arbitrary R/W | 가짜 backing store로 임의 읽기/쓰기 | 코드 실행 또는 데이터 탈취 | 알려진 주소 읽기→비교로 R/W 정확성 검증 |
+
+**적용 조건**: reversal_map에 "JIT", "Wasm", "type confusion", "V8", "SpiderMonkey", "JSC", "sandbox" 키워드 존재 시 이 프레임워크 우선 적용. 전통 heap/stack pwn은 기존 Phase 1/2/3 유지.
 
 ## Strategy / Methodology
 
@@ -56,7 +79,14 @@ Task is INCOMPLETE until solve.py passes local testing 3+ times. Fallback order:
 ### Stop-and-Rethink Rule (after 3 fails)
 1. STOP coding
 2. Ask: "Am I using the right tool?" / "Am I under-constraining?" / "Should I model the FULL protocol?"
-3. Check `knowledge/techniques/` and `knowledge/challenges/` for similar problems
+3. **Adaptive Technique Search** (Anthropic Critical Infrastructure Pattern):
+   ```bash
+   # knowledge-fts에서 대안 기법 자동 검색
+   smart_search("<실패한 기법> bypass alternative")
+   technique_search("<보호 메커니즘 이름>")  # e.g., "SLAB_VIRTUAL", "safe-linking"
+   exploit_search("<유사 CVE 또는 바이너리 유형>")
+   ```
+   검색 결과 상위 3개 대안 기법 중 가장 적합한 것으로 전환. 3개 대안 모두 실패 시 → Orchestrator에 `[TECHNIQUE_EXHAUSTED]` 보고.
 4. Resume with a fundamentally different approach only
 
 ### z3 Checklist (when using z3)

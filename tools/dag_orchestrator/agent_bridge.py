@@ -44,16 +44,39 @@ def _get_conn():
     return conn
 
 
-def log_run_start(session_id: str, agent_role: str, target: str, model: str = None) -> int:
+def log_run_start(
+    session_id: str,
+    agent_role: str,
+    target: str,
+    model: str = None,
+    *,
+    backend: str | None = None,
+    parallel_group_id: str | None = None,
+) -> int:
     """Record agent execution start. Returns run_id."""
     try:
         conn = _get_conn()
         cur = conn.cursor()
-        cur.execute(
-            "INSERT INTO agent_runs (session_id, agent_role, target, model, status, created_at) "
-            "VALUES (%s, %s, %s, %s, 'RUNNING', NOW()) RETURNING id",
-            (session_id, agent_role, target, model)
-        )
+        if backend is not None or parallel_group_id is not None:
+            try:
+                cur.execute(
+                    "INSERT INTO agent_runs (session_id, agent_role, target, model, backend, parallel_group_id, status, created_at) "
+                    "VALUES (%s, %s, %s, %s, %s, %s, 'RUNNING', NOW()) RETURNING id",
+                    (session_id, agent_role, target, model, backend, parallel_group_id),
+                )
+            except Exception:
+                conn.rollback()
+                cur.execute(
+                    "INSERT INTO agent_runs (session_id, agent_role, target, model, status, created_at) "
+                    "VALUES (%s, %s, %s, %s, 'RUNNING', NOW()) RETURNING id",
+                    (session_id, agent_role, target, model)
+                )
+        else:
+            cur.execute(
+                "INSERT INTO agent_runs (session_id, agent_role, target, model, status, created_at) "
+                "VALUES (%s, %s, %s, %s, 'RUNNING', NOW()) RETURNING id",
+                (session_id, agent_role, target, model)
+            )
         run_id = cur.fetchone()[0]
         cur.close()
         conn.close()
@@ -169,8 +192,14 @@ def create_agent_handler(role: str, target: str, session_id: str):
     only manages the tracking lifecycle.
     """
     def handler(context: dict) -> dict:
-        run_id = log_run_start(session_id, role, target,
-                               context.get("model"))
+        run_id = log_run_start(
+            session_id,
+            role,
+            target,
+            context.get("model"),
+            backend=os.getenv("TERMINATOR_ACTIVE_BACKEND"),
+            parallel_group_id=os.getenv("TERMINATOR_PARALLEL_GROUP_ID"),
+        )
         context["current_agent"] = role
         context["run_id"] = run_id
         context["expected_artifacts"] = ROLE_ARTIFACTS.get(role, [])
@@ -197,7 +226,14 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     if args.action == "start":
-        rid = log_run_start(args.session, args.role, args.target, args.model)
+        rid = log_run_start(
+            args.session,
+            args.role,
+            args.target,
+            args.model,
+            backend=os.getenv("TERMINATOR_ACTIVE_BACKEND"),
+            parallel_group_id=os.getenv("TERMINATOR_PARALLEL_GROUP_ID"),
+        )
         print(json.dumps({"run_id": rid}))
     elif args.action == "complete":
         log_run_complete(args.run_id, args.status, args.duration,

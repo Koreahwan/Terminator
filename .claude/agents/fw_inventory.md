@@ -4,6 +4,13 @@ description: Use this agent when validating firmware inventory artifacts and dec
 model: sonnet
 color: blue
 permissionMode: bypassPermissions
+effort: low
+maxTurns: 15
+disallowedTools:
+  - "mcp__radare2__*"
+  - "mcp__nuclei__*"
+  - "mcp__semgrep__*"
+  - "mcp__codeql__*"
 ---
 
 # Firmware Inventory Agent
