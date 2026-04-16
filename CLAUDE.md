@@ -152,7 +152,7 @@ Status reports: 1-2 sentence result + 1 sentence next action. Artifact files can
 
 - **ExploitDB**: `~/exploitdb/searchsploit <query>` — 47K+ exploits
 - **PoC-in-GitHub**: `~/PoC-in-GitHub/<year>/CVE-*.json` — 8K+ GitHub PoCs
-- **Knowledge FTS5**: `knowledge/knowledge.db` — 280K+ docs via MCP `knowledge-fts` or CLI `tools/knowledge_indexer.py` (incl. 11.4K Awesome-Hacking repos + 3.4K web articles + 898 MITRE ATT&CK)
+- **Knowledge FTS5**: `knowledge/knowledge.db` — 280K+ docs via MCP `knowledge-fts` or CLI `tools/knowledge_indexer.py` (incl. 11.4K Awesome-Hacking repos + 3.4K web articles + 898 MITRE ATT&CK). Auto-sync: `scripts/sync_poc_github.sh` (weekly cron, pulls nomi-sec/PoC-in-GitHub + reindex — see `scripts/README.md`)
 - **Knowledge directory**: `knowledge/index.md` → `knowledge/challenges/` + `knowledge/techniques/`
 - **Triage objections**: `knowledge/triage_objections/` — FTS5 indexed, searchable via `triage_search()` MCP tool
 - **Decision records**: `knowledge/decisions/` — AgDR format, Gate KILL/GO decisions + strategy changes
