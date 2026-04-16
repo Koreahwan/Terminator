@@ -26,6 +26,10 @@
     "context7": {
       "command": "npx",
       "args": ["-y", "@upstash/context7-mcp"]
+    },
+    "promptfoo": {
+      "command": "promptfoo",
+      "args": ["mcp", "--transport", "stdio"]
     }
   }
 }

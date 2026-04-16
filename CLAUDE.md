@@ -152,7 +152,7 @@ Status reports: 1-2 sentence result + 1 sentence next action. Artifact files can
 
 - **ExploitDB**: `~/exploitdb/searchsploit <query>` — 47K+ exploits
 - **PoC-in-GitHub**: `~/PoC-in-GitHub/<year>/CVE-*.json` — 8K+ GitHub PoCs
-- **Knowledge FTS5**: `knowledge/knowledge.db` — 280K+ docs via MCP `knowledge-fts` or CLI `tools/knowledge_indexer.py` (incl. 11.4K Awesome-Hacking repos + 3.4K web articles + 898 MITRE ATT&CK)
+- **Knowledge FTS5**: `knowledge/knowledge.db` — 280K+ docs via MCP `knowledge-fts` or CLI `tools/knowledge_indexer.py` (incl. 11.4K Awesome-Hacking repos + 3.4K web articles + 898 MITRE ATT&CK). Auto-sync: `scripts/sync_poc_github.sh` (weekly cron, pulls nomi-sec/PoC-in-GitHub + reindex — see `scripts/README.md`)
 - **Knowledge directory**: `knowledge/index.md` → `knowledge/challenges/` + `knowledge/techniques/`
 - **Triage objections**: `knowledge/triage_objections/` — FTS5 indexed, searchable via `triage_search()` MCP tool
 - **Decision records**: `knowledge/decisions/` — AgDR format, Gate KILL/GO decisions + strategy changes
@@ -168,13 +168,20 @@ Full inventory: `memory/installed_tools_full.md`
 - **Browser**: lightpanda(MCP, 9x mem↓ 11x speed↑), browser-use(MCP, AI web automation), Playwright(MCP, full Chromium)
 - **Analysis**: CodeQL, Slither, Mythril, Semgrep | **Web3**: Foundry 1.5.1
 - **AI**: Gemini CLI | **Firmware**: FirmAE, binwalk, routersploit | **Kernel**: `~/kernel-security-learning/` (bsauce — UAF/heap/BPF/race/dirty-pagetable, 22 docs indexed)
+- **LLM Red-team**: promptfoo(MCP + CLI v0.121+, MIT, 13.2k★) — OWASP LLM Top-10 plugins, Target Discovery Agent, code-scans. Wrapper: `tools/promptfoo_run.sh {version|discover|redteam|eval|code-scan|init-redteam|quick-injection}`, starter config `tools/promptfoo_configs/redteam_starter.yaml`. Used by ai-recon agent.
 - **PDF**: opendataloader-pdf(MCP, AI-safe PDF→MD/JSON/HTML)
 - **Security**: parry-guard(prompt injection scanner, `~/.local/bin/parry-guard`)
 - **BB Gate**: `tools/bb_preflight.py` (init/rules-check/coverage-check/inject-rules/exclusion-filter/kill-gate-1/kill-gate-2/workflow-check/fresh-surface-check/evidence-tier-check/duplicate-graph-check)
 - **Report Quality**: `tools/report_scorer.py` (5-dim scoring: evidence/impact/repro/readability/slop, composite>=75) | `tools/report_scrubber.py` (AI signature removal: Unicode watermarks, em-dash, slop flags) | `tools/evidence_manifest.py` (unified evidence JSON with SHA256)
 - **Report Context**: `context/report-templates/` (6 platform styles, writing guide, rejection patterns, CVSS calibration)
 - **Cross-Model**: Codex(GPT-5.4, plugin `codex@openai-codex`) — `/codex:review`, `/codex:adversarial-review`, `/codex:rescue` | Wrapper: `tools/codex_cross_review.sh`
-- **MCP (14)**: gdb, pentest, pentest-thinking, context7, frida, ghidra, knowledge-fts, nuclei, codeql, semgrep, graphrag-security, lightpanda, browser-use, opendataloader-pdf
+- **External Skills Marketplaces** (⭐4.6k ToB, audited 2026-04-17): `trailofbits` marketplace registered (38 plugins, CC-BY-SA-4.0). Cherry-pick install: `/plugin install {fp-check|variant-analysis|semgrep-rule-creator|semgrep-rule-variant-creator|static-analysis|supply-chain-risk-auditor|insecure-defaults|building-secure-contracts|entry-point-analyzer|spec-to-code-compliance|yara-authoring|agentic-actions-auditor|audit-context-building|differential-review|gh-cli}@trailofbits`. Do NOT install all — see `docs/external-integrations/trailofbits-skills-audit.md`.
+- **Pashov Audit Group Skills** (⭐589 MIT, `external/pashov-skills/` submodule, audited 2026-04-17): `solidity-auditor` (<5min fast SC feedback) + `x-ray` (pre-audit threat model/invariants/entry-points). Invoked by `defi-auditor` agent. Update: `git submodule update --remote external/pashov-skills`. See `docs/external-integrations/pashov-skills-audit.md`.
+- **Nuclei Templates Extra** (ProjectDiscovery): `external/nuclei-templates-ai` (2.5K AI-generated CVE templates) + `external/fuzzing-templates` (25 unknown-vuln fuzz) submodules. Used by scout agent after core nuclei. See `docs/external-integrations/nuclei-templates-expansion-audit.md`.
+- **Wordlists external** (⭐70.2k SecLists + PayloadsAllTheThings, audited 2026-04-17): `~/SecLists/` (2.5GB — 6,031 wordlists incl. 2026.1 AI boundary) + `~/PayloadsAllTheThings/` (~13MB, 70+ vuln categories). Update: `./scripts/update_external_wordlists.sh`. See `docs/external-integrations/wordlists-audit.md`.
+- **Smart Contract Fuzzers (SOTA)** (`~/.local/bin/`, audited 2026-04-17): `medusa v1.5.1` (crytic, AGPL-3.0 — Go parallel fuzzer) + `ityfuzz nightly-35b7f08` (fuzzland, MIT — hybrid symbolic+fuzzing, 44% more bugs than Echidna). Used by `defi-auditor` agent. See `docs/external-integrations/sc-fuzzers-audit.md`.
+- **Self-audit (MCP/Agent/Skill)** (Layer 1 offline + Layer 2 cloud, 2026-04-17): `./scripts/audit_mcp_config.sh [--json]` — 7 offline checks (MCP collision / secrets / name collision / prompt-injection markers / model assignment IRON RULE / settings JSON / cmd path). `snyk-agent-scan` (formerly invariantlabs/mcp-scan, uv-installed, requires SNYK_TOKEN) for cloud-backed threat-intel audit. See `docs/external-integrations/mcp-security-scans-audit.md`.
+- **MCP (15)**: gdb, pentest, pentest-thinking, context7, frida, ghidra, knowledge-fts, nuclei, codeql, semgrep, graphrag-security, lightpanda, browser-use, opendataloader-pdf, promptfoo
 
 ### Codex Cross-Model Review (v12.1)
 

@@ -39,9 +39,32 @@ permissionMode: bypassPermissions
 ## Tools
 
 - `garak` — LLM vulnerability scanner (prompt injection, data leakage, hallucination probes)
-- `promptfoo` — LLM evaluation/red-team framework
+- `promptfoo` — LLM evaluation/red-team framework (v0.121+)
+  - CLI wrapper: `tools/promptfoo_run.sh <mode> [args]`
+    - `version` — health check (subcommand availability)
+    - `discover <config>` — Target Discovery Agent (auto-probe purpose/limits/tools)
+    - `redteam <config> [outdir]` — full OWASP LLM Top-10 red-team eval
+    - `code-scan <repo>` — LLM security vuln code scan
+    - `init-redteam <target_dir>` — copy starter config (`tools/promptfoo_configs/redteam_starter.yaml`) to target dir
+    - `quick-injection <url>` — 3-probe smoketest
+  - MCP: `promptfoo` server registered in `.claude/mcp.json` (stdio transport). Use MCP tools for interactive session work
+  - Rate limit: built-in `maxConcurrency: 2` + `delay: 2100ms` (28 req/min, under 30/min IRON RULE)
 - `httpx` / `curl` — Direct API calls
-- `knowledge-fts` MCP — OWASP LLM Top 10 reference lookup
+- `knowledge-fts` MCP — OWASP LLM Top 10 + Agentic Top 10 reference lookup
+  - **Curated index**: `knowledge/techniques/ai_redteam_external_2026.md` — OWASP GenAI + Agentic Top-10 checklist, promptfoo plugin map, deepteam attack taxonomy, PyRIT primitive reference. Search: `mcp__knowledge-fts__search_all` with query like "OWASP LLM01" or "Agentic ASI02"
+  - **Coverage requirement**: before marking a target's injection surface "scanned", test at minimum: 1 direct + 1 encoding-obfuscation + 1 multi-turn + 1 indirect attack (per deepteam taxonomy in index doc)
+  - **Agentic target additional requirement**: test at minimum ASI02 (Tool Misuse), ASI03 (Privilege Compromise), ASI09 (Unexpected RCE) for any agent with tool-calling capability
+
+## Standard Workflow (with promptfoo)
+
+For Phases A/B/C (fingerprinting + prompt probing + tool enum):
+1. `tools/promptfoo_run.sh init-redteam targets/<target>/ai_recon/` — scaffold config
+2. Edit `targets/<target>/ai_recon/promptfooconfig.yaml` — set target URL + auth from `program_rules_summary.md`
+3. `tools/promptfoo_run.sh discover <config>` → auto-populates target metadata
+4. `tools/promptfoo_run.sh redteam <config> targets/<target>/ai_recon/` → produces `promptfoo_result_*.json`
+5. Cross-reference results with `garak` output for finding triage
+
+**IRON RULE reminder**: Phase 2 (exploiter) MUST still write PoC that reproduces the finding outside promptfoo. promptfoo output is evidence, not the PoC itself.
 
 ## Handoff Format
 
