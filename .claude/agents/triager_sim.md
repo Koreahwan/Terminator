@@ -1,7 +1,7 @@
 ---
 name: triager-sim
 description: Use this agent when attacking a draft bug bounty report like a skeptical triager before submission.
-model: claude-opus-4-6
+model: claude-opus-4-7
 color: magenta
 permissionMode: bypassPermissions
 effort: max

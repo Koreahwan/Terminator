@@ -31,8 +31,8 @@ Canonical list of all 30 agents in `.claude/agents/`. Each file MUST declare `mo
 | exploiter | claude-opus-4-6 | PoC development, complex exploits |
 | source-auditor | claude-opus-4-6 | Deep source code security review (files, data flows, business logic) |
 | defi-auditor | claude-opus-4-6 | Smart contract + DeFi exploit audit |
-| triager-sim | sonnet/claude-opus-4-6 | Gate 1=sonnet, Gate 2+report-review=opus |
-| submission-review | claude-opus-4-6 | Final 3-perspective review panel (Phase 5.5) |
+| triager-sim | sonnet/claude-opus-4-7 | Gate 1=sonnet, Gate 2+report-review=opus-4-7 (review task) |
+| submission-review | claude-opus-4-7 | Final 3-perspective review panel (Phase 5.5) — review task |
 
 #### Firmware pipeline
 
@@ -61,7 +61,7 @@ Canonical list of all 30 agents in `.claude/agents/`. Each file MUST declare `mo
 
 | Agent | Model | Reason |
 |-------|-------|--------|
-| critic | claude-opus-4-6 | Cross-verification, logic error detection |
+| critic | claude-opus-4-7 | Cross-verification, logic error detection (review — 4.7 better instruction following) |
 | verifier | sonnet | Execution + verification, simple judgment |
 | reporter | sonnet | Documentation |
 | cve-manager | sonnet | CVE eligibility, GHSA/MITRE submission prep |

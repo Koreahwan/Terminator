@@ -43,15 +43,15 @@ See `.claude/rules/agent_models.md` for model assignments per agent.
 | trigger | sonnet | Crash search, execution-based |
 | solver | claude-opus-4-6 | Complex inverse computation |
 | chain | claude-opus-4-6 | Multi-stage exploit design |
-| critic | claude-opus-4-6 | Cross-verification, logic error detection |
+| critic | claude-opus-4-7 | Cross-verification, logic error detection (review — 4.7) |
 | verifier | sonnet | Execution + verification, simple judgment |
 | reporter | sonnet | Documentation |
 | scout | sonnet | Recon, tool execution |
 | analyst | sonnet | CVE matching, pattern search |
 | exploiter | claude-opus-4-6 | PoC development, complex exploits |
 | target-evaluator | sonnet | Target ROI, GO/NO-GO |
-| triager-sim | sonnet/claude-opus-4-6 | Gate 1=sonnet, Gate 2+report-review=opus |
-| submission-review | claude-opus-4-6 | Final 3-perspective review panel (Phase 5.5) |
+| triager-sim | sonnet/claude-opus-4-7 | Gate 1=sonnet, Gate 2+report-review=opus-4-7 |
+| submission-review | claude-opus-4-7 | Final 3-perspective review panel (Phase 5.5) — review |
 | threat-modeler | sonnet | Trust boundary modeling, state machine extraction |
 | workflow-auditor | sonnet | Workflow state transition mapping, anomaly detection |
 | patch-hunter | sonnet | Security commit diff analysis, variant search |
