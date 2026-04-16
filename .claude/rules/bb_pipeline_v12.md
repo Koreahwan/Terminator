@@ -566,7 +566,7 @@ TeamDelete — **only after user confirms submission done**
 - **password 필드 필수**: `test_accounts.json`에 반드시 password 기록. 회원탈퇴 시 로그인 필요. 누락 = 파이프라인 위반.
 - **최소 계정 원칙**: 꼭 필요한 최소 계정만 생성. IDOR 테스트도 2개면 충분.
 - **생성 직후 탈퇴 테스트**: 계정 만든 후 바로 Delete Account 경로 접근 가능한지 확인. 불가능하면 즉시 보고.
-- **Gmail alias format**: `<gmail-alias>+<target>_test_<letter>@gmail.com`
+- **Gmail alias format**: `<base-gmail>+<target>_test_<letter>@gmail.com` (base address는 레포 외부 `${HOME}/.config/bounty-credentials.json`의 `gmail_base` 필드에서 로드 — 레포에 하드코딩 금지)
 - **OAuth/소셜 로그인 금지** — 비밀번호 기반 가입만 사용.
 - **세션 종료 전 반드시 탈퇴 완료**. "나중에 정리" 금지.
 
