@@ -168,13 +168,14 @@ Full inventory: `memory/installed_tools_full.md`
 - **Browser**: lightpanda(MCP, 9x mem↓ 11x speed↑), browser-use(MCP, AI web automation), Playwright(MCP, full Chromium)
 - **Analysis**: CodeQL, Slither, Mythril, Semgrep | **Web3**: Foundry 1.5.1
 - **AI**: Gemini CLI | **Firmware**: FirmAE, binwalk, routersploit | **Kernel**: `~/kernel-security-learning/` (bsauce — UAF/heap/BPF/race/dirty-pagetable, 22 docs indexed)
+- **LLM Red-team**: promptfoo(MCP + CLI v0.121+, MIT, 13.2k★) — OWASP LLM Top-10 plugins, Target Discovery Agent, code-scans. Wrapper: `tools/promptfoo_run.sh {version|discover|redteam|eval|code-scan|init-redteam|quick-injection}`, starter config `tools/promptfoo_configs/redteam_starter.yaml`. Used by ai-recon agent.
 - **PDF**: opendataloader-pdf(MCP, AI-safe PDF→MD/JSON/HTML)
 - **Security**: parry-guard(prompt injection scanner, `~/.local/bin/parry-guard`)
 - **BB Gate**: `tools/bb_preflight.py` (init/rules-check/coverage-check/inject-rules/exclusion-filter/kill-gate-1/kill-gate-2/workflow-check/fresh-surface-check/evidence-tier-check/duplicate-graph-check)
 - **Report Quality**: `tools/report_scorer.py` (5-dim scoring: evidence/impact/repro/readability/slop, composite>=75) | `tools/report_scrubber.py` (AI signature removal: Unicode watermarks, em-dash, slop flags) | `tools/evidence_manifest.py` (unified evidence JSON with SHA256)
 - **Report Context**: `context/report-templates/` (6 platform styles, writing guide, rejection patterns, CVSS calibration)
 - **Cross-Model**: Codex(GPT-5.4, plugin `codex@openai-codex`) — `/codex:review`, `/codex:adversarial-review`, `/codex:rescue` | Wrapper: `tools/codex_cross_review.sh`
-- **MCP (14)**: gdb, pentest, pentest-thinking, context7, frida, ghidra, knowledge-fts, nuclei, codeql, semgrep, graphrag-security, lightpanda, browser-use, opendataloader-pdf
+- **MCP (15)**: gdb, pentest, pentest-thinking, context7, frida, ghidra, knowledge-fts, nuclei, codeql, semgrep, graphrag-security, lightpanda, browser-use, opendataloader-pdf, promptfoo
 
 ### Codex Cross-Model Review (v12.1)
 
