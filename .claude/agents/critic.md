@@ -1,7 +1,7 @@
 ---
 name: critic
 description: Use this agent when you need adversarial review of reversal maps, exploits, or reports before verification or submission.
-model: claude-opus-4-6
+model: claude-opus-4-7
 color: blue
 permissionMode: bypassPermissions
 effort: max
