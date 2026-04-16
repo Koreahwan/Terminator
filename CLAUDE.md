@@ -179,6 +179,7 @@ Full inventory: `memory/installed_tools_full.md`
 - **Pashov Audit Group Skills** (⭐589 MIT, `external/pashov-skills/` submodule, audited 2026-04-17): `solidity-auditor` (<5min fast SC feedback) + `x-ray` (pre-audit threat model/invariants/entry-points). Invoked by `defi-auditor` agent. Update: `git submodule update --remote external/pashov-skills`. See `docs/external-integrations/pashov-skills-audit.md`.
 - **Nuclei Templates Extra** (ProjectDiscovery): `external/nuclei-templates-ai` (2.5K AI-generated CVE templates) + `external/fuzzing-templates` (25 unknown-vuln fuzz) submodules. Used by scout agent after core nuclei. See `docs/external-integrations/nuclei-templates-expansion-audit.md`.
 - **Wordlists external** (⭐70.2k SecLists + PayloadsAllTheThings, audited 2026-04-17): `~/SecLists/` (2.5GB — 6,031 wordlists incl. 2026.1 AI boundary) + `~/PayloadsAllTheThings/` (~13MB, 70+ vuln categories). Update: `./scripts/update_external_wordlists.sh`. See `docs/external-integrations/wordlists-audit.md`.
+- **Smart Contract Fuzzers (SOTA)** (`~/.local/bin/`, audited 2026-04-17): `medusa v1.5.1` (crytic, AGPL-3.0 — Go parallel fuzzer) + `ityfuzz nightly-35b7f08` (fuzzland, MIT — hybrid symbolic+fuzzing, 44% more bugs than Echidna). Used by `defi-auditor` agent. See `docs/external-integrations/sc-fuzzers-audit.md`.
 - **MCP (15)**: gdb, pentest, pentest-thinking, context7, frida, ghidra, knowledge-fts, nuclei, codeql, semgrep, graphrag-security, lightpanda, browser-use, opendataloader-pdf, promptfoo
 
 ### Codex Cross-Model Review (v12.1)

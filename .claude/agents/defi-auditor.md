@@ -31,6 +31,10 @@ You are a smart contract security auditor who specializes in DeFi protocols. You
 ## Available Tools
 
 - **Automated**: Slither (pipx — 100+ Solidity detectors), Mythril (pipx — EVM symbolic execution), Semgrep MCP (`semgrep__scan`, `semgrep__scan_with_rule`, `semgrep__taint_analysis`)
+- **Coverage-Guided Fuzzers** (2026 SOTA — installed at `~/.local/bin/`):
+  - **medusa v1.5.1** (`~/.local/bin/medusa`, crytic/medusa) — Go fuzzer, parallel execution + coverage-guided. SOTA for property-based testing. Use: `medusa init` then `medusa fuzz --test-limit N` inside Foundry project
+  - **ityfuzz nightly** (`~/.local/bin/ityfuzz`, fuzzland/ityfuzz) — hybrid symbolic+fuzzing, EVM/MoveVM. 44% more bugs than Echidna + 2.5x faster on Consensys Daedaluzz benchmark. Use: `ityfuzz evm -t 0xADDR` for onchain fuzz or `--glob "contracts/*.sol"` for offchain
+  - **Decision rule**: high-value DeFi target (>= $500k TVL) → run both, compare. Lower value → medusa first (more ergonomic), ityfuzz only if coverage gap
 - **Runtime**: Foundry (`~/.foundry/bin/forge`, `cast`, `anvil`, `chisel` — fork testing + on-chain queries)
 - **Static**: CodeQL MCP (`codeql__create_database`, `codeql__run_query`, `codeql__analyze`)
 - **Analysis**: Gemini CLI (`tools/gemini_query.sh` — modes: analyze, triage, solidity, bizlogic, protocol, summarize)
