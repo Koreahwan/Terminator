@@ -161,7 +161,7 @@ Status reports: 1-2 sentence result + 1 sentence next action. Artifact files can
 
 ## Tools Reference
 
-Full inventory: `memory/installed_tools_full.md`
+Full inventory: `knowledge/techniques/installed_tools_reference.md`
 - **RE**: Ghidra(MCP, PRIMARY), objdump, strings, readelf
 - **Debug**: gdb(+pwndbg+GEF+MCP), strace | **Exploit**: pwntools, ROPgadget, z3, angr, rp++
 - **Web**: sqlmap, SSRFmap, commix, nuclei(12K+), ffuf, RustScan
