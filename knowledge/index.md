@@ -79,6 +79,27 @@
 | OSS Static Analysis BB (VRT selection, judge sim, Spring Boot patterns) | [techniques/oss_static_analysis_bb.md](techniques/oss_static_analysis_bb.md) |
 | ENKI RedTeam scenario quick checklist | [techniques/enki_redteam_scenario_checklist.md](techniques/enki_redteam_scenario_checklist.md) |
 | Web CTF cheatsheet for ENKI RedTeam CTF 2026 | [techniques/web_ctf_cheatsheet.md](techniques/web_ctf_cheatsheet.md) |
+| **AI Agent / MCP Attack Reference (2025-26)** | [techniques/ai_agent_mcp_attacks_2026.md](techniques/ai_agent_mcp_attacks_2026.md) |
+| **LLM Jailbreak & Prompt Injection (2025-26)** | [techniques/llm_jailbreak_2026.md](techniques/llm_jailbreak_2026.md) |
+| **Supply Chain Incidents (2025-26)** | [techniques/supplychain_incidents_2025_2026.md](techniques/supplychain_incidents_2025_2026.md) |
+| **DeFi Hacks Root-Cause (2024-26)** | [techniques/defi_hacks_2025_2026.md](techniques/defi_hacks_2025_2026.md) |
+| **Cloud/SaaS Attack Patterns (2025-26)** | [techniques/cloud_saas_attack_patterns_2026.md](techniques/cloud_saas_attack_patterns_2026.md) |
+| **Security Tools 2026 Edition** | [techniques/security_tools_2026.md](techniques/security_tools_2026.md) |
+| **Pre-2025 Classics (still-relevant)** | [techniques/pre2025_classics_reference.md](techniques/pre2025_classics_reference.md) |
+| **Kernel CVE Reference (expanded 2023-26)** | [techniques/kernel_security_learning_cve.md](techniques/kernel_security_learning_cve.md) |
+
+## Attack Scenario Library (2026 신설)
+
+End-to-end 공격 시나리오 템플릿 — PoC + Gate 체크 + VRT 매핑 포함.
+
+| 분류 | 시나리오 수 | 카탈로그 |
+|------|-------------|----------|
+| Web/API | 6 (IDOR, SSRF→Cloud, JWT, OAuth, GraphQL, Cache) | [scenarios/README.md](scenarios/README.md) |
+| Web3/SC | 5 (Oracle, Reentrancy, Sig Replay, Flashloan Gov, Proxy) | ↑ |
+| AI/LLM | 4 (MCP inject, RAG PI, Memory exfil, Jailbreak chain) | ↑ |
+| Supply chain | 2 (Dep confusion, GH Actions poison) | ↑ |
+| Mobile | 2 (Deeplink, WebView) | ↑ |
+| Cloud | 2 (IMDS SSRF, S3 presigned) | ↑ |
 
 ## Bug Bounty Programs
 

@@ -642,3 +642,89 @@
 
 **Last Updated**: 2026-02-16
 **Next Review**: 2026-05-16 (quarterly update recommended)
+
+---
+
+## 7. 2025–2026 Updates
+
+### 7.1 Verified Payouts (2024–2025, Publicly Confirmed)
+
+| # | Protocol | Amount | Date | Vuln Type | Researcher | Source |
+|---|----------|--------|------|-----------|------------|--------|
+| 1 | **Raydium** (cp-swap) | **$505,000** | Mar 2025 | Liquidity drain — add_liquidity skipped token1 transfer, allowing pool drain after 18 iterations | @thel4stc0de | [Immunefi blog](https://immunefi.com/blog/all/raydium-liquidity-drain-bug-fix-review/) |
+| 2 | **VeChainThor** | **50,000 USDT** | Dec 2024 | VTHO accrual bypass — self-destruct + flash loan combo allowed artificial VTHO minting | (not disclosed) | [Immunefi blog](https://immunefi.com/blog/all/vechainthor-vtho-accrual-bypass-bug-fix-review/) |
+| 3 | **The Graph** | **$290,497** | Jan 2024 | Rounding error (×2) — `weightedAverage` without rounding-up caused loss of user funds/yield | @GregadETH | [Medium](https://medium.com/immunefi/the-graph-rounding-error-bugfix-review-c946ff470f65) |
+| 4 | **Raydium** (AMM) | (undisclosed) | Jan 2024 | Tick manipulation — TickArrayBitmapExtension account not validated in increase_liquidity | @riproprip | [Medium](https://medium.com/immunefi/raydium-tick-manipulation-bugfix-review-c6aae4527ed6) |
+| 5 | **Stacks** | **$76,011** | Nov 2023 | Critical DoS — layer-2 for Bitcoin, network-level denial of service | Catchme | [Medium](https://medium.com/immunefi/stacks-dos-bugfix-review-dc0f2a75b276) |
+
+> **Note**: Many 2024–2025 payouts remain undisclosed per projects' Responsible Publication Policy. Amounts above are only from publicly confirmed Immunefi blog posts or official X/Twitter announcements. Unverified rumors (e.g., "$3M ily2 bounty") are excluded per policy — no official Immunefi blog post confirmed as of 2026-04-16.
+
+### 7.2 Updated Platform Statistics (2025–2026)
+
+| Metric | Value | As Of |
+|--------|-------|-------|
+| Total paid to whitehats | $110M+ | 2026 Q1 |
+| Active programs | 650+ | Apr 2026 |
+| Security researchers | 60,000+ | 2026 |
+| Assets secured | $180B | 2026 Q1 |
+| Estimated hacks prevented | $25B | 2026 |
+| Available bounty pool | $162M+ | Apr 14, 2026 |
+
+**IMU Token**: Immunefi launched its native token IMU in Jan 2026. Public sale (CoinList, Nov 2025) raised ~$5M at $0.01337/token. Trading began Jan 22, 2026 on Gate.io, Bybit, Bitget. Token utility includes staking for Magnus premium features and governance.
+Source: [BlockEden](https://blockeden.xyz/blog/2026/01/25/immunefi-imu-token-web3-security-bug-bounty-platform/)
+
+### 7.3 Current Highest Max Bounties (Active Programs, Apr 2026)
+
+| Rank | Protocol | Max Bounty | Platform | Chain | Notes |
+|------|----------|-----------|----------|-------|-------|
+| 1 | **Uniswap v4** | **$15,500,000** | Immunefi | Multi | Critical: 10% TVL, $15.5M cap |
+| 2 | **LayerZero** | **$15,000,000** | Immunefi | Multi | 10% of funds affected |
+| 3 | **Wormhole** | **$10,000,000** | Immunefi | Multi | Bridge — historic $10M paid 2022 |
+| 4 | **Sky (MakerDAO)** | **$10,000,000** | Immunefi | Multi | 10% TVL, up to $10M |
+| 5 | **Usual** | **$16,000,000** | Sherlock | Multi | Largest single bounty in tech history (Mar 2026) |
+| 6 | **Coinbase/Base** | **$5,000,000** | Cantina | Base/Multi | Launched Jul 2025 |
+| 7 | **GMX** | **$5,000,000** | Immunefi | Arb/Avax | Perp DEX |
+| 8 | **Morpho** | **$2,500,000** | Cantina | Multi | Lending |
+| 9 | **Optimism** | **$2,000,042** | Immunefi | Ethereum L2 | Historic $2M paid 2022 |
+| 10 | **Arbitrum** | **$2,000,000** | Immunefi | Ethereum L2 | — |
+| 11 | **Lido** | **$2,000,000** | Immunefi | Multi | Staking |
+| 12 | **Kamino** | **$1,500,000** | Immunefi | Solana | Active since Oct 2025 |
+| 13 | **Chainlink** | **$3,000,000** | Immunefi | Multi | Oracle |
+| 14 | **Olympus DAO** | **$3,333,333** | Immunefi | Multi | — |
+| 15 | **Immutable** | **$1,000,000** | Immunefi | L2 | Launched with Immunefi 2025 |
+
+Source: [Sherlock Best Web3 Bug Bounties 2026](https://sherlock.xyz/post/best-web3-bug-bounties-in-2026-the-highest-paying-programs-on-every-platform)
+
+### 7.4 2025–2026 Trend Analysis
+
+#### Emerging Attack Surfaces (High Research ROI)
+
+1. **Solana native programs (non-EVM)** — Raydium cp-swap $505K payout (Mar 2025) signals underresearched Rust/Anchor programs. Fewer whitehats fluent in Solana runtime semantics vs EVM.
+
+2. **ZK circuit constraint bugs** — ZK rollup prover/verifier logic remains the frontier. Missing constraints in ZK-SNARKs allow forged state transitions without triggering proof failure. Programs: ZKsync Era, StarkNet, Polygon zkEVM, zkVerify (new 2026).
+
+3. **Intent/solver protocols** — New architecture (2024–2025 boom) with complex trust models between solvers, fillers, and users. Composability bugs across intent routing layers are poorly audited.
+
+4. **Cross-chain bridge message validation** — Still high-value (Wormhole $10M precedent). LayerZero v2 endpoint logic, new bridge deployments remain active hunting ground.
+
+5. **Liquid staking / restaking** — EigenLayer, Lido, Symbiotic restaking contracts have novel invariants around slashing, delegation, and withdrawal queues. Fresh code deployed 2024–2025.
+
+6. **Firedancer (Solana validator client in C)** — New validator implementation. $500K max bounty active Jan 2026. Extremely underresearched — C codebase, non-Go/Rust.
+
+#### Competitive Landscape Shift (2025–2026)
+
+- **Sherlock stake-to-submit** model ($250 USDC deposit) reduces low-quality noise but creates friction for exploratory hunters.
+- **Cantina** (Coinbase/Base $5M) now a legitimate third platform alongside Immunefi and Sherlock.
+- **Immunefi Magnus** (AI triage tool, launched late 2025) uses LLM-assisted severity classification — affects how reports are initially scored before human review.
+- **H1 2025 total Web3 losses**: $3B+ (worst half-year on record). Bounty hunting demand increasing proportionally.
+
+#### Dead/Declining Targets (Remove from Pipeline)
+
+- **Fei Protocol** — deprecated, protocol shut down.
+- **Polygon PoS legacy contracts** — superseded by zkEVM; legacy scope narrowed significantly.
+- **Aurora** — scope contracted after $6M payout; lower active TVL.
+
+---
+
+**Last Updated**: 2026-04-16
+**Next Review**: 2026-07-16 (quarterly)
