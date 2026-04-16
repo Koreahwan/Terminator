@@ -191,8 +191,7 @@ aderyn /path/to/contract
 myth analyze contracts/Token.sol
 
 # For large codebases, use Gemini CLI for summarization
-~/01_CYAI_Lab/01_Projects/Terminator/tools/gemini_query.sh \
-  summarize-dir /path/to/contracts
+tools/gemini_query.sh summarize-dir /path/to/contracts
 ```
 
 **What to Look For:**

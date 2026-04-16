@@ -16,7 +16,7 @@ from collections import Counter
 LINE_THRESHOLD = 500
 LOW_LINE_THRESHOLD = 100  # Pattern-based masking kicks in at 100 lines
 REPETITION_THRESHOLD = 0.6  # 60%+ identical lines = repetitive text
-SAVE_DIR = "/home/rootk1m/01_CYAI_Lab/01_Projects/Terminator/.omc/masked_observations"
+SAVE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", ".omc", "masked_observations")
 
 ASCII_ART_PATTERNS = [
     re.compile(r'[╔╗╚╝║═┌┐└┘│─┬┴├┤┼]'),

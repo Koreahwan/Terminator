@@ -12,7 +12,8 @@
 set -euo pipefail
 
 CODEX_COMPANION="${HOME}/.claude/plugins/cache/openai-codex/codex/1.0.2/scripts/codex-companion.mjs"
-LOG_DIR="${HOME}/01_CYAI_Lab/01_Projects/Terminator/.omc/logs"
+PROJECT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+LOG_DIR="${PROJECT_ROOT}/.omc/logs"
 TIMESTAMP=$(date +%Y%m%dT%H%M%S)
 
 if [[ ! -f "$CODEX_COMPANION" ]]; then

@@ -156,3 +156,8 @@ terminator_loop.sh
 .gmail_monitor_state.json
 .gmail_label_ids.json
 .gmail_filter_ids.json
+
+# --- Ghidra auto-generated project artifacts (user metadata) ---
+*.gpr
+*.rep/
+ghidra_ctx/
