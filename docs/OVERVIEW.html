@@ -1,0 +1,1479 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Terminator — Project Overview</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f8fafc;              /* slate-50 */
+    --surface: #ffffff;
+    --surface-2: #f1f5f9;       /* slate-100 */
+    --surface-hover: #e2e8f0;   /* slate-200 */
+    --border: #cbd5e1;          /* slate-300 — 더 뚜렷 */
+    --border-bright: #94a3b8;   /* slate-400 */
+    --text: #0f172a;            /* slate-900 */
+    --text-2: #1e293b;          /* slate-800 */
+    --text-dim: #475569;        /* slate-600 */
+    --muted: #64748b;           /* slate-500 */
+    --accent: #0891b2;          /* cyan-600 */
+    --accent-soft: rgba(8,145,178,0.12);
+    --violet: #7c3aed;
+    --rose: #e11d48;            /* rose-600 */
+    --amber: #d97706;           /* amber-600 */
+    --ok: #16a34a;
+    --warn: #ca8a04;
+    --kill: #dc2626;
+    --gradient-accent: linear-gradient(135deg, #0891b2 0%, #7c3aed 100%);
+    --gradient-warm: linear-gradient(135deg, #d97706 0%, #dc2626 100%);
+    --radius: 12px;
+    --radius-sm: 8px;
+    --shadow-sm: 0 1px 3px rgba(15,23,42,0.06);
+    --shadow: 0 4px 8px -2px rgba(15,23,42,0.07), 0 2px 4px -1px rgba(15,23,42,0.05);
+    --shadow-md: 0 10px 20px -5px rgba(15,23,42,0.08), 0 4px 8px -2px rgba(15,23,42,0.05);
+    --shadow-accent: 0 4px 14px -4px rgba(8,145,178,0.25);
+  }
+  * { box-sizing: border-box; }
+  html { background: var(--bg); }
+  html, body {
+    margin: 0; padding: 0; color: var(--text);
+    font-family: "Inter", -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, "Noto Sans KR", sans-serif;
+    font-size: 15.5px; line-height: 1.7;
+    font-feature-settings: "ss01", "cv01", "cv11";
+    -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
+  }
+  body {
+    background:
+      radial-gradient(ellipse 1400px 700px at 5% -5%, rgba(8,145,178,0.08) 0%, transparent 60%),
+      radial-gradient(ellipse 1200px 600px at 95% 10%, rgba(124,58,237,0.06) 0%, transparent 60%),
+      radial-gradient(ellipse 900px 500px at 50% 100%, rgba(22,163,74,0.04) 0%, transparent 60%),
+      var(--bg);
+    min-height: 100vh;
+    background-attachment: fixed;
+  }
+  p, li { font-size: 15.5px; }
+  a { color: var(--accent); text-decoration: none; transition: color .15s; }
+  a:hover { color: #67e8f9; }
+  code {
+    font-family: "JetBrains Mono", ui-monospace, "Cascadia Code", SFMono-Regular, monospace;
+    background: var(--surface-hover); color: var(--text-2);
+    padding: 1.5px 6px; border-radius: 4px; font-size: 0.88em; letter-spacing: -0.01em;
+    border: 1px solid var(--border);
+  }
+
+  /* Layout */
+  .layout { display: grid; grid-template-columns: 256px 1fr; min-height: 100vh; }
+  aside {
+    position: sticky; top: 0; align-self: start; height: 100vh; overflow-y: auto;
+    background:
+      linear-gradient(180deg, #ffffff 0%, #f0f9ff 50%, #ecfeff 100%);
+    border-right: 1px solid var(--border);
+    padding: 24px 18px 32px;
+    box-shadow: inset -1px 0 0 rgba(8,145,178,0.08);
+  }
+  aside h1 {
+    background: var(--gradient-accent);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  aside::-webkit-scrollbar { width: 6px; }
+  aside::-webkit-scrollbar-thumb { background: var(--border-bright); border-radius: 3px; }
+  aside h1 { font-size: 17px; font-weight: 600; margin: 0 0 2px; letter-spacing: -0.01em; }
+  aside .sub { color: var(--muted); font-size: 11.5px; margin-bottom: 20px; font-weight: 400; }
+  aside nav a {
+    display: block; padding: 7px 12px; margin: 1px 0;
+    border-radius: 6px; color: var(--text-dim); font-size: 13px; font-weight: 500;
+    transition: all .12s ease;
+  }
+  aside nav a:hover { background: var(--surface-hover); color: var(--text); }
+  aside nav a.active { background: var(--accent-soft); color: var(--accent); }
+
+  main { padding: 48px 56px 120px; max-width: 1240px; }
+  section {
+    margin-bottom: 72px; scroll-margin-top: 16px;
+    position: relative; padding-left: 20px;
+  }
+  section::before {
+    content: ''; position: absolute; left: 0; top: 10px; bottom: 10px;
+    width: 4px; border-radius: 3px;
+    background: var(--gradient-accent);
+    opacity: 0.75;
+  }
+  #ctf::before      { background: linear-gradient(180deg, #ea580c, #dc2626); }
+  #bb::before       { background: linear-gradient(180deg, #0891b2, #0284c7); }
+  #ai::before       { background: linear-gradient(180deg, #9333ea, #7c3aed); }
+  #robotics::before { background: linear-gradient(180deg, #16a34a, #059669); }
+  #sc::before       { background: linear-gradient(180deg, #d97706, #ea580c); }
+  #firmware::before { background: linear-gradient(180deg, #b45309, #92400e); }
+  #infra::before    { background: linear-gradient(180deg, #4f46e5, #6366f1); }
+  #ci::before       { background: linear-gradient(180deg, #0284c7, #0891b2); }
+  #agents::before   { background: linear-gradient(180deg, #7c3aed, #9333ea); }
+  #mcp::before      { background: linear-gradient(180deg, #0891b2, #06b6d4); }
+  #toolchain::before{ background: linear-gradient(180deg, #16a34a, #059669); }
+  #codex::before    { background: linear-gradient(180deg, #475569, #334155); }
+  #hooks::before    { background: linear-gradient(180deg, #ea580c, #dc2626); }
+  #knowledge::before{ background: linear-gradient(180deg, #d97706, #ca8a04); }
+  #track::before    { background: linear-gradient(180deg, #4f46e5, #7c3aed); }
+
+  /* Headings */
+  h2 {
+    font-size: 30px; font-weight: 700; margin: 0 0 6px;
+    letter-spacing: -0.025em;
+    background: linear-gradient(135deg, #0f172a 0%, #334155 100%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  h2 .tag {
+    display: inline-block; margin-left: 14px; padding: 4px 12px;
+    font-size: 11.5px; color: var(--accent); font-weight: 600;
+    background: rgba(8,145,178,0.08); border: 1px solid rgba(8,145,178,0.18);
+    border-radius: 999px; letter-spacing: 0.02em;
+    -webkit-text-fill-color: var(--accent);  /* override h2 gradient clip */
+    vertical-align: middle;
+  }
+  .lede { color: var(--text-dim); margin: 14px 0 28px; font-size: 16.5px; max-width: 920px; line-height: 1.75; }
+
+  /* Diagram */
+  .diagram {
+    background: linear-gradient(180deg, #ffffff 0%, #fafbfc 100%);
+    border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 36px 28px; overflow-x: auto;
+    box-shadow: var(--shadow);
+  }
+  .diagram svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+  .diagram.tall svg { max-width: 980px; }
+
+  /* Mermaid fixes — 글자 잘림 방지 */
+  .mermaid { min-height: 100px; }
+  .mermaid .nodeLabel,
+  .mermaid .edgeLabel,
+  .mermaid .cluster-label,
+  .mermaid foreignObject { overflow: visible !important; }
+  .mermaid .nodeLabel > div,
+  .mermaid .nodeLabel p,
+  .mermaid foreignObject > div {
+    white-space: normal !important; line-height: 1.4 !important;
+    padding: 6px 12px !important;
+    font-weight: 500 !important;
+    font-size: 15.5px !important;
+  }
+  .mermaid .edgeLabel {
+    font-size: 13px !important;
+    font-weight: 500 !important;
+    background: #ffffff !important;
+    padding: 2px 6px !important;
+    border-radius: 4px;
+  }
+  .mermaid .cluster-label { font-size: 14px !important; font-weight: 600 !important; }
+  .mermaid .label foreignObject { overflow: visible !important; }
+  /* hexagon/rhombus decision 노드 — polygon이 label 폭보다 작아지는 이슈 방지 */
+  .mermaid .node.default polygon,
+  .mermaid .node polygon { stroke-width: 1.5; }
+  .mermaid .node rect,
+  .mermaid .node circle,
+  .mermaid .node ellipse { stroke-width: 1.3; }
+  .mermaid .node foreignObject { overflow: visible !important; }
+  .mermaid .node foreignObject > div { min-width: max-content; }
+  .mermaid text { font-family: "Inter", system-ui, sans-serif !important; }
+  .mermaid .flowchart-link { stroke-width: 1.5px !important; }
+  .mermaid .marker { fill: #64748b !important; stroke: #64748b !important; }
+
+  /* Tables */
+  table {
+    border-collapse: collapse; width: 100%;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); overflow: hidden;
+    box-shadow: var(--shadow-sm);
+  }
+  th, td {
+    padding: 13px 18px; border-bottom: 1px solid var(--border);
+    text-align: left; font-size: 14px; vertical-align: top; line-height: 1.6;
+  }
+  th {
+    background: linear-gradient(180deg, #f1f5f9 0%, #e2e8f0 100%);
+    color: var(--text-2);
+    font-weight: 700; font-size: 11.5px; text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  tr:last-child td { border-bottom: 0; }
+  tbody tr { transition: background .1s; }
+  tbody tr:hover td { background: var(--surface-hover); }
+
+  /* Pills */
+  .pill {
+    display: inline-block; padding: 2px 8px; border-radius: 999px;
+    font-size: 10.5px; font-weight: 600; letter-spacing: 0.03em;
+  }
+  .pill.opus { background: rgba(124,58,237,0.08); color: var(--violet); }
+  .pill.sonnet { background: rgba(8,145,178,0.08); color: var(--accent); }
+  .pill.haiku { background: rgba(22,163,74,0.08); color: var(--ok); }
+  .pill.ok { background: rgba(22,163,74,0.08); color: var(--ok); }
+  .pill.kill { background: rgba(220,38,38,0.08); color: var(--kill); }
+  .pill.warn { background: rgba(202,138,4,0.08); color: var(--warn); }
+  /* Submission status pills */
+  .pill.st-accepted { background: rgba(22,163,74,0.12);  color: #15803d; }
+  .pill.st-pending  { background: rgba(202,138,4,0.12);  color: #a16207; }
+  .pill.st-triage   { background: rgba(234,88,12,0.12);  color: #c2410c; }
+  .pill.st-submitted{ background: rgba(8,145,178,0.12);  color: #0e7490; }
+  .pill.st-wontfix  { background: rgba(100,116,139,0.14);color: #475569; }
+  .pill.st-oos      { background: rgba(220,38,38,0.12);  color: #b91c1c; }
+  .pill.st-nr       { background: rgba(220,38,38,0.10);  color: #be123c; }
+  .pill.st-closed   { background: rgba(100,116,139,0.14);color: #334155; }
+  html[data-theme="dark"] .pill.st-accepted { background: rgba(74,222,128,0.18);  color: #86efac; }
+  html[data-theme="dark"] .pill.st-pending  { background: rgba(251,191,36,0.18);  color: #fde047; }
+  html[data-theme="dark"] .pill.st-triage   { background: rgba(251,146,60,0.18);  color: #fdba74; }
+  html[data-theme="dark"] .pill.st-submitted{ background: rgba(34,211,238,0.18);  color: #67e8f9; }
+  html[data-theme="dark"] .pill.st-wontfix,
+  html[data-theme="dark"] .pill.st-closed   { background: rgba(148,163,184,0.18); color: #cbd5e1; }
+  html[data-theme="dark"] .pill.st-oos,
+  html[data-theme="dark"] .pill.st-nr       { background: rgba(248,113,113,0.18); color: #fca5a5; }
+  /* Submissions table — more compact */
+  #sub-table td { font-size: 13px; }
+  #sub-table td.t-note { color: var(--muted); font-size: 12px; max-width: 280px; }
+  #sub-table td.t-target { font-weight: 600; color: var(--text); }
+  #sub-table td.t-bounty { font-family: "JetBrains Mono", monospace; font-size: 12px; font-weight: 600; }
+  #sub-table td.t-date { font-family: "JetBrains Mono", monospace; font-size: 12px; color: var(--muted); white-space: nowrap; }
+  .platform-chip {
+    display: inline-block; padding: 3px 9px; border-radius: 6px;
+    font-size: 11px; font-weight: 700; letter-spacing: 0.02em;
+    background: var(--surface-2); color: var(--text-2);
+    border: 1px solid var(--border);
+  }
+
+  /* Cards */
+  .cards {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 14px;
+  }
+  .card {
+    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+    border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 20px 22px;
+    box-shadow: var(--shadow-sm);
+    transition: all .18s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative; overflow: hidden;
+  }
+  .card:hover {
+    background: linear-gradient(180deg, #ffffff 0%, #ecfeff 100%);
+    border-color: var(--accent);
+    box-shadow: var(--shadow-accent), var(--shadow-md);
+    transform: translateY(-2px);
+  }
+  .card .label {
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--muted); margin-bottom: 10px; font-weight: 700;
+  }
+  .card .value {
+    font-size: 32px; font-weight: 700; line-height: 1.1; letter-spacing: -0.025em;
+    font-feature-settings: "tnum";
+    background: var(--gradient-accent);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .card .note {
+    font-size: 13px; color: var(--text-dim); margin-top: 8px; line-height: 1.5;
+  }
+
+  /* Details */
+  details {
+    background: var(--surface-2); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); padding: 10px 16px; margin-top: 14px;
+  }
+  details summary {
+    cursor: pointer; color: var(--text-dim); font-size: 13px; font-weight: 500;
+    outline: none;
+  }
+  details summary:hover { color: var(--text); }
+  details[open] summary { color: var(--accent); margin-bottom: 8px; }
+
+  hr { border: 0; border-top: 1px solid var(--border); margin: 32px 0; }
+
+  /* === Interactions (Vercel/Linear 원칙) === */
+  html { scroll-behavior: smooth; }
+  *:focus { outline: none; }
+  *:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  /* Card → 클릭 가능한 링크 */
+  a.card {
+    display: block; text-decoration: none; color: inherit;
+    position: relative; overflow: hidden;
+  }
+  a.card::before {
+    content: ""; position: absolute; left: 0; top: 0; bottom: 0;
+    width: 2px; background: var(--accent);
+    transform: scaleY(0); transform-origin: top; transition: transform .18s ease;
+  }
+  a.card:hover::before { transform: scaleY(1); }
+  a.card:active { transform: translateY(0); transition-duration: 60ms; }
+
+  /* Sidebar active indicator */
+  aside nav a { position: relative; }
+  aside nav a.active::before {
+    content: ""; position: absolute; left: 4px; top: 8px; bottom: 8px;
+    width: 2px; background: var(--accent); border-radius: 2px;
+  }
+  aside nav a { padding-left: 14px; }
+
+  /* LIVE pulse */
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.55; transform: scale(0.88); }
+  }
+  .pulse-dot { animation: pulse 2s ease-in-out infinite; display: inline-block; }
+
+  /* Section fade-in (entry) */
+  @keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  section { animation: fadeInUp .4s cubic-bezier(0.16, 1, 0.3, 1) both; }
+
+  /* Code inline hover */
+  a:hover code { background: var(--surface-hover); }
+
+  /* Pill hover */
+  .pill { transition: background .15s ease, color .15s ease; }
+
+  /* Table row micro-interaction */
+  tbody tr { cursor: default; }
+  tbody tr td { transition: background .1s ease; }
+
+  /* Details smooth expand */
+  details[open] > *:not(summary) { animation: fadeInUp .25s ease; }
+
+  /* Reduced motion */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+
+  /* Selection */
+  ::selection { background: var(--accent-soft); color: var(--text); }
+
+  /* === Dark mode === */
+  html[data-theme="dark"] {
+    --bg: #0a0b10;
+    --surface: #13141b;
+    --surface-2: #1a1b23;
+    --surface-hover: #252630;
+    --border: #2a2b36;
+    --border-bright: #3d3e4b;
+    --text: #f1f5f9;
+    --text-2: #cbd5e1;
+    --text-dim: #94a3b8;
+    --muted: #64748b;
+    --accent: #22d3ee;
+    --accent-soft: rgba(34,211,238,0.14);
+    --violet: #c084fc;
+    --gradient-accent: linear-gradient(135deg, #22d3ee 0%, #c084fc 100%);
+    --shadow-sm: 0 1px 3px rgba(0,0,0,0.35);
+    --shadow: 0 4px 8px -2px rgba(0,0,0,0.4), 0 2px 4px -1px rgba(0,0,0,0.3);
+    --shadow-md: 0 10px 20px -5px rgba(0,0,0,0.5), 0 4px 8px -2px rgba(0,0,0,0.35);
+    --shadow-accent: 0 4px 14px -4px rgba(34,211,238,0.4);
+  }
+  html[data-theme="dark"] body {
+    background:
+      radial-gradient(ellipse 1400px 700px at 5% -5%, rgba(34,211,238,0.10) 0%, transparent 60%),
+      radial-gradient(ellipse 1200px 600px at 95% 10%, rgba(192,132,252,0.09) 0%, transparent 60%),
+      radial-gradient(ellipse 900px 500px at 50% 100%, rgba(74,222,128,0.05) 0%, transparent 60%),
+      var(--bg);
+  }
+  html[data-theme="dark"] aside {
+    background: linear-gradient(180deg, #13141b 0%, #0f1a25 60%, #0b1622 100%);
+    box-shadow: inset -1px 0 0 rgba(34,211,238,0.12);
+  }
+  html[data-theme="dark"] h2 {
+    background: linear-gradient(135deg, #f1f5f9 0%, #cbd5e1 100%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  html[data-theme="dark"] h2 .tag {
+    background: rgba(34,211,238,0.12); border-color: rgba(34,211,238,0.30);
+    color: #67e8f9; -webkit-text-fill-color: #67e8f9;
+  }
+  html[data-theme="dark"] .card {
+    background: linear-gradient(180deg, #13141b 0%, #16171f 100%);
+  }
+  html[data-theme="dark"] .card:hover {
+    background: linear-gradient(180deg, #16171f 0%, #0e2a2d 100%);
+    border-color: var(--accent);
+  }
+  html[data-theme="dark"] th {
+    background: linear-gradient(180deg, #1a1b23 0%, #252630 100%);
+    color: var(--text-2);
+  }
+  html[data-theme="dark"] tbody tr:hover td { background: #18191f; }
+  html[data-theme="dark"] .diagram {
+    background: linear-gradient(180deg, #13141b 0%, #0f1019 100%);
+  }
+  html[data-theme="dark"] code {
+    background: #1a1b23; color: #a7f3d0; border-color: #2a2b36;
+  }
+  html[data-theme="dark"] details { background: #13141b; border-color: var(--border); }
+  html[data-theme="dark"] .pill.opus   { background: rgba(192,132,252,0.18); color: #d8b4fe; }
+  html[data-theme="dark"] .pill.sonnet { background: rgba(34,211,238,0.18);  color: #67e8f9; }
+  html[data-theme="dark"] .pill.haiku  { background: rgba(74,222,128,0.18);  color: #86efac; }
+  html[data-theme="dark"] .pill.ok     { background: rgba(74,222,128,0.18);  color: #86efac; }
+  html[data-theme="dark"] .pill.warn   { background: rgba(251,191,36,0.18);  color: #fde047; }
+  html[data-theme="dark"] .pill.kill   { background: rgba(248,113,113,0.18); color: #fca5a5; }
+  html[data-theme="dark"] .mermaid .edgeLabel {
+    background: #13141b !important; color: #f1f5f9 !important;
+  }
+  html[data-theme="dark"] aside nav a.active { background: rgba(34,211,238,0.16); color: var(--accent); }
+
+  /* === Side buttons === */
+  .side-btn {
+    display: flex; align-items: center; gap: 10px;
+    width: 100%; padding: 10px 14px; margin-top: 10px;
+    background: var(--surface-2); border: 1px solid var(--border);
+    border-radius: 8px; cursor: pointer; color: var(--text-dim);
+    font-family: inherit; font-size: 12.5px; font-weight: 600;
+    transition: all .15s;
+  }
+  .side-btn:hover { background: var(--surface-hover); color: var(--accent); border-color: var(--accent); }
+  .side-btn .side-btn-icon { font-size: 14px; line-height: 1; }
+  .side-btn .kbd {
+    margin-left: auto; padding: 2px 6px; border-radius: 4px;
+    background: var(--surface); border: 1px solid var(--border);
+    font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 10.5px; color: var(--muted);
+    font-weight: 500;
+  }
+
+  /* === Activity feed === */
+  #activity-feed {
+    margin: 14px 0 18px; padding: 12px 12px 10px;
+    background: var(--surface-2); border: 1px solid var(--border);
+    border-radius: 10px;
+  }
+  #activity-feed .head {
+    color: var(--text-2); font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.08em; font-size: 9.5px; margin-bottom: 10px;
+  }
+  #feed-list { display: flex; flex-direction: column; gap: 6px; }
+  .feed-item {
+    padding: 7px 10px; border-radius: 6px; background: var(--surface);
+    border: 1px solid var(--border); font-size: 11.5px;
+    transition: border-color .15s, transform .15s;
+  }
+  .feed-item:hover { border-color: var(--accent); transform: translateX(2px); }
+  .feed-commit { border-left: 3px solid var(--accent); }
+  .feed-file { border-left: 3px solid var(--violet); }
+  .feed-meta {
+    color: var(--muted); font-size: 10px;
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    margin-bottom: 2px;
+  }
+  .feed-msg { color: var(--text-2); line-height: 1.4; font-size: 11.5px; }
+  .feed-path {
+    color: var(--text-2); font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 10.5px; word-break: break-all; margin-bottom: 2px;
+  }
+
+  /* === Cmd-K === */
+  .cmdk-overlay[hidden] { display: none; }
+  .cmdk-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    z-index: 9999; display: flex; justify-content: center; align-items: flex-start;
+    padding-top: 96px; animation: cmdkFade .15s ease;
+  }
+  @keyframes cmdkFade { from { opacity: 0 } to { opacity: 1 } }
+  .cmdk-modal {
+    width: 640px; max-width: 92vw; max-height: 72vh; overflow: hidden;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 14px; box-shadow: 0 24px 64px rgba(0,0,0,0.35);
+    display: flex; flex-direction: column;
+  }
+  #cmdk-input {
+    border: none; outline: none; background: transparent;
+    padding: 18px 22px; font-size: 16px; color: var(--text);
+    border-bottom: 1px solid var(--border);
+    font-family: inherit; font-weight: 500;
+  }
+  #cmdk-input::placeholder { color: var(--muted); font-weight: 400; }
+  #cmdk-results { overflow-y: auto; padding: 8px; }
+  .cmdk-item {
+    display: flex; align-items: center; gap: 14px;
+    padding: 10px 14px; border-radius: 8px;
+    cursor: pointer; transition: background .1s;
+  }
+  .cmdk-item:hover, .cmdk-item.active { background: var(--accent-soft); }
+  .cmdk-item.active .cmdk-label { color: var(--accent); }
+  .cmdk-kind {
+    font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--muted); min-width: 62px; font-weight: 700;
+  }
+  .cmdk-label { flex: 1; font-size: 14px; font-weight: 500; color: var(--text-2); }
+</style>
+</head>
+<body>
+<div class="layout">
+  <aside>
+    <h1>Terminator</h1>
+    <div class="sub">Autonomous Security Agent<br/>6 target modes</div>
+    <div id="live-status" style="margin: 12px 0 14px; padding: 12px 14px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; font-size: 11.5px; color: var(--text-dim); line-height: 1.7;">
+      <div style="color: var(--text-2); font-weight: 500;"><span class="pulse-dot" style="color: var(--ok); margin-right: 6px;">●</span><span id="live-label">loading…</span></div>
+      <div id="live-git" style="font-family: JetBrains Mono, monospace; font-size: 10.5px; color: var(--text-dim);"></div>
+      <div id="live-time" style="color: var(--muted); font-size: 10.5px; margin-top: 2px;"></div>
+    </div>
+    <div id="activity-feed">
+      <div class="head">Recent Activity</div>
+      <div id="feed-list"></div>
+    </div>
+    <button id="cmdk-trigger" class="side-btn" type="button">
+      <span class="side-btn-icon">⌕</span> Search
+      <span class="kbd">⌘K</span>
+    </button>
+    <button id="theme-toggle" class="side-btn" type="button">
+      <span class="side-btn-icon" id="theme-icon">◐</span>
+      <span id="theme-label">Theme</span>
+    </button>
+    <nav>
+      <a href="#summary">▸ Summary</a>
+      <a href="#arch">▸ Architecture</a>
+      <a href="#modes">▸ Target Modes (6)</a>
+      <a href="#ctf">▸ CTF (adaptive 6)</a>
+      <a href="#bb">▸ Bug Bounty v12</a>
+      <a href="#ai">▸ AI / LLM Security</a>
+      <a href="#robotics">▸ Robotics / ROS</a>
+      <a href="#sc">▸ Supply Chain</a>
+      <a href="#firmware">▸ Firmware</a>
+      <a href="#opmodes">▸ Operating Modes (A/B)</a>
+      <a href="#crosstool">▸ Cross-tool Runtime</a>
+      <a href="#agents">▸ Agents (<span data-live="agents-nav">30</span>)</a>
+      <a href="#mcp">▸ MCP Servers (<span data-live="mcp-nav">10</span>)</a>
+      <a href="#toolchain">▸ Toolchain (40+)</a>
+      <a href="#codex">▸ Codex Cross-Review</a>
+      <a href="#hooks">▸ Runtime Hooks (<span data-live="hooks-nav">3</span>)</a>
+      <a href="#infra">▸ Infra (docker)</a>
+      <a href="#ci">▸ CI Workflows</a>
+      <a href="#knowledge">▸ Knowledge Engine</a>
+      <a href="#submissions">▸ Submissions (<span data-live="submissions-nav">—</span>)</a>
+      <a href="#track">▸ Track Record</a>
+    </nav>
+  </aside>
+
+  <main>
+
+    <section id="summary">
+      <h2>Summary <span class="tag">프로젝트 한 줄 요약</span></h2>
+      <p class="lede">Claude Code Orchestrator를 리드로, <b>6개 타깃 모드</b>(CTF · Bug Bounty · Firmware · AI/LLM · Robotics · Supply Chain)를 25개 전문 에이전트로 돌리는 자율 보안 에이전트. 280K+ 문서 지식 엔진과 10 MCP + 3 Runtime Hook이 안전·품질 게이트를 자동 집행. 운영 축: Interactive(유저) vs Autonomous(백그라운드).</p>
+      <div class="cards">
+        <a class="card" href="#modes"><div class="label">Target Modes</div><div class="value">6</div><div class="note">CTF · BB · FW · AI · Robo · SC</div></a>
+        <a class="card" href="#opmodes"><div class="label">Operating Modes</div><div class="value">2</div><div class="note">Interactive · Autonomous</div></a>
+        <a class="card" href="#agents"><div class="label">Agents</div><div class="value" data-live="agents">—</div><div class="note" data-live="agents-note">loading…</div></a>
+        <a class="card" href="#bb"><div class="label">Quality Gates</div><div class="value">10</div><div class="note">oos · coverage · workflow · fresh · poc-tier</div></a>
+        <a class="card" href="#bb"><div class="label">Kill Gates</div><div class="value">2</div><div class="note">sonnet + opus · triager-sim</div></a>
+        <a class="card" href="#infra"><div class="label">Docker Services</div><div class="value" data-live="services">—</div><div class="note">pgvector · ollama · neo4j · litellm · rag · web-ui</div></a>
+        <a class="card" href="#bb"><div class="label">Pipeline Rules</div><div class="value" data-live="rules">—</div><div class="note" data-live="rules-note">.claude/rules/</div></a>
+        <a class="card" href="#modes"><div class="label">Skills</div><div class="value" data-live="skills">—</div><div class="note">.claude/skills/</div></a>
+        <a class="card" href="#ci"><div class="label">CI Workflows</div><div class="value" data-live="workflows">—</div><div class="note" data-live="workflows-note">.github/workflows/</div></a>
+        <a class="card" href="#mcp"><div class="label">MCP Servers</div><div class="value" data-live="mcp">—</div><div class="note" data-live="mcp-note">.mcp.json</div></a>
+        <a class="card" href="#toolchain"><div class="label">Tools</div><div class="value" data-live="tools">—</div><div class="note">tools/*.py · tools/*.sh</div></a>
+        <a class="card" href="#hooks"><div class="label">Runtime Hooks</div><div class="value" data-live="hooks">—</div><div class="note">.claude/hooks/</div></a>
+        <a class="card" href="#knowledge"><div class="label">Knowledge DB</div><div class="value">280K+</div><div class="note">SQLite FTS5 + BM25</div></a>
+        <div class="card"><div class="label">Untracked</div><div class="value" data-live="untracked">—</div><div class="note">git working tree</div></div>
+      </div>
+    </section>
+
+    <section id="arch">
+      <h2>Architecture <span class="tag">오케스트레이터 · 파이프라인 · 인프라</span></h2>
+      <p class="lede">Claude Orchestrator가 타깃 유형을 보고 CTF/BB 파이프라인을 선택. 모든 에이전트는 구조화된 아티팩트(<code>*.md / checkpoint.json</code>)로 핸드오프.</p>
+      <div class="diagram">
+        <pre class="mermaid" id="m-arch">
+flowchart LR
+  U(["User / CLI"]):::ext --> O["Orchestrator · Claude Code"]
+  O --> M["6 Target Modes"]
+  M --> AG["30 Agents"]
+  AG -->|knowledge-fts| KB[("Knowledge DB · 280K+")]
+  AG -->|LLM router| LL["LiteLLM :4000"]
+  LL --> LLM["Anthropic · Gemini<br/>DeepSeek · Ollama"]
+  AG --> DATA[("pgvector :5433<br/>neo4j")]
+  AG --> RA["rag-api"]
+  AG --> WUI["web-ui :3000"]
+  AG -. PreTool/PostTool .-> HK["6 Runtime Hooks"]
+  AG --> OUT["reports/ · evidence/"]
+  classDef ext fill:#f0f9ff,stroke:#0891b2,color:#0c4a6e;
+        </pre>
+      </div>
+    </section>
+
+    <section id="modes">
+      <h2>Target Modes <span class="tag">6가지 타깃 타입 한눈에</span></h2>
+      <p class="lede"><code>./terminator.sh &lt;mode&gt; &lt;target&gt;</code> — 세션 이름 prefix로도 자동 식별 (<code>ctf-*</code>, <code>fw-*</code>, <code>ai-*</code>, <code>robo-*</code>, <code>sc-*</code>, default=bounty).</p>
+      <table>
+        <thead><tr><th>Mode</th><th>트리거</th><th>파이프라인 요약</th><th>트랙</th><th>타임박스</th></tr></thead>
+        <tbody>
+          <tr><td><b>CTF</b></td><td><code>ctf</code> / <code>ctf-*</code></td><td>reverser → [trigger] → chain·solver → critic → verifier → reporter (6 adaptive 모드)</td><td>FLAG</td><td>챌린지별</td></tr>
+          <tr><td><b>Bug Bounty</b></td><td>default / <code>bounty</code></td><td>Explore Lane (Phase 0–1.5) → <b>★Gate 1</b> → Prove Lane (Phase 2–6) · <b>★Gate 2</b></td><td>Bounty</td><td>프로그램별</td></tr>
+          <tr><td><b>Firmware</b></td><td><code>firmware</code> / <code>fw-*</code></td><td>fw-profiler → fw-inventory → fw-surface → fw-validator (QEMU PoC)</td><td>CVE / Bounty</td><td>이미지별</td></tr>
+          <tr><td><b>AI / LLM</b></td><td><code>ai-security</code> / <code>ai-*</code></td><td>ai-recon + analyst(ai) → Gate 1 → exploiter(jailbreak/injection) → Gate 2 → reporter → critic → triager-sim</td><td>Bounty</td><td>~6.5h · 1.5h 무발견 ABANDON</td></tr>
+          <tr><td><b>Robotics / ROS</b></td><td><code>robotics</code> / <code>robo-*</code></td><td>robo-scanner + analyst(robotics) → exploiter(sim) → reporter(CVE) → critic → cve-manager</td><td>CVE only</td><td>~6.5h</td></tr>
+          <tr><td><b>Supply Chain</b></td><td><code>supplychain</code> / <code>sc-*</code></td><td>sc-scanner + analyst(sc) → [bounty: Gate 1/2 + triager] or [CVE: critic → cve-manager]</td><td>Bounty + CVE auto</td><td>~4.5h (최단)</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="ctf">
+      <h2>CTF <span class="tag">Adaptive 6 sub-modes</span></h2>
+      <p class="lede">챌린지 유형을 보고 <code>@target-evaluator</code>가 6가지 모드 중 하나를 선택.</p>
+      <table>
+        <thead><tr><th>조건</th><th>파이프라인</th><th>에이전트</th></tr></thead>
+        <tbody>
+          <tr><td><b>Trivial</b> · 소스 제공, 1–3줄 버그</td><td>Direct solve</td><td>0</td></tr>
+          <tr><td><b>Reversing / Crypto</b> · 수학 역산</td><td>reverser → solver → critic → verifier → reporter</td><td>5</td></tr>
+          <tr><td><b>Pwn (clear)</b> · 오버플로/포맷</td><td>reverser → chain → critic → verifier → reporter</td><td>5</td></tr>
+          <tr><td><b>Pwn (unclear)</b> · 크래시 탐색 필요</td><td>reverser → trigger → chain → critic → verifier → reporter</td><td>6</td></tr>
+          <tr><td><b>Web</b> · 인젝션, SSRF, auth bypass</td><td>scout → analyst → exploiter → reporter</td><td>4</td></tr>
+          <tr><td><b>Firmware</b> · ARM binary diff, 에뮬 PoC</td><td>fw-profiler → fw-inventory → fw-surface → fw-validator → reporter</td><td>5</td></tr>
+        </tbody>
+      </table>
+      <div class="diagram" style="margin-top: 16px;"><span class="zoom-hint">Pwn (unclear) 기준</span>
+        <pre class="mermaid" id="m-ctf">
+flowchart LR
+  A["reverser · 보호 탐지"]:::explore --> B["trigger · 크래시 유도"]:::explore
+  B --> C["chain · leak → ROP → shell"]:::prove
+  C --> D["critic · Security Council"]:::prove
+  D --> CX["Codex<br/>adversarial-review"]:::gate
+  CX --> E["verifier<br/>로컬 3x + 원격"]:::prove
+  E --> F["reporter"]:::final
+  E -.->|FAIL| C
+  D -.->|REWORK| C
+  classDef explore fill:#ecfeff,stroke:#0891b2,color:#164e63,stroke-width:1.4px;
+  classDef gate fill:#fef3c7,stroke:#d97706,color:#78350f,stroke-width:2.2px;
+  classDef prove fill:#f5f3ff,stroke:#9333ea,color:#581c87,stroke-width:1.4px;
+  classDef final fill:#dcfce7,stroke:#16a34a,color:#14532d,stroke-width:1.6px;
+        </pre>
+      </div>
+    </section>
+
+    <section id="bb">
+      <h2>Bug Bounty v12 <span class="tag">Kill Gate + Explore Lane</span></h2>
+      <p class="lede"><b>Iron Rule: No Exploit, No Report.</b> Explore Lane (Phase -1 → 1.5) → Prove Lane (Gate 1 → Phase 6). 실제 15 단계 + v12.2–12.4 신규 게이트 포함. 정본: <code>.claude/rules/bb_pipeline_v12.md</code>.</p>
+      <div class="diagram tall">
+        <pre class="mermaid" id="m-bb">
+flowchart TD
+  PM1["Phase -1 · Target Verification"]
+  P0["Phase 0 · Target Intelligence"]
+  P01["Phase 0.1 · Program Fetch"]
+  P02["Phase 0.2 · Program Rules"]
+  P05["Phase 0.5 · Tool Scan"]
+  P1["Phase 1 · Discovery"]
+  P15["Phase 1.5 · Deep Exploration"]
+  GCW{{"Coverage Gate<br/>(≥80%)"}}
+  G1{{"★ Gate 1<br/>Viability"}}
+  P2["Phase 2 · PoC Validation"]
+  G2{{"★ Gate 2<br/>PoC Destruction"}}
+  P3["Phase 3 · Report + CVSS"]
+  P4["Phase 4 · Review"]
+  P45["Phase 4.5 · Triager + AI"]
+  P5["Phase 5 · Finalization"]
+  P55b["Phase 5.5b · Platform Safety"]
+  P57["Phase 5.7 · Live Scope"]
+  P58["Phase 5.8 · MCP Auto-Fill"]
+  P5PS["Pre-Send · IRON RULE"]
+  P6["Phase 6 · Cleanup"]:::final
+  KILL[(KILL / NO-GO)]:::kill
+
+  PM1 -->|GO| P0
+  PM1 -->|NO-GO| KILL
+  P0 -->|GO| P01 --> P02 --> P05 --> P1 --> P15 --> GCW
+  P0 -->|NO-GO| KILL
+  GCW -->|PASS| G1
+  GCW -->|FAIL| P1
+  G1 -->|GO| P2 --> G2
+  G1 -->|KILL| KILL
+  G2 -->|GO| P3 --> P4 --> P45 --> P5 --> P55b --> P57 --> P58 --> P5PS --> P6
+  G2 -->|KILL| KILL
+  P45 -.->|KILL = Gate bug| G1
+  P57 -->|SCOPE MISS| KILL
+  P55b -->|BLOCKED| KILL
+
+  class PM1,P0,P01,P02,P05,P1,P15 explore
+  class GCW,G1,G2,P5PS gate
+  class P2,P3,P4,P45,P5,P55b,P57,P58 prove
+
+  classDef explore fill:#ecfeff,stroke:#0891b2,color:#164e63,stroke-width:1.4px;
+  classDef gate fill:#fef3c7,stroke:#d97706,color:#78350f,stroke-width:2.2px;
+  classDef prove fill:#f5f3ff,stroke:#9333ea,color:#581c87,stroke-width:1.4px;
+  classDef final fill:#dcfce7,stroke:#16a34a,color:#14532d,stroke-width:1.6px;
+  classDef kill fill:#fef2f2,stroke:#dc2626,color:#7f1d1d,stroke-width:2.2px;
+        </pre>
+      </div>
+      <details><summary><b>Time-box · Anti-AI · Hard NO-GO</b></summary>
+        <p style="margin: 8px 0; font-size: 13px; color: var(--muted);">
+          <b>Time-box</b>: P0 45min · P0.5 30min · P1 2h · P1.5 1h · P2 3h · P3–5 2h (Anthropic SCONE-bench).
+          <b>Hard NO-GO</b> (Phase 0): 3+ audits · 2+ reputable · 100+ reports · 3yr+ · source inaccessible.
+          <b>Anti-AI Detection</b> (Phase 4.5): 3-Layer — Heuristic → Claude self-review → ZeroGPT (Playwright MCP) · &lt;10% AI PASS · 10–50% rewrite · &gt;50% 전면 재작성.
+          <b>Platform priority</b>: Immunefi · HackerOne · Bugcrowd · PSIRT.
+        </p>
+      </details>
+
+      <details><summary><b>10 Quality Gates — 무엇을 차단하는가</b></summary>
+        <table style="margin-top: 10px;">
+          <thead><tr><th>Skill</th><th>위치</th><th>차단</th></tr></thead>
+          <tbody>
+            <tr><td><code>oos-check</code></td><td>Phase 0 + per-finding</td><td>OOS 패턴 12종 (oracle staleness, admin-gated …)</td></tr>
+            <tr><td><code>coverage-gate</code></td><td>Phase 1→2</td><td>&lt;80% 엔드포인트 커버리지 (소형 타깃 100%)</td></tr>
+            <tr><td><code>workflow-check</code> <span class="pill warn">NEW</span></td><td>Gate 1→2</td><td>불완전한 workflow 상태 커버리지</td></tr>
+            <tr><td><code>fresh-surface-check</code> <span class="pill warn">NEW</span></td><td>Gate 1→2</td><td>최근 커밋에서 놓친 공격 표면</td></tr>
+            <tr><td><code>poc-tier</code></td><td>Phase 2→3</td><td>Tier 3–4 PoC (라이브 실행 캡처 없음)</td></tr>
+            <tr><td><code>evidence-tier-check</code> <span class="pill warn">NEW</span></td><td>Phase 2→3</td><td>E2 미만 증거</td></tr>
+            <tr><td><code>threat-model-check</code></td><td>Phase 2</td><td>비현실적 공격 전제조건 (2+ controlled)</td></tr>
+            <tr><td><code>duplicate-graph-check</code> <span class="pill warn">NEW</span></td><td>Gate 2</td><td>knowledge graph 기반 semantic 중복</td></tr>
+            <tr><td><code>slop-check</code></td><td>Phase 4.5</td><td>AI 템플릿 언어 점수 &gt;5</td></tr>
+            <tr><td><code>checkpoint-validate</code></td><td>Any phase</td><td>Fake idle / fake completion</td></tr>
+          </tbody>
+        </table>
+      </details>
+    </section>
+
+    <section id="ai">
+      <h2>AI / LLM Security <span class="tag">prompt injection · jailbreak · agent bounty</span></h2>
+      <p class="lede">Target: LLM API · agent 제품. Domain threshold 80%. 1.5시간 내 후보 없으면 ABANDON.</p>
+      <div class="diagram">
+        <pre class="mermaid" id="m-ai">
+flowchart LR
+  A["Phase 0 · target-evaluator"]:::explore --> C["Phase 0.5 · ai-recon"]:::explore
+  C --> D["Phase 1 · ai-recon + analyst"]:::explore
+  D --> E["Phase 1.5 · Top-3 mutation"]:::explore
+  E --> G1{{"★ Gate 1<br/>universal vs target"}}:::gate
+  G1 -->|GO| F["Phase 2 · exploiter(ai)"]:::prove
+  F --> G2{{"★ Gate 2<br/>PoC destruction"}}:::gate
+  G2 -->|GO| R["Phase 3–5<br/>reporter → critic → final"]:::final
+  G1 -->|KILL| K[("KILL")]:::kill
+  G2 -->|KILL| K
+  classDef explore fill:#ecfeff,stroke:#0891b2,color:#164e63,stroke-width:1.4px;
+  classDef gate fill:#fef3c7,stroke:#d97706,color:#78350f,stroke-width:2.2px;
+  classDef prove fill:#f5f3ff,stroke:#9333ea,color:#581c87,stroke-width:1.4px;
+  classDef final fill:#dcfce7,stroke:#16a34a,color:#14532d,stroke-width:1.6px;
+  classDef kill fill:#fef2f2,stroke:#dc2626,color:#7f1d1d,stroke-width:2.2px;
+        </pre>
+      </div>
+    </section>
+
+    <section id="robotics">
+      <h2>Robotics / ROS <span class="tag">CVE track only · no bounty</span></h2>
+      <p class="lede">ROS master/ROS2 · 산업용 로봇. Domain threshold 70%. Docker fallback: <code>docker run --rm --network host ros:humble</code>.</p>
+      <div class="diagram">
+        <pre class="mermaid" id="m-robo">
+flowchart LR
+  A["Phase 0 · target-evaluator"]:::explore --> C["Phase 0.5 · robo-scanner"]:::explore
+  C --> D["Phase 1 · robo-scanner + analyst"]:::explore
+  D --> E["Phase 1.5<br/>fw-profiler → inventory → surface"]:::explore
+  E --> F["Phase 2 · exploiter (sim-first)"]:::prove
+  F --> R["Phase 3 · reporter<br/>CVE advisory"]:::prove
+  R --> Cr["Phase 4 · critic"]:::prove
+  Cr --> CV["Phase 5 · cve-manager<br/>GHSA / MITRE"]:::final
+  classDef explore fill:#ecfeff,stroke:#0891b2,color:#164e63,stroke-width:1.4px;
+  classDef prove fill:#f5f3ff,stroke:#9333ea,color:#581c87,stroke-width:1.4px;
+  classDef final fill:#dcfce7,stroke:#16a34a,color:#14532d,stroke-width:1.6px;
+        </pre>
+      </div>
+    </section>
+
+    <section id="sc">
+      <h2>Supply Chain <span class="tag">bounty + CVE auto-detect</span></h2>
+      <p class="lede">NPM / PyPI / Maven 등. Domain threshold 80%, <b>최단 4.5시간 타임박스</b>. 레지스트리 업로드 금지 (네임스페이스 존재 체크만).</p>
+      <div class="diagram">
+        <pre class="mermaid" id="m-sc">
+flowchart LR
+  A["Phase 0 · target-evaluator"]:::explore --> C["Phase 0.5 · sc-scanner<br/>syft + grype"]:::explore
+  C --> D["Phase 1 · sc-scanner + analyst"]:::explore
+  D --> E["Phase 1.5<br/>Dep confusion 딥스캔"]:::explore
+  E --> SW{"bounty<br/>프로그램?"}:::gate
+  SW -->|YES| BT["Bounty Track<br/>Gate 1 → exploiter → Gate 2 → reporter"]:::prove
+  SW -->|NO| CT["CVE Track<br/>exploiter → reporter → cve-manager"]:::final
+  classDef explore fill:#ecfeff,stroke:#0891b2,color:#164e63,stroke-width:1.4px;
+  classDef gate fill:#fef3c7,stroke:#d97706,color:#78350f,stroke-width:2.2px;
+  classDef prove fill:#f5f3ff,stroke:#9333ea,color:#581c87,stroke-width:1.4px;
+  classDef final fill:#dcfce7,stroke:#16a34a,color:#14532d,stroke-width:1.6px;
+        </pre>
+      </div>
+    </section>
+
+    <section id="firmware">
+      <h2>Firmware <span class="tag">ARM binary diff · QEMU emul PoC</span></h2>
+      <p class="lede">단독 모드로도, Robotics Phase 1.5에서 서브-파이프라인으로도 사용됨.</p>
+      <div class="diagram">
+        <pre class="mermaid" id="m-fw">
+flowchart LR
+  A["fw-profiler · 아키텍처 탐지"]:::explore --> B["fw-inventory · 버전 + CVE 매칭"]:::explore
+  B --> C["fw-surface · 공격 표면 + diff"]:::prove
+  C --> D["fw-validator · QEMU 에뮬 PoC"]:::prove
+  D --> R["reporter"]:::final
+  classDef explore fill:#ecfeff,stroke:#0891b2,color:#164e63,stroke-width:1.4px;
+  classDef prove fill:#f5f3ff,stroke:#9333ea,color:#581c87,stroke-width:1.4px;
+  classDef final fill:#dcfce7,stroke:#16a34a,color:#14532d,stroke-width:1.6px;
+        </pre>
+      </div>
+    </section>
+
+    <section id="opmodes">
+      <h2>Operating Modes <span class="tag">실행 방식 2가지</span></h2>
+      <table>
+        <thead><tr><th>모드</th><th>언제</th><th>특징</th><th>출력</th></tr></thead>
+        <tbody>
+          <tr><td><b>Mode A — Interactive</b></td><td>유저가 같이 붙어 있을 때</td><td>Claude Code 대화 · 질문·확인 허용 · 주 모델: opus / sonnet</td><td>세션 안에서</td></tr>
+          <tr><td><b>Mode B — Autonomous</b></td><td>백그라운드 대량 실행</td><td><code>bypassPermissions</code> 강제 · subagent spawn 자동 · 모델: <code>TERMINATOR_MODEL</code> env (기본 sonnet)</td><td><code>reports/&lt;timestamp&gt;/</code></td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="crosstool">
+      <h2>Cross-tool Runtime <span class="tag">Claude + Codex/OMX + Gemini</span></h2>
+      <p class="lede"><b><code>coordination/</code>가 공유 진실의 소스</b>. 매 핸드오프마다 전체 컨텍스트 재읽기를 없애고, manifests/digests/artifacts/checkpoints/handoffs가 <code>coordination/sessions/&lt;session_id&gt;/</code>에 유지됨.</p>
+      <div class="diagram">
+        <pre class="mermaid" id="m-crosstool">
+flowchart LR
+  subgraph COORD["coordination/ (공유 진실)"]
+    direction TB
+    M["manifests"]
+    D["digests"]
+    AF["artifacts"]
+    CP["checkpoints"]
+    HO["handoffs"]
+  end
+  CLA["Claude Code · .claude/hooks"] --> COORD
+  OMX["Codex / OMX · .omx/hooks"] --> COORD
+  GEM["Gemini · context_digest"] --> COORD
+  COORD -->|write/consume| LEAD["리더 교체<br/>구조화 전달"]
+  COORD -->|knowledge-fts| KB[("Knowledge DB")]
+        </pre>
+      </div>
+      <details><summary><b>Gemini CLI Integration (9 modes)</b></summary>
+        <p style="margin: 8px 0; font-size: 13px; color: var(--muted);">모델: <code>gemini-3-pro-preview</code> (fixed) · 스크립트: <code>tools/gemini_query.sh</code> · 모드: <code>reverse · analyze · triage · summarize · protocol · bizlogic · summarize-dir · review · ask</code>. 사용처: scout(대규모 초기 스캔) · analyst(P1/P2 선별) · reverser(500+ 라인 디컴파일) · exploiter(PoC 리뷰).</p>
+      </details>
+      <details><summary><b>Live E2E Validation (2026-03-06)</b></summary>
+        <p style="margin: 8px 0; font-size: 13px; color: var(--muted);">실제 <code>claude</code> · <code>codex</code> · plain <code>omx</code> 세션으로 검증. Claude 커스텀 에이전트(reverser, target-evaluator, triager-sim, fw-profiler) 실라이브 스폰 · <code>task_knowledge</code> digest 생성 · <code>ctf</code> 스킬 네이티브 Skill 도구로 로드 · <code>mcp__knowledge-fts__knowledge_stats</code> 실라이브 응답 성공.</p>
+      </details>
+    </section>
+
+    <section id="agents">
+      <h2>Agents <span class="tag">30 specialized agents · .claude/agents/</span></h2>
+      <p class="lede">모델 배정: <span class="pill opus">Opus</span> 고난도 추론 전용 · <span class="pill sonnet">Sonnet</span> 일반 작업 · effort별 컴퓨트 할당.</p>
+      <table>
+        <thead><tr><th>카테고리</th><th>에이전트</th><th>모델</th><th>아티팩트</th></tr></thead>
+        <tbody>
+          <tr><td rowspan="8"><b>CTF (8)</b></td><td>reverser</td><td><span class="pill sonnet">Sonnet</span></td><td>reversal_map.md</td></tr>
+          <tr><td>trigger</td><td><span class="pill sonnet">Sonnet</span></td><td>trigger_report.md</td></tr>
+          <tr><td>solver</td><td><span class="pill opus">Opus</span></td><td>solve.py</td></tr>
+          <tr><td>chain</td><td><span class="pill opus">Opus</span></td><td>solve.py (JIT / ROP)</td></tr>
+          <tr><td>critic</td><td><span class="pill opus">Opus</span></td><td>critic_review.md (5 archetypes)</td></tr>
+          <tr><td>verifier</td><td><span class="pill sonnet">Sonnet</span></td><td>FLAG_FOUND</td></tr>
+          <tr><td>reporter</td><td><span class="pill sonnet">Sonnet</span></td><td>knowledge/challenges/&lt;name&gt;.md</td></tr>
+          <tr><td>ctf-solver (legacy)</td><td><span class="pill sonnet">Sonnet</span></td><td>solve.py</td></tr>
+
+          <tr><td rowspan="10"><b>Bug Bounty (10)</b></td><td>target-evaluator</td><td><span class="pill sonnet">Sonnet</span></td><td>target_assessment.md</td></tr>
+          <tr><td>scout</td><td><span class="pill sonnet">Sonnet</span></td><td>recon_report.json</td></tr>
+          <tr><td>analyst</td><td><span class="pill sonnet">Sonnet</span></td><td>vulnerability_candidates.md</td></tr>
+          <tr><td>threat-modeler</td><td><span class="pill sonnet">Sonnet</span></td><td>threat_model.md</td></tr>
+          <tr><td>patch-hunter</td><td><span class="pill sonnet">Sonnet</span></td><td>patch_analysis.md</td></tr>
+          <tr><td>exploiter</td><td><span class="pill opus">Opus</span></td><td>PoC + evidence (E1–E4)</td></tr>
+          <tr><td>workflow-auditor</td><td><span class="pill sonnet">Sonnet</span></td><td>workflow_audit.md</td></tr>
+          <tr><td>triager-sim</td><td><span class="pill opus">Opus</span></td><td>SUBMIT / STRENGTHEN / KILL</td></tr>
+          <tr><td>source-auditor</td><td><span class="pill opus">Opus</span></td><td>audit_findings.md</td></tr>
+          <tr><td>defi-auditor</td><td><span class="pill opus">Opus</span></td><td>defi_audit.md</td></tr>
+
+          <tr><td rowspan="4"><b>Firmware (4)</b></td><td>fw-profiler</td><td><span class="pill sonnet">Sonnet</span></td><td>firmware_profile.md</td></tr>
+          <tr><td>fw-inventory</td><td><span class="pill sonnet">Sonnet</span></td><td>firmware_inventory.md</td></tr>
+          <tr><td>fw-surface</td><td><span class="pill sonnet">Sonnet</span></td><td>attack_surface.md</td></tr>
+          <tr><td>fw-validator</td><td><span class="pill sonnet">Sonnet</span></td><td>validation_results.md (QEMU)</td></tr>
+
+          <tr><td rowspan="3"><b>Specialized (3)</b></td><td>mobile-analyst</td><td><span class="pill sonnet">Sonnet</span></td><td>mobile_findings.md</td></tr>
+          <tr><td>recon-scanner</td><td><span class="pill sonnet">Sonnet</span></td><td>recon_results.json</td></tr>
+          <tr><td>web-tester</td><td><span class="pill sonnet">Sonnet</span></td><td>web_findings.md</td></tr>
+
+          <tr><td rowspan="5"><b>Domain / Infra (5)</b></td><td>ai-recon</td><td><span class="pill sonnet">Sonnet</span></td><td>LLM 모델 fingerprint, garak/promptfoo 자동 프로브</td></tr>
+          <tr><td>robo-scanner</td><td><span class="pill sonnet">Sonnet</span></td><td>ROS topology auto-scan (Docker fallback)</td></tr>
+          <tr><td>sc-scanner</td><td><span class="pill sonnet">Sonnet</span></td><td>SBOM (syft) + grype 취약점 매칭</td></tr>
+          <tr><td>cve-manager</td><td><span class="pill sonnet">Sonnet</span></td><td>GHSA / MITRE 제출 준비 (CVE track 종결자)</td></tr>
+          <tr><td>submission-review</td><td><span class="pill sonnet">Sonnet</span></td><td>최종 제출 전 정합성 점검</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="mcp">
+      <h2>MCP Servers <span class="tag">10 active + 4 opt-in · AI-Native Tool Integration</span></h2>
+      <p class="lede">ToolAnnotations(<code>readOnlyHint · idempotentHint</code>)로 read-only 도구는 병렬 실행. Opt-in은 per-agent <code>requiredMcpServers</code>로 선택.</p>
+      <table>
+        <thead><tr><th>서버</th><th>용도</th></tr></thead>
+        <tbody>
+          <tr><td><b>knowledge-fts</b></td><td>280K+ 문서 BM25 검색 · smart_search 완화 · 33 동의어 · web_articles · 크로스 테이블 랭킹</td></tr>
+          <tr><td><b>graphrag-security</b></td><td>보안 지식 그래프: exploit 조회, 유사 findings, drift 탐지</td></tr>
+          <tr><td><b>semgrep-mcp</b></td><td>패턴 기반 정적 분석</td></tr>
+          <tr><td><b>codeql-mcp</b></td><td>semantic taint tracking · variant analysis</td></tr>
+          <tr><td><b>nuclei-mcp</b></td><td>12K+ 취약점 탐지 템플릿</td></tr>
+          <tr><td><b>ghidra-mcp</b></td><td>headless 디컴파일 · structures · enums</td></tr>
+          <tr><td><b>mcp-gdb</b></td><td>중단점 · 메모리 검사 · stepping · backtrace</td></tr>
+          <tr><td><b>pentest-mcp</b></td><td>nmap · gobuster · nikto · john · hashcat</td></tr>
+          <tr><td><b>playwright</b></td><td>웹 익스플로잇 · 브라우저 자동화 (+ vision caps)</td></tr>
+          <tr><td><b>lightpanda</b></td><td>경량 headless 브라우저 (9× 메모리↓, 11× 속도↑): fetch · markdown · JS eval · semantic tree</td></tr>
+          <tr><td colspan="2" style="color: var(--muted); font-size: 12px;"><b>Opt-in</b>: frida · browser-use · opendataloader-pdf · pentest-thinking &nbsp;|&nbsp; <b>Denied</b>: radare2 (Ghidra 우선) · everything · sequential-thinking · memory · time</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="toolchain">
+      <h2>Toolchain <span class="tag">40+ 보안 도구 · 10 Skill Plugins</span></h2>
+      <div class="cards">
+        <div class="card"><div class="label">RE / Exploit</div><div class="note" style="margin-top:4px; color: var(--text); font-size: 13px;">Ghidra(MCP) · radare2 · objdump · gdb+pwndbg+GEF · angr · unicorn · z3 · pwntools · ROPgadget · ropper · one_gadget</div></div>
+        <div class="card"><div class="label">Web</div><div class="note" style="margin-top:4px; color: var(--text); font-size: 13px;">sqlmap · SSRFmap · commix · dalfox · nuclei(12K) · ffuf · subfinder · katana · httpx · trufflehog(800+) · crawl4ai</div></div>
+        <div class="card"><div class="label">Code / Smart Contract</div><div class="note" style="margin-top:4px; color: var(--text); font-size: 13px;">CodeQL · Semgrep · Slither(100+) · Mythril · Foundry 1.5.1</div></div>
+        <div class="card"><div class="label">Firmware</div><div class="note" style="margin-top:4px; color: var(--text); font-size: 13px;">QEMU ARM user-mode · rootfs mount · binary diff · FirmAE · binwalk · routersploit</div></div>
+        <div class="card"><div class="label">Reference DB</div><div class="note" style="margin-top:4px; color: var(--text); font-size: 13px;">ExploitDB 47K · PoC-in-GitHub 18K · PayloadsAllTheThings 70+ · trickest-cve 154K · HackTricks · GTFOBins · SecLists</div></div>
+        <div class="card"><div class="label">Kernel</div><div class="note" style="margin-top:4px; color: var(--text); font-size: 13px;">~/kernel-security-learning/ (bsauce — UAF · heap · BPF · race · dirty-pagetable · 22 docs)</div></div>
+      </div>
+      <details style="margin-top: 14px;"><summary><b>Skill Plugins (Trail of Bits · Sentry · Anthropic)</b></summary>
+        <table style="margin-top: 10px;">
+          <thead><tr><th>Plugin</th><th>Skills</th><th>Purpose</th></tr></thead>
+          <tbody>
+            <tr><td>static-analysis</td><td>semgrep · codeql · sarif-parsing</td><td>자동 정적 분석</td></tr>
+            <tr><td>variant-analysis</td><td>variant-analysis</td><td>CVE 변형 패턴 탐색</td></tr>
+            <tr><td>testing-handbook</td><td>aflpp · libfuzzer · harness-writing +12</td><td>Fuzzing (Trail of Bits)</td></tr>
+            <tr><td>insecure-defaults</td><td>insecure-defaults</td><td>하드코딩 시크릿 · 약한 auth</td></tr>
+            <tr><td>sharp-edges</td><td>sharp-edges</td><td>위험 API 탐지</td></tr>
+            <tr><td>audit-context</td><td>audit-context-building</td><td>감사 전 아키텍처 매핑</td></tr>
+            <tr><td>dwarf-expert · yara-authoring · differential-review</td><td>개별</td><td>DWARF · YARA · git diff 리뷰</td></tr>
+            <tr><td>sentry-skills</td><td>find-bugs · security-review · code-review</td><td>Sentry 버그 탐지</td></tr>
+          </tbody>
+        </table>
+      </details>
+    </section>
+
+    <section id="codex">
+      <h2>Codex Cross-Model Review <span class="tag">v12.1 · GPT-5.4 via <code>codex@openai-codex</code></span></h2>
+      <p class="lede">Claude 단독 확인의 맹점을 GPT-5.4 독립 검증으로 보완. SubagentStop 훅이 critic APPROVED를 감지 → 자동 추천. 스크립트: <code>tools/codex_cross_review.sh {review|adversarial|rescue|status|result}</code>.</p>
+      <table>
+        <thead><tr><th>명령</th><th>용도</th><th>파이프라인 지점</th></tr></thead>
+        <tbody>
+          <tr><td><code>/codex:review</code></td><td>표준 코드 리뷰</td><td>BB Phase 4.5 (AI slop cross-check) · BB Phase 5 <code>--base main</code> pre-submit</td></tr>
+          <tr><td><code>/codex:adversarial-review</code></td><td>설계 도전 리뷰</td><td>CTF critic APPROVED 직후 · BB Phase 4 (critic + architect 이후)</td></tr>
+          <tr><td><code>/codex:rescue</code></td><td>GPT-5.4에 재시도 위임</td><td>CTF chain 2회 실패 시 dual-approach fallback</td></tr>
+          <tr><td><code>/codex:status</code></td><td>실행 중 작업 모니터</td><td>Any</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="hooks">
+      <h2>Runtime Hooks <span class="tag">.claude/hooks/ · PreTool · PostTool · SubagentStop · SessionStart</span></h2>
+      <p class="lede">프롬프트 지시만으로는 지킬 수 없는 규칙을 <b>실행 레벨에서 강제</b>.</p>
+      <table>
+        <thead><tr><th>Hook</th><th>Trigger</th><th>Purpose</th></tr></thead>
+        <tbody>
+          <tr><td><code>safe_payload_hook.py</code></td><td>PreToolUse (Bash)</td><td>위험 명령 차단 (rm -rf · dd · mkfs · fork bomb) — 실행 전</td></tr>
+          <tr><td><code>observation_mask_hook.py</code></td><td>PostToolUse (Bash/Read)</td><td>500+ 라인 출력 자동 파일 저장 · ASCII art / 반복 패턴 탐지 (100+ 라인) — 컨텍스트 오버플로 방지</td></tr>
+          <tr><td><code>check_agent_completion.sh</code></td><td>SubagentStop</td><td>FLAG 패턴 탐지 · 지식 추출 · 상태 미작성 에이전트 자동 체크포인트</td></tr>
+          <tr><td><code>knowledge_inject.sh</code></td><td>PreToolUse</td><td>에이전트 타입별 관련 지식 주입</td></tr>
+          <tr><td><code>knowledge_db_update.sh</code></td><td>PostToolUse</td><td>knowledge DB 자동 재인덱스</td></tr>
+          <tr><td><code>session_knowledge.sh</code></td><td>SessionStart</td><td>글로벌 세션 컨텍스트 로드</td></tr>
+        </tbody>
+      </table>
+      <details style="margin-top: 12px;"><summary><b>Agent Checkpoint Protocol (MANDATORY)</b></summary>
+        <p style="margin: 8px 0; font-size: 13px; color: var(--muted);"><code>checkpoint.json</code> — 매 Phase 전환마다 상태 기록. <b>Fake Idle 탐지</b>: <code>in_progress</code> + idle → 컨텍스트 포함해 재스폰. <b>Resume on Re-spawn</b>: 기존 체크포인트 읽고 완료 Phase 스킵. <b>절대 "artifact 파일 존재 = 완료"로 간주하지 말 것.</b> 오직 <code>status=="completed"</code>만 신뢰.</p>
+      </details>
+    </section>
+
+    <section id="infra">
+      <h2>Infrastructure <span class="tag">docker-compose · 6 services</span></h2>
+      <div class="diagram">
+        <pre class="mermaid" id="m-infra">
+flowchart LR
+  subgraph ext["외부 LLM"]
+    ANT["Anthropic"]
+    GEM["Gemini"]
+    DS["DeepSeek"]
+  end
+  LL["LiteLLM :4000<br/>router / cache"] --> ANT
+  LL --> GEM
+  LL --> DS
+  OL["Ollama :11434 · local"] --- LL
+
+  subgraph data["데이터 계층"]
+    PG[("pgvector :5433")]
+    NEO[("neo4j")]
+  end
+
+  RA["rag-api"] --> PG
+  RA --> NEO
+  WUI["web-ui :3000"] --> RA
+  WUI --> PG
+  WUI --> NEO
+
+  AG["Agents · terminator.sh"] --> LL
+  AG --> RA
+  AG --> PG
+  AG --> NEO
+  USER(["브라우저"]):::ext --> WUI
+  classDef ext fill:#f0f9ff,stroke:#0891b2,color:#0c4a6e;
+        </pre>
+      </div>
+    </section>
+
+    <section id="ci">
+      <h2>CI / Runtime Hooks <span class="tag">.github/workflows · PreTool/PostTool</span></h2>
+      <div class="diagram">
+        <pre class="mermaid" id="m-ci">
+flowchart LR
+  T1["schedule · Mon 09:00 UTC"] --> BENCH["benchmark.yml"]
+  T2["workflow_dispatch"] --> BENCH
+  T3["push main / PR"] --> SEC["security-scan.yml<br/>semgrep · nuclei · codeql"]
+  T4["workflow_dispatch"] --> SEC
+  BENCH --> M["metrics"]
+  SEC --> S["SARIF reports/"]
+
+  AG["Agent Bash"] --> HK1["safe_payload<br/>PreToolUse 차단"]
+  HK1 -->|allow| EXEC["실행"]
+  EXEC --> HK2["observation_mask<br/>PostToolUse"]
+  SUB["SubagentStop"] --> HK3["check_agent_completion<br/>FLAG 탐지"]
+        </pre>
+      </div>
+    </section>
+
+    <section id="knowledge">
+      <h2>Knowledge Engine <span class="tag">SQLite FTS5 + BM25</span></h2>
+      <p class="lede">외부 의존성 0. progressive query relaxation (AND → OR → top-terms) + 33개 보안 약어 자동 확장.</p>
+      <table>
+        <thead><tr><th>소스</th><th>문서 수</th><th>내용</th></tr></thead>
+        <tbody>
+          <tr><td>Internal techniques</td><td>82</td><td>공격 패턴, CTF writeup</td></tr>
+          <tr><td>External repos (47)</td><td>12,896</td><td>HackTricks · GTFOBins · PayloadsAllTheThings · how2heap · OWASP · SecLists …</td></tr>
+          <tr><td>ExploitDB</td><td>46,960</td><td>Exploit 설명, 플랫폼, CVE</td></tr>
+          <tr><td>Nuclei templates</td><td>14,871</td><td>심각도 포함 탐지 템플릿</td></tr>
+          <tr><td>PoC-in-GitHub</td><td>18,235</td><td>CVE PoC 레포</td></tr>
+          <tr><td>trickest-cve</td><td>155,121</td><td>CVE 상세, CWE, PoC 링크</td></tr>
+          <tr><td>Web articles</td><td>30+</td><td>크롤된 블로그 · writeup · OWASP cheatsheet</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="submissions">
+      <h2>Submissions <span class="tag" id="sub-count-tag">loading…</span></h2>
+      <p class="lede">실제 제출된 Bug Bounty / CVE 리포트 상태. <code>docs/submissions.json</code>에서 로드. <code>⌘K</code>로 검색 가능.</p>
+      <div class="cards" id="sub-stats" style="margin-bottom: 20px;"></div>
+      <div class="diagram" style="padding: 0; overflow: hidden;">
+        <table id="sub-table">
+          <thead><tr>
+            <th>Platform</th>
+            <th>Target</th>
+            <th>Title</th>
+            <th>Severity</th>
+            <th>Bounty</th>
+            <th>Status</th>
+            <th>Submitted</th>
+            <th>Note</th>
+          </tr></thead>
+          <tbody id="sub-tbody">
+            <tr><td colspan="8" style="padding: 40px; text-align: center; color: var(--muted);">loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="track">
+      <h2>Track Record <span class="tag">CTF 20 Solved · BB 30+ Targets Assessed</span></h2>
+      <div class="cards">
+        <div class="card"><div class="label">CTF Pwn</div><div class="value">10</div><div class="note">heap · stack · ROP · GOT overwrite</div></div>
+        <div class="card"><div class="label">CTF Reversing</div><div class="value">6</div><div class="note">GDB Oracle · DFA · z3 · custom VM</div></div>
+        <div class="card"><div class="label">CTF Crypto</div><div class="value">2</div><div class="note">AES-ECB · z3 constraint</div></div>
+        <div class="card"><div class="label">CTF Misc</div><div class="value">2</div><div class="note">logic · filter bypass</div></div>
+        <div class="card"><div class="label">BB Programs</div><div class="value">30+</div><div class="note">Immunefi · H1 · Bugcrowd · PSIRT</div></div>
+        <div class="card"><div class="label">Smart Contracts 분석</div><div class="value">50+</div></div>
+        <div class="card"><div class="label">Vulnerability Leads</div><div class="value">100+</div></div>
+        <div class="card"><div class="label">Working PoC</div><div class="value">15+</div></div>
+      </div>
+      <details style="margin-top: 14px;"><summary><b>Research Foundations — 13 LLM prompting papers + 10 보안 프레임워크 + 15 Anthropic Frontier Red Team 패턴</b></summary>
+        <table style="margin-top: 10px;">
+          <thead><tr><th>대표 기법</th><th>출처</th><th>적용</th></tr></thead>
+          <tbody>
+            <tr><td>IRON RULES primacy+recency</td><td>Lost in the Middle (Liu et al.)</td><td>전 12 에이전트 · +22%p recall</td></tr>
+            <tr><td>Chain-of-Verification (CoVe)</td><td>Dhuliawala et al.</td><td>chain · solver · exploiter · trigger · -77% hallucination</td></tr>
+            <tr><td>Tree of Thoughts</td><td>Yao et al.</td><td>chain · solver · Top-3 전략 평가</td></tr>
+            <tr><td>Mythos 4-Phase Exploit Framework</td><td>CVE-2026-2796 RE</td><td>chain (Type Confusion → Leak → Forgery → R/W)</td></tr>
+            <tr><td>GhostScript 3-Step Variant Hunt</td><td>LLM-discovered 0-days</td><td>patch-hunter (Diff → Grep → Verify)</td></tr>
+            <tr><td>False Positive Reflection Loop (5Q)</td><td>Property-based Testing</td><td>exploiter</td></tr>
+            <tr><td>Best@N Parallel Retry (cross-model)</td><td>Smart Contract SCONE-bench</td><td>ctf_pipeline · bb_pipeline</td></tr>
+            <tr><td>Discovery vs Exploitation Cost (1:10)</td><td>Firefox Partnership</td><td>bb_pipeline</td></tr>
+            <tr><td>Security Council (5-archetype)</td><td>Consciousness Council · K-Dense</td><td>critic · anti-hallucination</td></tr>
+            <tr><td>LLM-first PoV Generation</td><td>RoboDuck (AIxCC 3rd)</td><td>chain · solver</td></tr>
+            <tr><td>Symbolic + Neural Hybrid</td><td>ATLANTIS (AIxCC 1st)</td><td>solver</td></tr>
+            <tr><td>Prompt Injection Guardrails</td><td>CAI (300+ LLM agents)</td><td>전 에이전트</td></tr>
+          </tbody>
+        </table>
+      </details>
+    </section>
+
+    <hr/>
+    <p style="color: var(--muted); font-size: 12px;">Terminator · Autonomous Security Agent · README.md + .claude/rules/bb_pipeline_v12.md + docker-compose.yml + .github/workflows/ + .mcp.json 자동 반영 · refreshed every 5s</p>
+
+  </main>
+</div>
+
+<div id="cmdk" class="cmdk-overlay" hidden>
+  <div class="cmdk-modal" role="dialog" aria-label="Command palette">
+    <input id="cmdk-input" type="text" placeholder="Search sections, agents, MCP, tools… (Esc to close)" autocomplete="off" spellcheck="false" />
+    <div id="cmdk-results"></div>
+  </div>
+</div>
+
+<script>
+  function mermaidThemeVars(mode) {
+    if (mode === 'dark') return {
+      darkMode: true,
+      background: "#13141b",
+      primaryColor: "#0e2a32",
+      primaryTextColor: "#e0f7fa",
+      primaryBorderColor: "#22d3ee",
+      lineColor: "#64748b",
+      secondaryColor: "#3d2e0a",
+      tertiaryColor: "#2a1e3d",
+      clusterBkg: "#1a1b23",
+      clusterBorder: "#475569",
+      edgeLabelBackground: "#13141b",
+      fontSize: "16px",
+      fontFamily: "Inter, system-ui, sans-serif"
+    };
+    return {
+      darkMode: false,
+      background: "#ffffff",
+      primaryColor: "#ecfeff",
+      primaryTextColor: "#164e63",
+      primaryBorderColor: "#0891b2",
+      lineColor: "#475569",
+      secondaryColor: "#fef3c7",
+      tertiaryColor: "#f5f3ff",
+      clusterBkg: "#f8fafc",
+      clusterBorder: "#94a3b8",
+      edgeLabelBackground: "#ffffff",
+      fontSize: "16px",
+      fontFamily: "Inter, system-ui, sans-serif"
+    };
+  }
+  function initMermaid(mode) {
+    mermaid.initialize({
+      startOnLoad: false,
+      securityLevel: "loose",
+      theme: "base",
+      themeVariables: mermaidThemeVars(mode),
+      flowchart: {
+        htmlLabels: true, curve: "basis",
+        padding: 22, nodeSpacing: 60, rankSpacing: 68,
+        wrappingWidth: 170, useMaxWidth: true, diagramPadding: 14
+      },
+      markdownAutoWrap: false
+    });
+  }
+
+  const _initialTheme = (localStorage.getItem('theme') ||
+    (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
+  document.documentElement.dataset.theme = _initialTheme;
+  initMermaid(_initialTheme);
+
+  window._mermaidSources = [];
+  async function renderAllMermaid() {
+    for (const e of window._mermaidSources) {
+      try {
+        const id = e.id + "-g" + (++e.gen);
+        const { svg } = await mermaid.render(id, e.code);
+        e.el.innerHTML = svg;
+      } catch (err) {
+        e.el.innerHTML = `<pre style="color:#fca5a5">Mermaid error: ${err.message}</pre>`;
+      }
+    }
+  }
+  (async () => {
+    const blocks = document.querySelectorAll("pre.mermaid");
+    for (const el of blocks) {
+      const id = el.id || ("sv-" + Math.random().toString(36).slice(2));
+      const code = el.textContent.trim();
+      const wrap = document.createElement("div");
+      wrap.className = "mermaid-rendered";
+      wrap.id = id + "-wrap";
+      el.replaceWith(wrap);
+      window._mermaidSources.push({ id, code, el: wrap, gen: 0 });
+    }
+    await renderAllMermaid();
+  })();
+
+  async function refreshStatus() {
+    try {
+      const r = await fetch("/api/status.json", { cache: "no-store" });
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      const s = await r.json();
+      const set = (k, v) => document.querySelectorAll(`[data-live="${k}"]`).forEach(el => el.textContent = v);
+      set("agents", s.agents.count);
+      set("agents-nav", s.agents.count);
+      set("agents-note", s.agents.names.slice(0, 3).join(" · ") + (s.agents.count > 3 ? " … +" + (s.agents.count - 3) : ""));
+      set("services", s.docker_services);
+      set("rules", s.pipeline_rules.count);
+      set("rules-note", s.pipeline_rules.names.join(" · ").slice(0, 60));
+      set("skills", s.skills.count);
+      set("workflows", s.workflows.count);
+      set("workflows-note", s.workflows.names.join(" · "));
+      set("untracked", s.git.untracked);
+      if (s.mcp_servers) { set("mcp", s.mcp_servers.count); set("mcp-nav", s.mcp_servers.count); set("mcp-note", s.mcp_servers.names.join(" · ").slice(0, 70)); }
+      if (s.tools) set("tools", s.tools.count);
+      if (s.hooks) { set("hooks", s.hooks.count); set("hooks-nav", s.hooks.count); }
+      const g = s.git;
+      document.getElementById("live-label").textContent =
+        `LIVE · ${s.pipeline_modes} modes · ${s.agents.count} agents · ${s.skills.count} skills`;
+      document.getElementById("live-git").textContent =
+        `git: ${g.branch} · +${g.ahead}/-${g.behind} · ${g.modified} modified · ${g.untracked} untracked · ${g.stashes} stash`;
+      document.getElementById("live-time").textContent =
+        `refreshed ${s.generated_at}`;
+      if (s.recent) renderFeed(s.recent);
+      buildCmdkIndex(s);
+    } catch (e) {
+      document.getElementById("live-label").textContent = "offline (server down)";
+      document.getElementById("live-git").textContent = String(e.message || e);
+    }
+  }
+  let _pendingRefresh = null;
+  function scheduleRefresh() {
+    if (_pendingRefresh) return;
+    _pendingRefresh = setTimeout(() => { _pendingRefresh = null; refreshStatus(); }, 120);
+  }
+  refreshStatus();
+  setInterval(refreshStatus, 15000); // fallback polling
+  try {
+    const es = new EventSource("/api/events");
+    es.addEventListener("refresh", scheduleRefresh);
+    es.onerror = () => {};
+  } catch (e) {}
+
+  const sections = [...document.querySelectorAll("section")];
+  const navLinks = [...document.querySelectorAll("aside nav a")];
+  const io = new IntersectionObserver((entries) => {
+    for (const e of entries) {
+      if (e.isIntersecting) {
+        const id = e.target.id;
+        navLinks.forEach(a => a.classList.toggle("active", a.getAttribute("href") === "#" + id));
+      }
+    }
+  }, { rootMargin: "-30% 0px -60% 0px" });
+  sections.forEach(s => io.observe(s));
+
+  // --- Theme toggle ---
+  function applyTheme(mode) {
+    document.documentElement.dataset.theme = mode;
+    localStorage.setItem('theme', mode);
+    const lbl = document.getElementById('theme-label');
+    if (lbl) lbl.textContent = mode === 'dark' ? 'Light mode' : 'Dark mode';
+    initMermaid(mode);
+    renderAllMermaid();
+  }
+  (function bindTheme() {
+    const lbl = document.getElementById('theme-label');
+    if (lbl) lbl.textContent = _initialTheme === 'dark' ? 'Light mode' : 'Dark mode';
+    const btn = document.getElementById('theme-toggle');
+    if (btn) btn.addEventListener('click', () => {
+      applyTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
+    });
+  })();
+
+  // --- Activity Feed ---
+  function timeAgo(d) {
+    const s = (Date.now() - d.getTime()) / 1000;
+    if (s < 60) return 'just now';
+    if (s < 3600) return Math.floor(s/60) + 'm ago';
+    if (s < 86400) return Math.floor(s/3600) + 'h ago';
+    return Math.floor(s/86400) + 'd ago';
+  }
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+  function renderFeed(recent) {
+    const list = document.getElementById('feed-list');
+    if (!list || !recent) return;
+    const items = [];
+    for (const c of (recent.commits || []).slice(0, 3)) {
+      const ago = timeAgo(new Date(c.ts));
+      items.push(`<div class="feed-item feed-commit"><div class="feed-meta">${c.hash} · ${ago}</div><div class="feed-msg">${escapeHtml(c.msg)}</div></div>`);
+    }
+    for (const f of (recent.files || []).slice(0, 3)) {
+      const ago = timeAgo(new Date(f.mtime * 1000));
+      items.push(`<div class="feed-item feed-file"><div class="feed-path">${escapeHtml(f.path)}</div><div class="feed-meta">modified ${ago}</div></div>`);
+    }
+    list.innerHTML = items.join("");
+  }
+
+  // --- Cmd-K Search ---
+  const cmdkIndex = [];
+  let cmdkActive = 0;
+  function buildCmdkIndex(s) {
+    cmdkIndex.length = 0;
+    document.querySelectorAll("aside nav a").forEach(a => {
+      cmdkIndex.push({ kind: 'Section', label: a.textContent.trim().replace(/^▸\s*/, ''), href: a.getAttribute('href') });
+    });
+    const push = (kind, names, href) => {
+      for (const n of (names || [])) cmdkIndex.push({ kind, label: n, href });
+    };
+    push('Agent', s && s.agents && s.agents.names, '#agents');
+    push('MCP', s && s.mcp_servers && s.mcp_servers.names, '#mcp');
+    push('Skill', s && s.skills && s.skills.names, '#modes');
+    push('Rule', s && s.pipeline_rules && s.pipeline_rules.names, '#bb');
+    push('Workflow', s && s.workflows && s.workflows.names, '#ci');
+  }
+  function cmdkOpen() {
+    document.getElementById('cmdk').hidden = false;
+    const inp = document.getElementById('cmdk-input');
+    inp.value = ''; cmdkActive = 0; inp.focus(); cmdkRender('');
+  }
+  function cmdkClose() { document.getElementById('cmdk').hidden = true; }
+  function cmdkRender(q) {
+    const box = document.getElementById('cmdk-results');
+    const query = q.toLowerCase().trim();
+    let items = cmdkIndex;
+    if (query) {
+      items = items.filter(x =>
+        x.label.toLowerCase().includes(query) || x.kind.toLowerCase().includes(query)
+      );
+    }
+    items = items.slice(0, 40);
+    if (cmdkActive >= items.length) cmdkActive = Math.max(0, items.length - 1);
+    box._items = items;
+    box.innerHTML = items.length ? items.map((x, i) => `
+      <div class="cmdk-item ${i === cmdkActive ? 'active' : ''}" data-href="${x.href}" data-i="${i}">
+        <span class="cmdk-kind">${x.kind}</span>
+        <span class="cmdk-label">${escapeHtml(x.label)}</span>
+      </div>`).join('') : '<div style="padding: 40px; text-align: center; color: var(--muted); font-size: 13px;">No results</div>';
+  }
+  document.addEventListener('keydown', (e) => {
+    const overlay = document.getElementById('cmdk');
+    const open = overlay && !overlay.hidden;
+    if ((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K')) {
+      e.preventDefault(); open ? cmdkClose() : cmdkOpen();
+    } else if (e.key === 'Escape' && open) {
+      cmdkClose();
+    } else if (open && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+      e.preventDefault();
+      const box = document.getElementById('cmdk-results');
+      const items = (box && box._items) || [];
+      if (!items.length) return;
+      cmdkActive = (cmdkActive + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length;
+      cmdkRender(document.getElementById('cmdk-input').value);
+    } else if (open && e.key === 'Enter') {
+      const box = document.getElementById('cmdk-results');
+      const items = (box && box._items) || [];
+      if (items[cmdkActive]) { location.hash = items[cmdkActive].href; cmdkClose(); }
+    }
+  });
+  document.getElementById('cmdk-input').addEventListener('input', (e) => {
+    cmdkActive = 0; cmdkRender(e.target.value);
+  });
+  document.getElementById('cmdk-results').addEventListener('click', (ev) => {
+    const t = ev.target.closest('.cmdk-item');
+    if (t) { location.hash = t.dataset.href; cmdkClose(); }
+  });
+  document.getElementById('cmdk').addEventListener('click', (ev) => {
+    if (ev.target.id === 'cmdk') cmdkClose();
+  });
+  document.getElementById('cmdk-trigger').addEventListener('click', cmdkOpen);
+
+  // --- Submissions ---
+  const STATUS_PILL = {
+    'accepted':  'st-accepted',
+    'pending':   'st-pending',
+    'triage':    'st-triage',
+    'submitted': 'st-submitted',
+    "won't fix": 'st-wontfix',
+    'wontfix':   'st-wontfix',
+    'oos':       'st-oos',
+    'n/r':       'st-nr',
+    'nr':        'st-nr',
+    'closed':    'st-closed'
+  };
+  window._submissions = [];
+  async function loadSubmissions() {
+    try {
+      const r = await fetch('/submissions.json', { cache: 'no-store' });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const data = await r.json();
+      window._submissions = data.submissions || [];
+      renderSubmissions(window._submissions);
+    } catch (e) {
+      const tb = document.getElementById('sub-tbody');
+      if (tb) tb.innerHTML = `<tr><td colspan="8" style="padding: 30px; text-align: center; color: var(--muted);">no submissions data — create <code>docs/submissions.json</code> (gitignored, local only)</td></tr>`;
+      const tag = document.getElementById('sub-count-tag');
+      if (tag) tag.textContent = 'empty';
+    }
+  }
+  function statusClass(s) {
+    return STATUS_PILL[(s || '').toLowerCase().trim()] || 'st-pending';
+  }
+  function renderSubmissions(list) {
+    const tb = document.getElementById('sub-tbody');
+    if (!tb) return;
+    if (!list.length) { tb.innerHTML = '<tr><td colspan="8" style="padding: 30px; text-align: center;">no submissions</td></tr>'; return; }
+    // Sort: Accepted first, then Pending/Triage, then Submitted(CVE), then closed/rejected
+    const order = { 'accepted': 0, 'pending': 1, 'triage': 1, 'submitted': 2 };
+    const sorted = [...list].sort((a,b) => {
+      const oa = order[(a.status||'').toLowerCase()] ?? 3;
+      const ob = order[(b.status||'').toLowerCase()] ?? 3;
+      if (oa !== ob) return oa - ob;
+      return (b.submitted || '').localeCompare(a.submitted || '');
+    });
+    tb.innerHTML = sorted.map(s => `
+      <tr>
+        <td><span class="platform-chip">${escapeHtml(s.platform)}</span></td>
+        <td class="t-target">${escapeHtml(s.target)}</td>
+        <td>${escapeHtml(s.title)}</td>
+        <td>${escapeHtml(s.severity || '—')}</td>
+        <td class="t-bounty">${escapeHtml(s.bounty || '—')}</td>
+        <td><span class="pill ${statusClass(s.status)}">${escapeHtml(s.status)}</span></td>
+        <td class="t-date">${escapeHtml(s.submitted || '—')}</td>
+        <td class="t-note">${escapeHtml(s.note || '')}</td>
+      </tr>`).join('');
+    // stats cards
+    const stats = { Accepted: 0, Pending: 0, Triage: 0, Submitted: 0, Closed: 0 };
+    for (const s of list) {
+      const st = (s.status || '').toLowerCase();
+      if (st === 'accepted') stats.Accepted++;
+      else if (st === 'pending') stats.Pending++;
+      else if (st === 'triage') stats.Triage++;
+      else if (st === 'submitted') stats.Submitted++;
+      else stats.Closed++;
+    }
+    const statsBox = document.getElementById('sub-stats');
+    if (statsBox) {
+      statsBox.innerHTML = `
+        <div class="card"><div class="label">Total</div><div class="value">${list.length}</div><div class="note">All submissions on record</div></div>
+        <div class="card"><div class="label">Accepted</div><div class="value">${stats.Accepted}</div><div class="note">Confirmed by triager</div></div>
+        <div class="card"><div class="label">Pending</div><div class="value">${stats.Pending + stats.Triage}</div><div class="note">Awaiting triage</div></div>
+        <div class="card"><div class="label">CVE / GHSA</div><div class="value">${stats.Submitted}</div><div class="note">Advisory track</div></div>
+        <div class="card"><div class="label">Closed / OOS</div><div class="value">${stats.Closed}</div><div class="note">Won't fix · N/R · OOS</div></div>
+      `;
+    }
+    const tag = document.getElementById('sub-count-tag');
+    if (tag) tag.textContent = `${list.length} reports · ${stats.Accepted} accepted · ${stats.Pending + stats.Triage} pending`;
+    const navSpan = document.querySelector('[data-live="submissions-nav"]');
+    if (navSpan) navSpan.textContent = list.length;
+  }
+  loadSubmissions();
+  // Extend Cmd-K index with submissions after load
+  const _origBuildCmdkIndex = buildCmdkIndex;
+  buildCmdkIndex = function(s) {
+    _origBuildCmdkIndex(s);
+    for (const sub of (window._submissions || [])) {
+      cmdkIndex.push({
+        kind: 'Submission',
+        label: `${sub.platform} · ${sub.target} — ${sub.title} [${sub.status}]`,
+        href: '#submissions'
+      });
+    }
+  };
+</script>
+</body>
+</html>

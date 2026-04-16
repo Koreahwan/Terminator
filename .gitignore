@@ -161,3 +161,6 @@ terminator_loop.sh
 *.gpr
 *.rep/
 ghidra_ctx/
+
+# --- Local-only dashboard data ---
+docs/submissions.json
