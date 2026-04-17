@@ -57,7 +57,7 @@ permissionMode: bypassPermissions
 
 ## Cloudflare / JS-rendered page fetch (MANDATORY)
 
-For LLM provider documentation pages, model-card listings, tool-integration KBs, or any bounty-program page that sits behind Cloudflare or heavy JS (huntr, Intigriti KB, YWH help-center, Bugcrowd auth-gated), use `tools/program_fetcher/transport.http_get()` or `bb_preflight.py fetch-program`. The transport auto-escalates urllib → FlareSolverr (Docker @ localhost:8191) → firecrawl-py (FIRECRAWL_API_KEY / FIRECRAWL_API_URL env). For interactive LLM webapps requiring login, use Playwright MCP. Raw `curl` / `WebFetch(r.jina.ai)` returns 6-line 403 challenge on those platforms. See CLAUDE.md "Web fetching tiers".
+For LLM provider documentation pages, model-card listings, tool-integration KBs, or any bounty-program page that sits behind Cloudflare or heavy JS (huntr, Intigriti KB, YWH help-center, Bugcrowd auth-gated), use `python3 tools/fetch.py <url>` (CLI wrapper, CWD-safe) or `bb_preflight.py fetch-program`. The transport auto-escalates urllib → FlareSolverr (Docker @ localhost:8191) → firecrawl-py (FIRECRAWL_API_KEY / FIRECRAWL_API_URL env). For interactive LLM webapps requiring login, use Playwright MCP. Raw `curl` / `WebFetch(r.jina.ai)` returns 6-line 403 challenge on those platforms. See CLAUDE.md "Web fetching tiers".
 
 ## Standard Workflow (with promptfoo)
 
