@@ -226,6 +226,58 @@ def check_bin_tools() -> list[dict]:
     return gaps
 
 
+def check_script_refs() -> list[dict]:
+    """Scan terminator.sh + scripts/*.sh for `python3 tools/*.py` /
+    `bash scripts/*.sh` references, flag any that don't exist on disk.
+
+    Catches the v13.5.3 class of gap: pyc cache exists but source .py was
+    rewritten out of git history by filter-repo, leaving shell scripts
+    pointing at non-existent files. 4 days of broken autonomous pipeline
+    would have been caught here on day 0."""
+    gaps: list[dict] = []
+    script_paths: list[Path] = []
+    for p in [ROOT / "terminator.sh"]:
+        if p.exists():
+            script_paths.append(p)
+    scripts_dir = ROOT / "scripts"
+    if scripts_dir.is_dir():
+        script_paths.extend(scripts_dir.glob("*.sh"))
+
+    # Match: python3 [flags] [$SCRIPT_DIR/]tools/xxx.py or bash [$SCRIPT_DIR/]scripts/xxx.sh
+    ref_pat = re.compile(
+        r"""(?:python3?|bash)\s+                # interpreter
+            (?:-\w+\s+)*                         # optional flags like -u
+            ["']?                                # optional quote
+            (?:\$\{?SCRIPT_DIR\}?/)?             # optional $SCRIPT_DIR prefix
+            ((?:tools|scripts)/[\w/.-]+\.(?:py|sh))  # captured path
+        """,
+        re.VERBOSE,
+    )
+    seen: set[tuple[str, str]] = set()
+    for sh in script_paths:
+        try:
+            content = sh.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        for m in ref_pat.finditer(content):
+            path = m.group(1)
+            rel = sh.relative_to(ROOT)
+            key = (str(rel), path)
+            if key in seen:
+                continue
+            seen.add(key)
+            target = ROOT / path
+            if not target.exists():
+                gaps.append({
+                    "category": "script-ref",
+                    "severity": "high",
+                    "script": str(rel),
+                    "missing_path": path,
+                    "issue": "script references a file that does not exist on disk (filter-repo drift? uncommitted dep?)",
+                })
+    return gaps
+
+
 def check_recent_commits() -> list[dict]:
     """feat/install commits in last 3 days with 0 keyword overlap in CLAUDE.md."""
     gaps: list[dict] = []
@@ -279,7 +331,7 @@ def main() -> int:
     args = ap.parse_args()
 
     all_gaps: list[dict] = []
-    for fn in (check_submodules, check_mcp, check_docker, check_python_pkgs, check_bin_tools, check_recent_commits):
+    for fn in (check_submodules, check_mcp, check_docker, check_script_refs, check_python_pkgs, check_bin_tools, check_recent_commits):
         try:
             all_gaps.extend(fn())
         except Exception as e:
