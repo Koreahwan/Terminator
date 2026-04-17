@@ -1225,6 +1225,94 @@ def _parse_scope_has_wildcard(scope_domains: list) -> bool:
     return any(d.startswith("*.") or "*." in d for d in scope_domains)
 
 
+# ---- Past-incident cross-reference (v13.4, G-W2 follow-up) ----
+# Cached parse of knowledge/triage_objections/*.md. Each incident file has:
+#   - Filename: <YYYYMMDD-|target-slug->pattern.md
+#   - Root Cause section describing why the submission was rejected
+#   - Outcome (OOS close / Won't fix / N/R / autoban / etc.)
+# kill_gate_1 Check 16 compares the incoming finding against these cases and
+# raises a WARN when the keyword overlap is high enough to be actionable.
+
+_INCIDENT_CACHE = None  # type: list[dict] | None — lazy-loaded by _load_incident_cache
+_INCIDENT_STOPWORDS = {
+    "this", "that", "with", "from", "when", "where", "what", "which", "have",
+    "been", "will", "were", "they", "them", "then", "than", "into", "also",
+    "such", "some", "much", "many", "most", "more", "less", "very", "only",
+    "would", "could", "should", "might", "about", "after", "before", "because",
+    "while", "during", "without", "through", "however", "other", "another",
+    "these", "those", "there", "their", "whose", "being", "having", "finding",
+    "report", "close", "closed", "vuln", "vulnerability", "security", "program",
+    "bounty", "hunter", "triager", "case", "impact", "severity", "scope",
+}
+
+
+def _load_incident_cache() -> list[dict]:
+    global _INCIDENT_CACHE
+    if _INCIDENT_CACHE is not None:
+        return _INCIDENT_CACHE
+    cache: list[dict] = []
+    kdir = Path(__file__).resolve().parent.parent / "knowledge" / "triage_objections"
+    if not kdir.is_dir():
+        _INCIDENT_CACHE = cache
+        return cache
+    for md_path in sorted(kdir.glob("*.md")):
+        name = md_path.stem
+        if name.startswith("_") or name.upper() == "README":
+            continue
+        try:
+            body = md_path.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        # Pull outcome from **Reward Outcome** line if present
+        outcome_m = re.search(r"\*\*Reward Outcome\*\*:\s*([^\n]+)", body)
+        outcome = outcome_m.group(1).strip() if outcome_m else "unknown"
+        # Pull platform from **Date / Platform / Finding** line
+        plat_m = re.search(r"\*\*Date / Platform / Finding\*\*[^\n]*?/\s*([A-Za-z0-9.+-]+)\s*/", body)
+        platform = (plat_m.group(1) if plat_m else "unknown").strip().lower()
+        # Root cause section
+        rc_m = re.search(r"##\s*1\.?\s*Root Cause\s*\n(.*?)(?=\n##|\Z)", body, re.DOTALL | re.IGNORECASE)
+        root_cause = rc_m.group(1).strip() if rc_m else body[:600]
+        # Build keyword set from title + root cause
+        text = (name.replace("-", " ") + " " + root_cause).lower()
+        words = set(w for w in re.split(r"\W+", text) if len(w) >= 5 and w not in _INCIDENT_STOPWORDS)
+        summary = re.sub(r"\s+", " ", root_cause)[:240]
+        cache.append({
+            "case": name,
+            "platform": platform,
+            "outcome": outcome,
+            "keywords": words,
+            "summary": summary,
+        })
+    _INCIDENT_CACHE = cache
+    return cache
+
+
+def _match_past_incidents(text: str, platform_hint: str) -> list[dict]:
+    """Return incidents whose keyword overlap with `text` is >= 3 and that
+    match the platform hint when available. Sorted by overlap desc."""
+    cache = _load_incident_cache()
+    if not cache:
+        return []
+    text_words = set(w for w in re.split(r"\W+", text) if len(w) >= 5 and w not in _INCIDENT_STOPWORDS)
+    if not text_words:
+        return []
+    results = []
+    for inc in cache:
+        overlap_set = text_words & inc["keywords"]
+        if len(overlap_set) < 3:
+            continue
+        if platform_hint and platform_hint != "unknown" and inc["platform"] != "unknown":
+            if platform_hint not in inc["platform"] and inc["platform"] not in platform_hint:
+                # platform mismatch — still report but de-priorited
+                pass
+        results.append({
+            **inc,
+            "overlap": sorted(overlap_set)[:6],
+        })
+    results.sort(key=lambda r: (len(r["overlap"]), r["case"]), reverse=True)
+    return results
+
+
 def _finding_mentions_ood_subdomain(
     finding: str, impact: str, scope_domains: list[str]
 ) -> tuple[bool, str]:
@@ -1916,6 +2004,19 @@ def kill_gate_1(target_dir: str, finding: str, severity: str = "", impact: str =
                             f"HackerOne #1 'Informative' cause. Verify scope wildcard wording."
                         )
                         break  # one warning sufficient
+
+    # --- Check 16: Past incident cross-reference (v13.4 — G-W2 follow-up) ---
+    # Scan knowledge/triage_objections/*.md for cases with overlapping finding
+    # keywords. Raises a WARN with case-specific context so the user can see
+    # "you're about to repeat the X incident".
+    combined16 = (finding + " " + (impact or "")).lower()
+    past_hits = _match_past_incidents(combined16, _detect_platform(rules_content) if rules_content else "unknown")
+    for hit in past_hits[:3]:  # top-3 matches
+        warnings.append(
+            f"[PAST INCIDENT] Finding resembles '{hit['case']}' "
+            f"({hit['outcome']} on {hit['platform']}, "
+            f"overlap={hit['overlap']}): {hit['summary'][:180]}"
+        )
 
     # --- Check 4: Asset scope constraints (branch/tag) ---
     if rules_content:
