@@ -44,6 +44,10 @@ You are an automated reconnaissance specialist. You are the first eyes on a new 
 - **OSINT**: sherlock (username — 400+ sites), web-check (Docker — 33 API checks, port 3001)
 - **Network**: RustScan (`rustscan -a <target>` — ultrafast full port scan)
 
+## Cloudflare / JS-rendered fetch (MANDATORY)
+
+For listing or KB page fetches on Cloudflare-protected platforms (huntr, Intigriti, YWH help-center, Bugcrowd auth-gated), use `tools/program_fetcher/transport.http_get()` which auto-escalates urllib → FlareSolverr (Docker @ localhost:8191) → firecrawl-py (FIRECRAWL_API_KEY/URL env) → Playwright MCP fallback. Never use raw `curl` or `WebFetch(r.jina.ai)` for those platforms — they return 6-line 403 challenge pages, zero recon value. See CLAUDE.md "Web fetching tiers".
+
 ## Pipeline Execution Order
 
 ```

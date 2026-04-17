@@ -55,6 +55,10 @@ permissionMode: bypassPermissions
   - **Coverage requirement**: before marking a target's injection surface "scanned", test at minimum: 1 direct + 1 encoding-obfuscation + 1 multi-turn + 1 indirect attack (per deepteam taxonomy in index doc)
   - **Agentic target additional requirement**: test at minimum ASI02 (Tool Misuse), ASI03 (Privilege Compromise), ASI09 (Unexpected RCE) for any agent with tool-calling capability
 
+## Cloudflare / JS-rendered page fetch (MANDATORY)
+
+For LLM provider documentation pages, model-card listings, tool-integration KBs, or any bounty-program page that sits behind Cloudflare or heavy JS (huntr, Intigriti KB, YWH help-center, Bugcrowd auth-gated), use `tools/program_fetcher/transport.http_get()` or `bb_preflight.py fetch-program`. The transport auto-escalates urllib → FlareSolverr (Docker @ localhost:8191) → firecrawl-py (FIRECRAWL_API_KEY / FIRECRAWL_API_URL env). For interactive LLM webapps requiring login, use Playwright MCP. Raw `curl` / `WebFetch(r.jina.ai)` returns 6-line 403 challenge on those platforms. See CLAUDE.md "Web fetching tiers".
+
 ## Standard Workflow (with promptfoo)
 
 For Phases A/B/C (fingerprinting + prompt probing + tool enum):

@@ -1,16 +1,21 @@
 """HTTP transport for program fetchers.
 
-Stdlib only (urllib + gzip). Keeps a polite, identifiable UA so rate-limiters
-on HackerOne / Bugcrowd / Immunefi can throttle us cleanly instead of blocking.
+Stdlib only for the base path (urllib + gzip). Keeps a polite, identifiable UA
+so rate-limiters on HackerOne / Bugcrowd / Immunefi can throttle us cleanly
+instead of blocking.
 
 Retries on 429/5xx with exponential backoff.
 Surfaces 4xx as TransportError so handlers can decide whether to fall back.
 
-FlareSolverr fallback (2026-04-17, v13.3):
-Cloudflare-protected platforms (YesWeHack docs, Intigriti kb) return 403 to
-plain urllib even with a browser UA. If FLARESOLVERR_URL env var is set (or
-the default http://localhost:8191/v1 is reachable), http_get auto-falls back
-to FlareSolverr on 403/503. Set FLARESOLVERR_DISABLE=1 to skip.
+Fallback chain for 403 / Cloudflare / JS-rendered pages:
+  1. urllib (plain)
+  2. FlareSolverr (2026-04-17, v13.3) — Docker, default http://localhost:8191/v1
+     Handles basic Cloudflare JS challenges. Set FLARESOLVERR_URL to override,
+     FLARESOLVERR_DISABLE=1 to skip.
+  3. firecrawl-py (2026-04-17, v13.5) — SDK, requires FIRECRAWL_API_KEY
+     (Firecrawl Cloud) or FIRECRAWL_API_URL (self-hosted, default
+     http://localhost:3002). Handles full JS rendering + content extraction
+     when FlareSolverr is insufficient. Set FIRECRAWL_DISABLE=1 to skip.
 """
 
 from __future__ import annotations
@@ -36,6 +41,11 @@ _FLARE_URL = os.environ.get("FLARESOLVERR_URL", "http://localhost:8191/v1")
 _FLARE_TIMEOUT_MS = int(os.environ.get("FLARESOLVERR_TIMEOUT_MS", "60000"))
 _FLARE_DISABLED = os.environ.get("FLARESOLVERR_DISABLE", "") == "1"
 _FLARE_CHECKED: Optional[bool] = None  # cached availability probe
+
+_FIRECRAWL_API_KEY = os.environ.get("FIRECRAWL_API_KEY", "")
+_FIRECRAWL_API_URL = os.environ.get("FIRECRAWL_API_URL", "")
+_FIRECRAWL_DISABLED = os.environ.get("FIRECRAWL_DISABLE", "") == "1"
+_FIRECRAWL_CLIENT: Any = None  # lazy instance or False if init failed
 
 
 class TransportError(Exception):
@@ -102,12 +112,19 @@ def http_get(
                 last_error = f"HTTP {status}: retrying"
                 _sleep_backoff(attempt, backoff)
                 continue
-            # 403 Cloudflare-style: try FlareSolverr once before hard-failing.
-            if status == 403 and _flaresolverr_available():
-                try:
-                    return http_get_via_flaresolverr(url)
-                except TransportError:
-                    pass  # fall through to hard fail
+            # 403 / 503 Cloudflare-style: escalate through the fallback chain
+            # before hard-failing. Order: FlareSolverr → firecrawl-py.
+            if status in (403, 503):
+                if _flaresolverr_available():
+                    try:
+                        return http_get_via_flaresolverr(url)
+                    except TransportError:
+                        pass
+                if _firecrawl_available():
+                    try:
+                        return http_get_via_firecrawl(url)
+                    except TransportError:
+                        pass
             # 4xx non-429: hard fail, let caller decide to fall back.
             raise TransportError(url, status, body[:500] or str(e)) from e
         except urllib.error.URLError as e:
@@ -243,6 +260,54 @@ def http_get_via_flaresolverr(
     body = sol.get("response", "") or ""
     headers = {k.lower(): v for k, v in (sol.get("headers") or {}).items()}
     return status, body, headers
+
+
+def _firecrawl_available() -> bool:
+    """Probe firecrawl-py availability. Requires either FIRECRAWL_API_KEY
+    (Cloud) or FIRECRAWL_API_URL (self-hosted). Result is cached after first
+    successful init. Returns False silently if SDK missing, creds missing,
+    or disabled via FIRECRAWL_DISABLE=1."""
+    global _FIRECRAWL_CLIENT
+    if _FIRECRAWL_DISABLED:
+        return False
+    if _FIRECRAWL_CLIENT is not None:
+        return _FIRECRAWL_CLIENT is not False
+    if not (_FIRECRAWL_API_KEY or _FIRECRAWL_API_URL):
+        _FIRECRAWL_CLIENT = False
+        return False
+    try:
+        from firecrawl import Firecrawl  # type: ignore
+        kwargs: dict[str, Any] = {"api_key": _FIRECRAWL_API_KEY or "self-host"}
+        if _FIRECRAWL_API_URL:
+            kwargs["api_url"] = _FIRECRAWL_API_URL
+        _FIRECRAWL_CLIENT = Firecrawl(**kwargs)
+        return True
+    except Exception:
+        _FIRECRAWL_CLIENT = False
+        return False
+
+
+def http_get_via_firecrawl(url: str) -> tuple[int, str, dict[str, str]]:
+    """Fetch url through firecrawl-py (full JS rendering + Cloudflare bypass).
+
+    Requires FIRECRAWL_API_KEY (Cloud) or FIRECRAWL_API_URL (self-hosted).
+    Returns (status, body_html, response_headers). Raises TransportError on
+    failure. Caller decides whether to swallow or propagate."""
+    if not _firecrawl_available():
+        raise TransportError(url, 0, "Firecrawl unavailable (missing creds or SDK)")
+    try:
+        doc = _FIRECRAWL_CLIENT.scrape(url, formats=["html", "markdown"])
+        body = ""
+        for attr in ("html", "rawHtml", "markdown"):
+            body = getattr(doc, attr, None) or (doc.get(attr) if isinstance(doc, dict) else None) or ""
+            if body:
+                break
+        meta = getattr(doc, "metadata", None) or (doc.get("metadata") if isinstance(doc, dict) else {}) or {}
+        status_val = getattr(meta, "statusCode", None) or (meta.get("statusCode") if isinstance(meta, dict) else None) or 200
+        status = int(status_val) if status_val else 200
+        return status, body, {}
+    except Exception as e:
+        raise TransportError(url, 0, f"Firecrawl request failed: {e}") from e
 
 
 def _sleep_backoff(attempt: int, base: float) -> None:

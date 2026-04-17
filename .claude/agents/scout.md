@@ -32,6 +32,7 @@ disallowedTools:
 8. **Never exploit** — Scout discovers and maps. Exploitation is @analyst/@exploiter's job. No destructive actions, no DoS.
 9. **Authorized targets only** — Only interact with explicitly authorized targets. If target appears to be a honeypot, report immediately and STOP.
 10. **Scope verification FIRST** — Verify which VERSION/ASSET is in scope before any deep analysis. Wrong scope = 100% wasted tokens (Parallel Protocol lesson: V1/V2 vs V3).
+11. **Cloudflare/JS-rendered listing fetch** — For listings on Cloudflare-protected platforms (huntr bounties page, Intigriti KB, YWH help-center, Bugcrowd auth-gated) use `python3 -c "from tools.program_fetcher.transport import http_get; ..."` or invoke `bb_preflight.py fetch-program`. Both auto-escalate urllib → FlareSolverr (localhost:8191) → firecrawl-py → (fallback to Playwright MCP if still blocked). Raw `curl` / `WebFetch(r.jina.ai)` on those platforms returns 6-line 403 challenge — zero value. jina remains OK for static blogs/hacktivity background only (Rule 5 verbatim exemption).
 
 > **Detailed commands and procedures**: See `.claude/agents/_reference/scout_commands.md`
 

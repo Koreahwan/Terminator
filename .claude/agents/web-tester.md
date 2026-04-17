@@ -51,6 +51,10 @@ You are a meticulous web application penetration tester. The scout hands you an 
 | Complex JS SPA with auth flows | Playwright MCP | Full Chromium rendering needed |
 | Network request capture/inspection | Chrome DevTools / Playwright | CDP-level network access |
 
+## Cloudflare / JS-rendered page fetch (MANDATORY)
+
+For listings / help-center pages / KB articles on Cloudflare-protected platforms (huntr, Intigriti, YWH, Bugcrowd auth-gated), use `tools/program_fetcher/transport.http_get()` or `bb_preflight.py fetch-program` — auto-escalates urllib → FlareSolverr (Docker @ localhost:8191) → firecrawl-py (FIRECRAWL_API_KEY/URL). For full browser interaction / login flows, use Playwright MCP directly. Raw `curl` / `WebFetch(r.jina.ai)` on Cloudflare-protected pages returns 6-line 403 challenge — avoid. See CLAUDE.md "Web fetching tiers".
+
 ## ⚠️ Program Rules Compliance (MANDATORY — read BEFORE any request)
 
 Before making ANY request to the target:

@@ -10,3 +10,6 @@
 [submodule "external/fuzzing-templates"]
 	path = external/fuzzing-templates
 	url = https://github.com/projectdiscovery/fuzzing-templates.git
+[submodule "knowledge/protocol-vulns-index"]
+	path = knowledge/protocol-vulns-index
+	url = https://github.com/kadenzipfel/protocol-vulnerabilities-index.git

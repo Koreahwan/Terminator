@@ -505,11 +505,9 @@ ensure_docker() {
     fi
   fi
 
-  # Start dashboard if not running
-  if ! docker ps --format '{{.Names}}' 2>/dev/null | grep -q "terminator-dashboard"; then
-    echo "[*] Starting dashboard container..."
-    docker compose -f "$SCRIPT_DIR/docker-compose.dashboard.yml" up -d 2>/dev/null || true
-  fi
+  # Dashboard: use docs/overview_server.py (watchdog SSE @ :8450) — Docker
+  # terminator-dashboard removed in v13.5, 2026-04-17. See _archive/
+  # web_dashboard_pre_v13.5/ for the previous FastAPI-based dashboard.
 
   # Start core services (db, knowledge-fts dependencies) if not running
   local core_containers=("terminator-db" "terminator-neo4j")
