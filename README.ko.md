@@ -731,7 +731,7 @@ Terminator/
 │   │   │   └── bb_agent_reference.md  # BB 에이전트 공통 레퍼런스
 │   │   └── ...              #   + 16개 전문가 에이전트
 │   ├── rules/               # 파이프라인 규칙
-│   │   ├── bb_pipeline_v12.md   # v12 Kill Gate 상세 절차
+│   │   ├── bb_pipeline_v13.md   # v12 Kill Gate 상세 절차
 │   │   ├── bb_pipeline_v11.md   # v11 아카이브 (레퍼런스용)
 │   │   ├── ctf_pipeline.md      # CTF 파이프라인 상세 절차
 │   │   ├── agent_tuning.md      # 에이전트별 effort/turn/MCP 설정

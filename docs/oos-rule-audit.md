@@ -305,7 +305,7 @@ _SENSITIVITY_ANCHORS = (
 
 ## 7. Phase 5.7 Live Scope Verification
 
-**Source**: `.claude/rules/bb_pipeline_v12.md`, "Phase 5.7: Live Scope Verification" section.
+**Source**: `.claude/rules/bb_pipeline_v13.md`, "Phase 5.7: Live Scope Verification" section.
 
 Phase 5.7 is a mandatory Orchestrator-run step (not delegated to an agent) that must execute before Phase 5.8 auto-fill. Its purpose is to re-fetch the live program page and compare against `program_rules_summary.md` to catch scope changes since initial scout.
 
@@ -405,7 +405,7 @@ The following gaps represent cases where a finding would pass all automated OOS/
 
 ### G07 — Ambiguous in-scope qualifier ("APIs located under *.example.com" vs web page)
 
-**Description**: Phase 5.7 Check "Scope Qualifier Check" is specified in `bb_pipeline_v12.md` as a manual Orchestrator judgment step. There is no automated check in `kill_gate_1` or `kill_gate_2` that validates whether the finding's asset type (web page, API endpoint, mobile app) matches the type qualifier attached to the in-scope asset (e.g. "APIs", "smart contracts", "iOS apps only"). A finding on a web page under `*.example.com` passes `kill_gate_1` because the domain matches the wildcard, even though the program scopes only APIs. This was documented as the primary concern in the Phase 5.7 "HOLD" verdict definition.
+**Description**: Phase 5.7 Check "Scope Qualifier Check" is specified in `bb_pipeline_v13.md` as a manual Orchestrator judgment step. There is no automated check in `kill_gate_1` or `kill_gate_2` that validates whether the finding's asset type (web page, API endpoint, mobile app) matches the type qualifier attached to the in-scope asset (e.g. "APIs", "smart contracts", "iOS apps only"). A finding on a web page under `*.example.com` passes `kill_gate_1` because the domain matches the wildcard, even though the program scopes only APIs. This was documented as the primary concern in the Phase 5.7 "HOLD" verdict definition.
 
 **Required fix**: `kill_gate_1` should extract asset type qualifiers from `pd.scope_in` and compare the finding's implicit asset type (inferred from URL pattern or `--impact` description) against the qualifier. Mismatched qualifiers should produce a WARN or conditional HOLD.
 

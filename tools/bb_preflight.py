@@ -3646,7 +3646,7 @@ def strengthening_check(submission_dir: str) -> int:
         print(f"FAIL (HARD): strengthening_report.md missing in {submission_dir}")
         print("  → Phase 2 MUST produce this file before Gate 2.")
         print("  → Required sections: Timestamps, 5 checklist items, Verdict")
-        print("  → Template: see bb_pipeline_v12.md Phase 2 Strengthening Report section")
+        print("  → Template: see bb_pipeline_v13.md Phase 2 Strengthening Report section")
         return 1
 
     content = report_path.read_text()

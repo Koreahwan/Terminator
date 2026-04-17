@@ -23,7 +23,7 @@ scenarios/
 2. **Discovery Signals** — scout/analyst 단계에서 이 패턴을 의심할 단서
 3. **Exploit Chain** — step-by-step 공격 흐름 (escalation pivot 포함)
 4. **PoC Template** — 실행 가능한 starter code (curl/python/foundry/solidity)
-5. **Evidence Tier** — E1/E2/E3/E4 달성 조건 (bb_pipeline_v12)
+5. **Evidence Tier** — E1/E2/E3/E4 달성 조건 (bb_pipeline_v13)
 6. **Gate 1 / Gate 2 체크** — 제출 전 kill risk 검증 포인트
 7. **Variants / Chains** — 같은 root cause에서 파생되는 변형
 8. **References** — 공개 writeup, CVE, blog, H1/Bugcrowd disclosure URL

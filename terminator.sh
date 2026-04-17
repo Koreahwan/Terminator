@@ -909,9 +909,9 @@ Report directory: __REPORT_DIR__
 
 ## PIPELINE RULES — Read these files (they are the source of truth):
 - CLAUDE.md (project root) — mandatory rules, agent model assignments, tool rules
-- .claude/rules/bb_pipeline_v12.md — full phase-by-phase procedure, gates, time-boxes
+- .claude/rules/bb_pipeline_v13.md — full phase-by-phase procedure, gates, time-boxes
 
-Follow bb_pipeline_v12.md exactly. All rules (test accounts, gates, evidence tiers,
+Follow bb_pipeline_v13.md exactly. All rules (test accounts, gates, evidence tiers,
 AI detection, Phase 5.7 live scope check, Phase 5.5b platform safety) are defined there.
 
 ## SESSION-SPECIFIC RULES (not in pipeline docs):

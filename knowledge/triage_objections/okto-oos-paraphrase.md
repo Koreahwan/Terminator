@@ -11,7 +11,7 @@ During Phase 0.2, scope was extracted via WebFetch + jina (pre-v12.4). Jina summ
 
 Phase 5.7 (live scope verification, added 2026-04-05) caught the mismatch by re-fetching the program page verbatim: the asset was not listed, verdict KILL. No submission was made, avoiding a duplicate/OOS mark. However, significant work (Phase 1–5) was wasted.
 
-The Okto incident is cited in `bb_pipeline_v12.md` Phase 0.2 VERBATIM RULE: **"한 글자라도 빠뜨리면 OOS 제출 사고 발생 (Okto incident 교훈)"**.
+The Okto incident is cited in `bb_pipeline_v13.md` Phase 0.2 VERBATIM RULE: **"한 글자라도 빠뜨리면 OOS 제출 사고 발생 (Okto incident 교훈)"**.
 
 ## 2. Expected Gate Behavior
 

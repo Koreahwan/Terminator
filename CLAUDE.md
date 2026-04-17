@@ -20,13 +20,13 @@
 2. **Read `knowledge/index.md` before starting.** Check already solved/attempted challenges.
 3. **Record all results (success/failure) to `knowledge/challenges/`.**
 4. **CTF-specific rules**: See `.claude/rules-ctf/_ctf_pipeline.md`.
-5. **Verbatim program scope MUST come from `tools/program_fetcher` (`bb_preflight.py fetch-program`).** Hand-paraphrasing or WebFetch+jina summarizing scope / OOS / known-issues / severity = pipeline violation (v12.4). Jina is still the right tool for ad-hoc fetches where verbatim accuracy does not matter (hacktivity, blogs, background research) — but never for the verbatim sections of `program_rules_summary.md`.
+5. **Verbatim program scope MUST come from `tools/program_fetcher` (`bb_preflight.py fetch-program`).** Hand-paraphrasing or WebFetch+jina summarizing scope / OOS / known-issues / severity = pipeline violation (v12.4, enforced through v13.4). Jina is still the right tool for ad-hoc fetches where verbatim accuracy does not matter (hacktivity, blogs, background research) — but never for the verbatim sections of `program_rules_summary.md`.
 
 ## Architecture: Agent Teams (v3)
 
 ### Pipeline Selection
 - **CTF**: `.claude/rules-ctf/_ctf_pipeline.md` — reverser → [trigger] → chain/solver → critic → verifier → reporter
-- **Bug Bounty**: `.claude/rules/bb_pipeline_v12.md` — Explore Lane (Phase 0-1.5) → Prove Lane (Gate 1 → Phase 2-6)
+- **Bug Bounty**: `.claude/rules/bb_pipeline_v13.md` (canonical path; v13.4 gate/check additions live in `tools/bb_preflight.py`) — Explore Lane (Phase 0-1.5) → Prove Lane (Gate 1 → Phase 2-6)
 - **Firmware**: fw-profiler → fw-inventory → fw-surface → fw-validator
 - **AI/LLM Security**: ai-recon + analyst(domain=ai) → Gate 1 → exploiter → Gate 2 → reporter → critic → triager-sim → final
 - **Robotics/ROS** (CVE track): robo-scanner + analyst(domain=robotics) → exploiter → reporter(CVE) → critic → cve-manager
@@ -181,7 +181,7 @@ Full inventory: `knowledge/techniques/installed_tools_reference.md`
 - **LLM Red-team**: promptfoo(MCP + CLI v0.121+, MIT, 13.2k★) — OWASP LLM Top-10 plugins, Target Discovery Agent, code-scans. Wrapper: `tools/promptfoo_run.sh {version|discover|redteam|eval|code-scan|init-redteam|quick-injection}`, starter config `tools/promptfoo_configs/redteam_starter.yaml`. Used by ai-recon agent.
 - **PDF**: opendataloader-pdf(MCP, AI-safe PDF→MD/JSON/HTML)
 - **Security**: parry-guard(prompt injection scanner, `~/.local/bin/parry-guard`)
-- **BB Gate**: `tools/bb_preflight.py` (init/rules-check/coverage-check/inject-rules/exclusion-filter/kill-gate-1/kill-gate-2/workflow-check/fresh-surface-check/evidence-tier-check/duplicate-graph-check)
+- **BB Gate**: `tools/bb_preflight.py` (init/fetch-program/rules-check/coverage-check/inject-rules/exclusion-filter/kill-gate-1/kill-gate-2/strengthening-check/workflow-check/fresh-surface-check/evidence-tier-check/duplicate-graph-check). **v13.4 Kill Gate 1** runs 16 destruction checks: original 5 + v12.3-v12.6 severity/impact/info-disc/PoC-pattern/strengthening + v13.2-v13.4 semantic-OOS (Check 6-11, coverage 20%→97%), Bugcrowd P5 severity downgrade (12), HackerOne NA/Informative prevention (13), AI-slop marker (14), scope-drift without wildcard (15), past-incident cross-reference via `knowledge/triage_objections/` (16).
 - **Report Quality**: `tools/report_scorer.py` (5-dim scoring: evidence/impact/repro/readability/slop, composite>=75) | `tools/report_scrubber.py` (AI signature removal: Unicode watermarks, em-dash, slop flags) | `tools/evidence_manifest.py` (unified evidence JSON with SHA256)
 - **Report Context**: `context/report-templates/` (6 platform styles, writing guide, rejection patterns, CVSS calibration)
 - **Cross-Model**: Codex(GPT-5.4, plugin `codex@openai-codex`) — `/codex:review`, `/codex:adversarial-review`, `/codex:rescue` | Wrapper: `tools/codex_cross_review.sh`

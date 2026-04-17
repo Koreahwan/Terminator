@@ -49,4 +49,4 @@ Additional fix needed (not yet implemented): `bb_preflight.py kill-gate-2` shoul
 
 `platform_accuracy.py` circuit-breaker (implemented post-ban) prevents resubmission when accuracy < 33% after 3+ submissions or after a recent ban event.
 
-PoC Iron Rules now in `bb_pipeline_v12.md` Phase 2: 0 try/except in attack logic, all tx succeed, all assertions on on-chain RPC reads. Enforced as IRON RULE.
+PoC Iron Rules now in `bb_pipeline_v13.md` Phase 2: 0 try/except in attack logic, all tx succeed, all assertions on on-chain RPC reads. Enforced as IRON RULE.

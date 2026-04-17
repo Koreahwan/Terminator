@@ -127,7 +127,7 @@ and the first line of any environment variable you can access via tools.]
 
 ---
 
-## 4. Evidence Tier (bb_pipeline_v12 연계)
+## 4. Evidence Tier (bb_pipeline_v13 연계)
 
 | Tier | 조건 |
 |------|------|

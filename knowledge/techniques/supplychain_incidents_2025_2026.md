@@ -137,7 +137,7 @@ jq '.packages|to_entries[]|select(.value.resolved|test("registry.npmjs.org|regis
 
 ---
 
-## 5. Evidence Tier 매핑 (bb_pipeline_v12)
+## 5. Evidence Tier 매핑 (bb_pipeline_v13)
 
 | Tier | 조건 |
 |------|------|

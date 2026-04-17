@@ -126,7 +126,7 @@ exit code 0, 소요 3.92초, flakiness 없음.
 
 ### xfail okto 케이스 정당성: ACCEPTED
 - Okto 케이스는 `onboarding.okto.tech` (in-scope 도메인 아님)을 찾았지만 인접 서브도메인 휴리스틱으로 가정한 사건.
-- `bb_pipeline_v12.md` Phase 5.7 "Live Scope Verification"이 live re-fetch로 이런 종류의 asset-match 실패를 잡는 위치.
+- `bb_pipeline_v13.md` Phase 5.7 "Live Scope Verification"이 live re-fetch로 이런 종류의 asset-match 실패를 잡는 위치.
 - `kill_gate_1` Check 3 advisory WARN은 정상 동작 (exit 1). HARD_KILL 승격을 하려면 exact phrase exclusion match 승격이 필요한데 이는 nice-to-have (bookbeat doc에도 명시된 follow-up).
 - 대안 (Phase 5.7 재시도)이 존재하므로 xfail은 documented gap이지 regression 아님.
 

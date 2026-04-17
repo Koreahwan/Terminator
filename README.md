@@ -739,7 +739,7 @@ Terminator/
 │   │   │   └── workflow_packs.md # Workflow pack definitions (v12 NEW)
 │   │   └── ...              #   + 16 more specialists
 │   ├── rules/               # Pipeline + protocol documents
-│   │   ├── bb_pipeline_v12.md # Bug Bounty v12 Kill Gate + Explore Lane
+│   │   ├── bb_pipeline_v13.md # Bug Bounty v12 Kill Gate + Explore Lane
 │   │   ├── ctf_pipeline.md  #   CTF pipeline procedure
 │   │   ├── agent_models.md  #   Agent model assignments
 │   │   ├── handoff_protocol.md # Structured handoff format

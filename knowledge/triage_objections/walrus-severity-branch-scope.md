@@ -11,7 +11,7 @@ Two distinct scope violations were found during Phase 5.5 manual review:
 
 **Violation 2 — Branch/tag scope**: The affected file `slashing.move` existed in the `main` branch but was **absent from the scoped `mainnet` and `testnet` tags**. The program scope constraint specified "mainnet tags / testnet tags only." Verification: `git checkout mainnet -- slashing.move` → file not found.
 
-Both violations were discovered only at Phase 5.5, after full exploit development and report writing (Phase 2–5). The violations are cited in `bb_pipeline_v12.md` as the walrus incident, driving Checks 7 and 8 in kill-gate-1.
+Both violations were discovered only at Phase 5.5, after full exploit development and report writing (Phase 2–5). The violations are cited in `bb_pipeline_v13.md` as the walrus incident, driving Checks 7 and 8 in kill-gate-1.
 
 ## 2. Expected Gate Behavior
 
