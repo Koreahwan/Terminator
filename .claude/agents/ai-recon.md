@@ -47,7 +47,7 @@ permissionMode: bypassPermissions
     - `code-scan <repo>` — LLM security vuln code scan
     - `init-redteam <target_dir>` — copy starter config (`tools/promptfoo_configs/redteam_starter.yaml`) to target dir
     - `quick-injection <url>` — 3-probe smoketest
-  - MCP: `promptfoo` server registered in `.claude/mcp.json` (stdio transport). Use MCP tools for interactive session work
+  - MCP (optional): `promptfoo mcp --transport stdio` is available as an MCP server. To wire it, add to your local `.mcp.json` (repo root, gitignored — per-developer): `{"promptfoo": {"command": "/home/hw/.npm-global/bin/promptfoo", "args": ["mcp", "--transport", "stdio"]}}`. If absent, fall back to the CLI wrapper `tools/promptfoo_run.sh` — same capability, just no MCP tool namespace.
   - Rate limit: built-in `maxConcurrency: 2` + `delay: 2100ms` (28 req/min, under 30/min IRON RULE)
 - `httpx` / `curl` — Direct API calls
 - `knowledge-fts` MCP — OWASP LLM Top 10 + Agentic Top 10 reference lookup
