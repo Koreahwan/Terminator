@@ -1,0 +1,5 @@
+{
+  "verdict": "HARD_KILL",
+  "expected_check": "2",
+  "reason": "Claimed impact 'permanent freezing of funds' does not match the only in-scope impact 'Unlocking stuck funds'. Impact word overlap score is below threshold. Utix #72165 incident — impact framing mismatch caused immediate auto-reject on Immunefi."
+}

@@ -1,0 +1,7 @@
+{
+  "finding": "Sybil attack via multiple fake identities to manipulate governance votes",
+  "severity": "medium",
+  "impact": "Sybil attack using multiple fake identities to game governance voting mechanism",
+  "expected": "HARD_KILL",
+  "check": "11_cat12"
+}

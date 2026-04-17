@@ -1,0 +1,5 @@
+{
+  "finding": "Java stack trace leaked in error response across 6 endpoints",
+  "severity": "medium",
+  "impact": "reveals internal class names and file paths via stack trace in error response"
+}

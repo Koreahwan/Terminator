@@ -1,0 +1,7 @@
+{
+  "finding": "XSS on app.target.com may allow session hijacking under certain conditions",
+  "severity": "medium",
+  "impact": "Authentication bypass via stolen session token if XSS is triggered",
+  "expected": "WARN",
+  "check": "13_hypothetical"
+}

@@ -1,0 +1,5 @@
+{
+  "finding": "OAuth redirect URI bypass on onboarding.okto.tech allows token theft",
+  "severity": "high",
+  "impact": "unauthorized access to user OAuth tokens via redirect bypass"
+}

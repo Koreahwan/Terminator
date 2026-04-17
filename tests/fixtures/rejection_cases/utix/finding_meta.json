@@ -1,0 +1,5 @@
+{
+  "finding": "UtixVault deposit reentrancy allows attacker to permanently freeze user balances",
+  "severity": "critical",
+  "impact": "permanent immobilization of user balances — attacker triggers reentrancy to freeze deposits"
+}

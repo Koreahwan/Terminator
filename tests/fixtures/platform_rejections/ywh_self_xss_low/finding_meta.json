@@ -1,0 +1,7 @@
+{
+  "finding": "Self-XSS in the profile bio field only affects attacker own session",
+  "severity": "low",
+  "impact": "Self-XSS cross-site scripting affecting only the attacker own browser",
+  "expected": "WARN",
+  "check": "3"
+}

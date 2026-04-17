@@ -1,0 +1,7 @@
+{
+  "finding": "SSL/TLS cipher suite weak configuration on target.com allows downgrade",
+  "severity": "low",
+  "impact": "Weak TLS cipher suite best practice misconfiguration on main domain",
+  "expected": "WARN",
+  "check": "3"
+}

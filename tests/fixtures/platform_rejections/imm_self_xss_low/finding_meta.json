@@ -1,0 +1,7 @@
+{
+  "finding": "Self-XSS in profile editor only affects attacker own browser session",
+  "severity": "low",
+  "impact": "Self-XSS that only affects the attacker own account session",
+  "expected": "HARD_KILL",
+  "check": "11_cat18"
+}

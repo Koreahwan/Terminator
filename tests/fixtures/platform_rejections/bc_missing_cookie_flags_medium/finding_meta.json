@@ -1,0 +1,7 @@
+{
+  "finding": "Missing cookie flag HttpOnly on session cookie allows JavaScript access",
+  "severity": "medium",
+  "impact": "Missing HttpOnly flag on session cookie enables XSS-based session theft",
+  "expected": "HARD_KILL",
+  "check": "12"
+}

@@ -1,0 +1,7 @@
+{
+  "finding": "Logout CSRF on the account logout endpoint forces user session termination",
+  "severity": "high",
+  "impact": "Attacker can force victim logout via CSRF on logout endpoint",
+  "expected": "HARD_KILL",
+  "check": "12"
+}

@@ -1,0 +1,7 @@
+{
+  "finding": "Tabnabbing attack possible via reverse tabnabbing on external links",
+  "severity": "low",
+  "impact": "Attacker could redirect opened tab to phishing page via tabnabbing",
+  "expected": "WARN",
+  "check": "12"
+}

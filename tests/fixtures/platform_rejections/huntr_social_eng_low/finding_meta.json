@@ -1,0 +1,7 @@
+{
+  "finding": "Social engineering of staff employees to obtain credentials via phishing",
+  "severity": "low",
+  "impact": "Social engineering phishing attack on employees to gain unauthorized access",
+  "expected": "HARD_KILL",
+  "check": "6_prohibited"
+}

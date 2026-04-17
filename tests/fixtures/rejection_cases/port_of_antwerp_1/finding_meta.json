@@ -1,0 +1,5 @@
+{
+  "finding": "Kubernetes pod hostname disclosed in HTTP response header X-Pod-Name",
+  "severity": "medium",
+  "impact": "exposes internal Kubernetes pod hostname and cluster topology"
+}

@@ -1,0 +1,7 @@
+{
+  "finding": "Theoretical attack scenario in the parser that could potentially allow code execution without working PoC",
+  "severity": "medium",
+  "impact": "Theoretical impact that might allow exploitation without any proof or demonstration",
+  "expected": "HARD_KILL",
+  "check": "3_or_6"
+}

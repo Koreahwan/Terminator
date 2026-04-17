@@ -36,6 +36,7 @@ Updated: 2026-04-14 (v12.5 — Port of Antwerp postmortem: info-disclosure / ver
 import sys
 import os
 import re
+import ast
 import json
 import shutil
 import time
@@ -508,6 +509,581 @@ def exclusion_filter(target_dir: str) -> int:
 
 # --- Kill Gates (advisory pre-validation, exit 0=PASS, 1=WARN) ---
 
+# v13: Semantic OOS Checks 6-10 (2026-04-17) — cover G02/G03/G04/G08/G14 gaps.
+
+# Check 6 — Ambiguous OOS keyword semantic (G02, G05, G13)
+# "Site vulnerabilities" / "hypothetical flaw" / broad catch-all clauses have zero
+# ≥4-char token overlap with standard vuln class names; Check 3 never fires on them.
+_AMBIGUOUS_OOS_PATTERNS = (
+    # "Site vulnerabilities" — DataDome catch-all for web app vulns on customer sites
+    (r"\bsite\s+vulnerabilit", "web_app_class"),
+    # "General web issues / general web vulnerabilities" — catch-all
+    (r"\bgeneral\s+web\s+(?:issues?|vulnerabilit)", "web_app_class"),
+    # "Hypothetical flaw / theoretical / without a demonstrated / without a working PoC"
+    (r"\bhypothetical\s+(?:flaw|issue|vulnerabilit)", "speculative"),
+    (r"\btheoretical\s+(?:attack|scenario|vulnerabilit|issue)", "speculative"),
+    (r"\bwithout\s+(?:a\s+)?demonstrated\b", "speculative"),
+    (r"\bwithout\s+(?:a\s+)?working\s+(?:PoC|poc|exploit|proof)", "speculative"),
+    # "Do not accept / considered out of scope / will not be rewarded" catch-all sentences
+    (r"\b(?:do\s+not\s+accept|not\s+eligible|considered\s+out\s+of\s+scope|will\s+not\s+be\s+rewarded)\b",
+     "explicit_oos_sentence"),
+    # G13: "Disclosure of information without direct security impact" generalised form
+    (r"\bdisclosure\s+of\s+information\s+without\s+(?:direct\s+)?security\s+impact", "info_disc_no_impact"),
+    (r"\binformation\s+(?:exposure|disclosure)\s+without\s+(?:an?\s+)?exploitable", "info_disc_no_impact"),
+    (r"\bnon[\s-]?exploitable\s+information", "info_disc_no_impact"),
+    (r"\blow[\s-]?risk\s+information\s+disclosure", "info_disc_no_impact"),
+    # 2026-04-17 추가 — US-W8 (docs/platform-rejection-guidelines.md + 2026 Medium articles)
+    (r"un[\s-]?prompted\s+(?:user\s+)?actions?", "explicit_oos_sentence"),
+    (r"theoretical\s+(?:impacts?|scenarios?|vuln)", "speculative"),
+    (r"captcha\s+bypass\s+(?:using|via|with)\s+(?:ocr|machine)", "explicit_oos_sentence"),
+    (r"social\s+engineering(?:\s+of\s+(?:staff|employees|contractors))?", "prohibited_activity"),
+    (r"reflected\s+plain[\s-]?text\s+injection", "explicit_oos_sentence"),
+    (r"clickjacking\s+on\s+(?:static|informational|login|logout)", "explicit_oos_sentence"),
+    (r"(?:logout|login)\s+csrf", "explicit_oos_sentence"),
+    (r"non[\s-]?sensitive\s+(?:api[\s-]?key|data|information|disclosure)", "info_disc_no_impact"),
+    # 2026-04-17 재-fetch (YWH helpcenter.yeswehack.io + Intigriti kb verbatim)
+    (r"post[\s-]?authentication\s+tests?\s+on\s+pre[\s-]?authentication\s+scopes?",
+     "explicit_oos_sentence"),
+    (r"mass\s+non[\s-]?qualifying\s+vulnerabilit(?:y|ies)", "prohibited_activity"),
+    (r"AI[\s-]?generated\s+(?:hypotheses|assumptions?|reports?)\s+without\s+manual\s+verification",
+     "prohibited_activity"),
+    (r"poor[\s-]?quality\s+(?:findings?|reports?)\s+without\s+(?:expert\s+)?validation",
+     "speculative"),
+)
+
+# Speculative language in finding descriptions — triggers HARD_KILL when combined
+# with a "hypothetical/theoretical/without demonstrated" OOS clause.
+_SPECULATIVE_FINDING_WORDS = (
+    "potential", "could", "might", "may allow", "possibly", "theoretically",
+    "hypothetically", "would allow", "could allow", "could potentially",
+)
+
+# Check 7 — Program intent mismatch (G03)
+# Patterns that signal the program accepts only a narrow class of findings.
+_PROGRAM_INTENT_PATTERNS = (
+    r"(?:the\s+)?goal\s+of\s+this\s+program\s+is\s+(?:to\s+report\s+ways?\s+around|only|specifically)\s+(.{5,80})",
+    r"this\s+program\s+rewards?\s+(?:only|specifically)\s+(.{5,80})",
+    r"we\s+only\s+accept\s+reports?\s+of\s+(.{5,80})",
+    r"dedicated\s+to\s+(?:finding|reporting|research\s+(?:into|on))\s+(.{5,80})",
+    r"this\s+is\s+a\s+(?:bounty|research)\s+(?:program\s+)?for\s+(.{5,80})",
+)
+
+# Check 8 — Extended impact-scope section headings (G04)
+# Immunefi renders impact categories under non-standard headings; extend Check 2's
+# regex to catch them with a dedicated hard-kill path.
+_IMPACT_SCOPE_HEADINGS = re.compile(
+    r"##\s+(?:"
+    r"Impacts?\s+in\s+Scope"
+    r"|Smart\s+Contract\s+Bug\s+Impacts?"
+    r"|Blockchain[/\w\s]+Bug\s+Impacts?"
+    r"|Website\s+and\s+Applications?\s+Bug\s+Impacts?"
+    r"|In[\s-]Scope\s+Impacts?"
+    r"|Accepted\s+Impacts?"
+    r"|Qualifying\s+Impacts?"
+    r")",
+    re.IGNORECASE,
+)
+
+# Check 9 — Client-side-only N/R patterns (G08, magiclabs PKCE incident)
+# Appear in ## Submission Rules (not ## Exclusion List) — missed by Check 3.
+_CLIENT_SIDE_ONLY_PATTERNS = (
+    r"client[\s-]?side\s+(?:only\s+)?vulnerabilit\w+\s+(?:are\s+)?not\s+(?:applicable|accepted|rewarded|eligible)",
+    r"client[\s-]?side\s+(?:only\s+)?(?:issues?|findings?)\s+(?:are\s+)?(?:not\s+)?(?:applicable|n/?a\b)",
+    r"(?:require|requiring)\s+(?:victim\s+|user\s+)?(?:browser\s+)?interaction\s+(?:are\s+)?(?:not|n/a)",
+    r"theoretical\s+(?:attacks?|scenarios?|vulnerabilit\w+)\s+(?:are\s+)?not\s+(?:accepted|rewarded|eligible)",
+    r"(?:must\s+)?demonstrate\w*\s+(?:on\s+)?(?:production|live)\s+(?:target|environment|system)",
+    r"no\s+server[\s-]?side\s+impact\s+(?:are\s+)?not\s+(?:eligible|accepted|applicable)",
+)
+
+# Self-limiting phrases in finding descriptions that signal client-side-only scope.
+_CLIENT_SIDE_SELF_LIMITING = (
+    "client-side only", "client side only", "requires victim interaction",
+    "no server-side impact", "no server side impact",
+    "browser interaction required", "client-side extraction",
+    "requires xss", "requires physical access",
+)
+
+# Check 10 — Government / public platform intentional-behavior (G14, DINUM incident)
+_GOVT_PLATFORM_INDICATORS = (
+    "demarches-simplifiees", "service-public", ".gouv.fr", ".gov.uk",
+    ".gsa.gov", ".digital.gov", ".gov.au", ".gov.nz",
+    "public service", "public platform", "government", "civic tech",
+    "open government", "public sector",
+)
+_GOVT_ACCESSIBILITY_KEYWORDS = (
+    "accessibility", "accessib", "universel", "tous et toutes", "all citizens",
+    "open to all", "no barriers", "public access", "universal access",
+)
+_ACCESSIBILITY_FINDING_PATTERNS = (
+    "input validation", "character limit", "rate limit", "rate limiting",
+    "captcha", "missing validation", "no validation", "input length",
+    "input restriction", "missing input", "length limit",
+)
+
+# ---------------------------------------------------------------------------
+# US-W2+W5: Immunefi 41-category exclusion gate (Check 11) + platform-aware dispatch
+# ---------------------------------------------------------------------------
+
+# 41 Immunefi common exclusions (2026-04-17).
+# Each entry: (short_key, regex_pattern, require_sensitivity_anchor)
+# require_sensitivity_anchor=True → WARN if anchor present, HARD_KILL otherwise.
+# require_sensitivity_anchor=False → always HARD_KILL on match.
+_IMMUNEFI_EXCLUSIONS: tuple[tuple[str, str, bool], ...] = (
+    # General (1-8)
+    (
+        "already_exploited",
+        r"attack[s]?\s+(?:that\s+)?(?:the\s+)?reporter\s+has\s+already\s+exploit"
+        r"|already[\s-]exploit|reusing\s+(?:my|their|own)\s+(?:previously[\s-])?exploit",
+        False,
+    ),
+    (
+        "leaked_credentials",
+        r"(?:access\s+to\s+)?leaked\s+(?:key|credential|secret|token|password)"
+        r"|leaked\s+private\s+key|from\s+leaked\s+(?:key|cred)",
+        False,
+    ),
+    (
+        "privileged_address",
+        r"privileged\s+address"
+        r"|(?:access\s+to\s+)?governance\s+(?:key|address|wallet|role)"
+        r"|strategist\s+(?:key|role|wallet)"
+        r"|requires?\s+(?:admin|owner|governance|privileged)\s+(?:key|access|address|role)",
+        False,
+    ),
+    (
+        "external_stablecoin_depeg",
+        r"depegg?ing\s+of\s+(?:an?\s+)?external\s+stablecoin"
+        r"|external\s+stablecoin\s+depeg"
+        r"|stablecoin\s+loses?\s+(?:its\s+)?peg",
+        False,
+    ),
+    (
+        "exposed_github_secrets",
+        r"(?:secret|api[\s-]?key|access[\s-]?token|private[\s-]?key|password)[s]?\s+"
+        r"(?:exposed|found|leaked|visible|disclosed)\s+in\s+(?:github|git|repo|commit|source)"
+        r"|github\s+(?:secret|credential|key)\s+(?:exposure|leak|disclosure)",
+        False,
+    ),
+    (
+        "best_practice_recommendation",
+        r"best[\s-]?practice\s+recommendation"
+        r"|recommended\s+(?:security\s+)?best\s+practice"
+        r"|(?:improve|improve\s+(?:the\s+)?)?security\s+posture\s+recommendation",
+        False,
+    ),
+    (
+        "feature_request",
+        r"\bfeature\s+request\b"
+        r"|requesting?\s+(?:a\s+)?(?:new\s+)?feature"
+        r"|enhancement\s+request",
+        False,
+    ),
+    (
+        "test_config_file_impact",
+        r"impact[s]?\s+on\s+test\s+(?:file[s]?|configuration)"
+        r"|test\s+file[s]?\s+(?:impact|vulnerability|vuln)"
+        r"|configuration\s+file[s]?\s+(?:impact|vulnerability|vuln)"
+        r"|only\s+affects?\s+(?:test|config(?:uration)?)\s+file[s]?",
+        False,
+    ),
+    # Smart Contracts (9-13)
+    (
+        "incorrect_oracle_data",
+        r"incorrect\s+(?:data\s+)?supplied\s+by\s+(?:third[\s-]?party\s+)?oracle"
+        r"|(?:third[\s-]?party\s+)?oracle\s+(?:data\s+)?manipulation"
+        r"|oracle\s+staleness|stale\s+oracle\s+(?:data|price|feed)",
+        False,
+    ),
+    (
+        "economic_governance_attack",
+        r"51\s*%\s+attack"
+        r"|basic\s+economic\s+(?:and\s+governance\s+)?attack"
+        r"|governance\s+attack"
+        r"|basic\s+governance\s+attack"
+        r"|majority\s+hash(?:rate)?\s+attack",
+        False,
+    ),
+    (
+        "liquidity_impact",
+        r"lack\s+of\s+liquidity\s+impact"
+        r"|(?:insufficient|low)\s+liquidity\s+(?:impact|risk)"
+        r"|liquidity\s+(?:shortage|crisis)\s+(?:impact|vulnerability)",
+        False,
+    ),
+    (
+        "sybil_attack",
+        r"\bsybil\s+attack\b"
+        r"|multiple\s+(?:fake\s+)?identit(?:y|ies)\s+(?:attack|exploit)"
+        r"|sybil\s+(?:resistance|vulnerability|exploit)",
+        False,
+    ),
+    (
+        "centralization_risk",
+        r"\bcentralization\s+risk\b"
+        r"|centrali[sz]ation\s+(?:concern|vulnerability|risk|issue)"
+        r"|over[\s-]?centrali[sz]",
+        False,
+    ),
+    # Websites/Apps (14-34)
+    (
+        "theoretical_impact",
+        r"theoretical\s+impact[s]?\s+without\s+(?:any\s+)?(?:proof|demonstration)"
+        r"|theoretical\s+(?:attack|scenario|vulnerabilit\w+)\s+without\s+(?:a\s+)?(?:working\s+)?(?:proof|poc|demo|demonstration)"
+        r"|impact\s+without\s+(?:any\s+)?proof\s+or\s+demonstration",
+        False,
+    ),
+    (
+        "physical_device_access",
+        r"(?:requires?\s+)?physical\s+(?:device\s+)?access"
+        r"|physical\s+(?:access\s+to\s+)?(?:device|machine|server|hardware)"
+        r"|requires?\s+(?:local\s+)?physical\s+(?:access|presence)",
+        False,
+    ),
+    (
+        "local_network_attack",
+        r"\blocal\s+network\s+attack"
+        r"|attack\s+(?:from|via|on)\s+(?:the\s+)?local\s+network"
+        r"|(?:requires?\s+)?(?:same[\s-]?)?local[\s-]?network\s+(?:access|position)",
+        False,
+    ),
+    (
+        "reflected_plain_text_injection",
+        r"reflected\s+plain[\s-]?text\s+injection"
+        r"|plain[\s-]?text\s+(?:reflected\s+)?injection\s+(?:in|via|through)"
+        r"|reflected\s+(?:plain\s+text|plaintext)\s+(?:in|via)",
+        False,
+    ),
+    (
+        "self_xss",
+        r"\bself[\s-]?xss\b"
+        r"|xss\s+(?:that\s+)?(?:only\s+)?(?:affects?\s+)?(?:the\s+)?(?:attacker|own\s+(?:account|session|browser))"
+        r"|cross[\s-]?site\s+scripting\s+(?:that\s+)?only\s+(?:affects?\s+)?(?:attacker|own\s+session)",
+        False,
+    ),
+    (
+        "captcha_bypass_ocr",
+        r"captcha\s+bypass\s+using\s+ocr"
+        r"|ocr[\s-]?based\s+captcha\s+bypass"
+        r"|captcha\s+ocr\s+(?:bypass|circumvention)",
+        False,
+    ),
+    (
+        "csrf_no_state_modification",
+        r"csrf\s+(?:without|that\s+does\s+not)\s+(?:cause\s+)?(?:state\s+modification|modify\s+state)"
+        r"|logout\s+csrf"
+        r"|csrf\s+(?:only\s+)?(?:on\s+)?(?:logout|read[\s-]?only|non[\s-]?state[\s-]?changing)",
+        False,
+    ),
+    (
+        "missing_http_security_headers",
+        r"missing\s+(?:http\s+)?security\s+headers?"
+        r"|(?:absence|lack)\s+of\s+(?:http\s+)?security\s+headers?"
+        r"|(?:x[\s-]?frame[\s-]?options|content[\s-]?security[\s-]?policy|hsts|"
+        r"x[\s-]?content[\s-]?type|referrer[\s-]?policy)\s+(?:header\s+)?(?:missing|not\s+set|absent)",
+        True,  # WARN if sensitivity anchor present
+    ),
+    (
+        "server_side_non_confidential_info_disclosure",
+        r"server[\s-]?side\s+non[\s-]?confidential\s+information\s+disclosure"
+        r"|(?:discloses?|exposes?|leaks?)\s+(?:internal\s+)?(?:ip\s+address|server\s+name|hostname)\s+"
+        r"(?:without|that\s+(?:is|are)\s+not)",
+        False,
+    ),
+    (
+        "user_enumeration",
+        r"\buser\s+enumeration\b"
+        r"|username\s+enumeration"
+        r"|account\s+enumeration"
+        r"|enumerat(?:e|ing|ion)\s+(?:valid\s+)?(?:users?|accounts?|emails?)",
+        False,
+    ),
+    (
+        "unprompted_user_action",
+        r"un[\s-]?prompted\s+(?:in[\s-]?app\s+)?user\s+action"
+        r"|requires?\s+(?:un[\s-]?prompted|victim'?s?)\s+(?:in[\s-]?app\s+)?(?:user\s+)?action"
+        r"|victim\s+(?:must\s+)?(?:manually\s+)?(?:click|perform|initiate)\s+(?:an?\s+)?(?:in[\s-]?app\s+)?action",
+        False,
+    ),
+    (
+        "ssl_tls_best_practices",
+        r"ssl[\s/]?tls\s+best\s+practices?"
+        r"|(?:weak|insecure|deprecated)\s+(?:ssl|tls|cipher|protocol)\s+(?:version|suite|configuration)?\s+"
+        r"(?:best\s+practice|recommendation|configuration)"
+        r"|ssl[\s/]tls\s+(?:configuration\s+)?(?:best\s+practice|recommendation)",
+        False,
+    ),
+    (
+        "ddos_only",
+        r"(?:only\s+)?ddos(?:\s+attack)?(?:\s+impact)?(?:\s+vulnerability)?"
+        r"(?:\s+only)?"
+        r"|\bdenial[\s-]of[\s-]service\s+only\b"
+        r"|(?:the\s+)?only\s+(?:possible\s+)?impact\s+is\s+(?:a\s+)?(?:ddos|denial[\s-]of[\s-]service)",
+        False,
+    ),
+    (
+        "ux_ui_disruption",
+        r"ux[\s/]?ui\s+disruption\s+without\s+material\s+disruption"
+        r"|(?:minor\s+)?(?:ux|ui|user\s+(?:interface|experience))\s+disruption"
+        r"|(?:cosmetic|visual|ui)\s+(?:issue|bug|defect)\s+without\s+(?:security\s+)?impact",
+        False,
+    ),
+    (
+        "browser_plugin_defect",
+        r"browser[\s/]plugin\s+defect\s+(?:as\s+)?primary\s+cause"
+        r"|(?:caused|caused\s+by|due\s+to)\s+(?:a\s+)?browser\s+(?:bug|defect|vulnerability)"
+        r"|browser[\s-]?specific\s+(?:bug|defect|vulnerability)\s+(?:as\s+)?(?:primary\s+)?(?:root\s+)?cause",
+        False,
+    ),
+    (
+        "non_sensitive_api_key_leakage",
+        r"(?:non[\s-]?sensitive\s+)?(?:etherscan|infura|alchemy)\s+api[\s-]?key\s+"
+        r"(?:leak|exposure|disclosure|found|exposed)"
+        r"|api[\s-]?key\s+(?:for\s+)?(?:etherscan|infura|alchemy)\s+(?:leak|exposure|disclosure)"
+        r"|(?:rate[\s-]?limited|public)\s+(?:etherscan|infura|alchemy)\s+(?:api[\s-]?key|key)",
+        False,
+    ),
+    (
+        "browser_exploitation_dependency",
+        r"(?:requires?|dependent\s+on|depends?\s+on)\s+(?:a\s+)?browser\s+exploit(?:ation)?"
+        r"|browser\s+exploitation\s+(?:bug\s+)?(?:as\s+)?(?:pre[\s-]?)?(?:condition|dependency|requirement)"
+        r"|(?:only\s+)?exploit(?:able|ed)\s+(?:via|through|using)\s+(?:a\s+)?browser\s+(?:bug|vulnerability|exploit)",
+        False,
+    ),
+    (
+        "spf_dmarc_misconfigured",
+        r"\bspf\b.*\bmisconfigur"
+        r"|\bdmarc\b.*\bmisconfigur"
+        r"|\bspf\b.*\b(?:missing|not\s+set|absent|incorrect)"
+        r"|\bdmarc\b.*\b(?:missing|not\s+set|absent|incorrect)"
+        r"|(?:missing|misconfigured|absent)\s+(?:spf|dmarc|dkim)\s+(?:record|policy|configuration)",
+        False,
+    ),
+    (
+        "automated_scanner_report",
+        r"automated\s+scanner\s+report[s]?\s+without\s+(?:demonstrated\s+)?impact"
+        r"|(?:automated|tool[\s-]?generated)\s+(?:vulnerability\s+)?scan(?:ner)?\s+(?:output|report|finding)\s+"
+        r"without\s+(?:manual\s+)?(?:demonstrated|verified|proven)\s+(?:impact|exploitation)"
+        r"|(?:only\s+)?(?:reported\s+by\s+)?(?:automated|scanner|tool)\s+without\s+(?:manual\s+)?(?:verification|exploitation|poc)",
+        True,  # WARN if sensitivity anchor present
+    ),
+    (
+        "ui_ux_best_practice",
+        r"ui[\s/]?ux\s+best[\s-]?practice\s+recommendation"
+        r"|user\s+(?:interface|experience)\s+best[\s-]?practice"
+        r"|(?:improve|improving)\s+(?:the\s+)?(?:ux|ui|user\s+(?:interface|experience))\s+"
+        r"(?:without\s+(?:security\s+)?impact|recommendation)",
+        True,  # WARN if sensitivity anchor present
+    ),
+    (
+        "non_future_proof_nft_rendering",
+        r"non[\s-]?future[\s-]?proof\s+nft\s+rendering"
+        r"|nft\s+(?:rendering|display|metadata)\s+(?:that\s+(?:is|may\s+become)\s+)?(?:not\s+)?future[\s-]?proof"
+        r"|nft\s+(?:rendering|display)\s+(?:compatibility|support)\s+(?:issue|problem|concern)",
+        False,
+    ),
+    # Prohibited (35-41)
+    (
+        "mainnet_testnet_testing",
+        r"(?:testing\s+(?:on|against)\s+)?(?:mainnet|public\s+testnet)\s+testing"
+        r"|(?:performed|conducted|ran|executed)\s+(?:on|against)\s+(?:the\s+)?(?:mainnet|live\s+network)"
+        r"|(?:mainnet|public\s+testnet)\s+(?:exploit|attack|test(?:ed|ing)?)",
+        False,
+    ),
+    (
+        "third_party_oracle_contract_testing",
+        r"(?:testing\s+)?third[\s-]?party\s+(?:oracle|contract)\s+testing"
+        r"|test(?:ed|ing)?\s+(?:a\s+)?third[\s-]?party\s+(?:oracle|contract|protocol)"
+        r"|exploit(?:ed|ing)?\s+(?:a\s+)?third[\s-]?party\s+(?:oracle|smart\s+contract)",
+        False,
+    ),
+    (
+        "social_engineering_phishing",
+        r"\bsocial\s+engineering\b"
+        r"|\bphishing\b"
+        r"|(?:spear[\s-]?)?phishing\s+attack"
+        r"|(?:via|through|using)\s+(?:social\s+engineering|phishing)",
+        False,
+    ),
+    (
+        "third_party_system_testing",
+        r"third[\s-]?party\s+system\s+testing"
+        r"|test(?:ed|ing)?\s+(?:a\s+)?third[\s-]?party\s+system"
+        r"|attack(?:ed|ing)?\s+(?:a\s+)?third[\s-]?party\s+(?:system|service|infrastructure)",
+        False,
+    ),
+    (
+        "ddos_attack_on_assets",
+        r"ddos\s+(?:attack[s]?\s+(?:on|against))\s+(?:project|protocol|platform)\s+assets?"
+        r"|(?:launch(?:ed|ing)?|perform(?:ed|ing)?|conduct(?:ed|ing)?)\s+(?:a\s+)?ddos\s+attack"
+        r"|flooding\s+(?:the\s+)?(?:project|protocol|platform|contract)\s+(?:with\s+)?(?:requests?|transactions?)",
+        False,
+    ),
+    (
+        "excessive_traffic",
+        r"excessive\s+traffic\s+generation"
+        r"|generat(?:e|ed|ing)\s+excessive\s+(?:network\s+)?traffic"
+        r"|(?:high|large)\s+volume\s+(?:of\s+)?(?:requests?|traffic)\s+(?:generation|generated|sent)",
+        False,
+    ),
+    (
+        "public_disclosure_embargoed",
+        r"public\s+disclosure\s+of\s+(?:an?\s+)?embargoed\s+(?:bounty|finding|vulnerability|report)"
+        r"|disclose[d]?\s+(?:an?\s+)?embargoed\s+(?:vulnerability|finding|bounty)"
+        r"|(?:early|premature|unauthorized)\s+(?:public\s+)?disclosure\s+(?:of\s+)?(?:an?\s+)?"
+        r"embargoed",
+        False,
+    ),
+    # 2026 Immunefi additions (G-W1 closure 2026-04-17)
+    (
+        "mev_frontrunning_only",
+        r"\b(?:front[\s-]?running|back[\s-]?running|mev)\b[^.\n]{0,60}"
+        r"(?:without|no)\s+(?:code|smart[\s-]?contract)\s+(?:bug|vulnerability)",
+        False,
+    ),
+    (
+        "gas_griefing_only",
+        r"gas\s+griefing\b[^.\n]{0,40}(?:without|no)\s+(?:fund\s+theft|financial\s+impact)",
+        False,
+    ),
+    (
+        "first_deposit_precision_loss_minor",
+        r"first[\s-]?deposit\s+(?:attack|precision\s+loss)[^.\n]{0,80}"
+        r"(?:<\s*\$?\s*10|negligible|minor\s+(?:rounding|precision))",
+        False,
+    ),
+    (
+        "flash_loan_without_code_bug",
+        r"flash[\s-]?loan\b[^.\n]{0,60}(?:without|no)\s+(?:underlying\s+)?(?:code|smart[\s-]?contract)\s+(?:bug|vulnerability)",
+        False,
+    ),
+    (
+        "passive_yield_arbitrage",
+        r"(?:passive\s+)?(?:yield|liquidity\s+provision)\s+arbitrage\b[^.\n]{0,40}"
+        r"(?:without|no)\s+(?:code\s+bug|contract\s+vulnerability)",
+        False,
+    ),
+    (
+        "donation_rounding_minor",
+        r"donations?\s+to\s+(?:the\s+)?contract(?:s)?[^.\n]{0,50}(?:minor\s+)?rounding\s+(?:errors?|loss)",
+        False,
+    ),
+    (
+        "outdated_not_in_production",
+        r"(?:outdated|legacy|deprecated)\s+contracts?\s+(?:not\s+|no\s+longer\s+)?in\s+production",
+        False,
+    ),
+    (
+        "griefing_no_attacker_benefit",
+        r"griefing\s+attacks?[^.\n]{0,50}(?:no|without)\s+financial\s+benefit\s+(?:to|for)\s+(?:the\s+)?attacker",
+        False,
+    ),
+    (
+        "unused_function_dead_code",
+        r"(?:unused|dead|unreachable)\s+(?:function|code|branch)[^.\n]{0,40}(?:without|no)\s+(?:exploit|reachable)",
+        False,
+    ),
+)
+
+
+_BUGCROWD_P5_PATTERNS: tuple[tuple[str, str, str], ...] = (
+    ("autocomplete_enabled", r"autocomplete\s+(?:enabled|on|attribute)",
+     "Autocomplete enabled on form (P5)"),
+    ("save_password", r"save\s+password|password\s+autofill",
+     "Save password browser feature (P5)"),
+    ("non_sensitive_disclosure",
+     r"non[\s-]?sensitive\s+(?:data\s+|information\s+)?(?:disclosure|exposure|leak|exposed)",
+     "Non-sensitive information disclosure (P5)"),
+    ("missing_headers_non_sensitive",
+     r"missing\s+(?:security\s+)?header[^.\n]{0,60}non[\s-]?sensitive",
+     "Missing headers on non-sensitive page (P5)"),
+    ("outdated_software_no_exploit",
+     r"outdated\s+(?:software|library|dependency|version)[^.\n]{0,50}(?:without|no|lacking)\s+(?:exploit|poc|working|demonstrated)",
+     "Outdated software without exploit path (P5)"),
+    ("ie_only_xss", r"(?:ie|internet\s+explorer)[\s-]?only\s+xss",
+     "IE-only XSS (P5)"),
+    ("flash_based", r"flash[\s-]?based\s+(?:attack|exploit|vulnerability|xss)",
+     "Flash-based vulnerability (P5)"),
+    ("tabnabbing", r"tab[\s-]?nabbing",
+     "Tabnabbing (P5)"),
+    ("ssl_tls_config",
+     r"ssl[/\s]?tls\s+(?:config|cipher|best\s+practice|expired|version|suite|weak|misconfig)",
+     "SSL/TLS best practices / cipher config (P5)"),
+    ("missing_cookie_flags",
+     r"missing\s+(?:cookie|http[\s-]?only|secure)\s+flag",
+     "Missing cookie flags (P5)"),
+    ("clickjacking_static",
+     r"clickjacking[^.\n]{0,40}(?:static|informational|login|logout|public)",
+     "Clickjacking on static/login page (P5)"),
+    ("open_redirect_headers",
+     r"open\s+redirect\s+(?:through|via|using|in)\s+(?:http\s+)?header",
+     "Open Redirect through HTTP headers (P5)"),
+    ("csrf_logout",
+     r"(?:logout|login)\s+csrf",
+     "Logout/login CSRF (P5)"),
+    ("broken_links",
+     r"broken\s+link(?:s|\s+hijack)?",
+     "Broken link / social media hijack (P5)"),
+    ("verbose_error_no_impact",
+     r"verbose\s+error[^.\n]{0,40}(?:without|no|lacking)\s+(?:impact|sensitive)",
+     "Verbose error without sensitive impact (P5)"),
+    ("banner_grab_version",
+     r"banner\s+grab|version\s+disclosure|software\s+version\s+exposed",
+     "Banner grab / version disclosure (P5)"),
+    ("subdomain_takeover_no_poc",
+     r"subdomain\s+takeover[^.\n]{0,40}(?:without|no)\s+(?:exploitable|poc|working|demonstrated)",
+     "Subdomain takeover without working PoC (P5)"),
+    ("email_spf_dmarc",
+     r"(?:spf|dmarc|dkim)\s+(?:missing|misconfig|record|issue|fail)",
+     "Missing/misconfigured SPF/DMARC/DKIM (P5)"),
+    ("rate_limiting_brute",
+     r"(?:lack\s+of\s+|missing\s+|no\s+)?rate[\s-]?limit|brute[\s-]?forc(?:e|ing)|captcha\s+bypass(?:\s+without\s+impact)?",
+     "Lack of rate limiting / brute force / captcha bypass (P5)"),
+    ("email_flooding",
+     r"(?:email|sms|message)\s+(?:flood|spam|abuse|bomb)",
+     "Email/SMS flooding (P5)"),
+)
+
+
+def _detect_platform(rules_content: str) -> str:
+    """Parse program_rules_summary.md to detect the bounty platform.
+
+    Looks for '## Platform' or 'Platform:' lines and returns a canonical
+    platform identifier. Case-insensitive. Returns 'unknown' if not found.
+
+    Returns: 'immunefi' | 'bugcrowd' | 'hackerone' | 'yeswehack' |
+             'intigriti' | 'huntr' | 'unknown'
+    """
+    platform_match = re.search(
+        r"(?:^|\n)##?\s*Platform[:\s]+([^\n]+)",
+        rules_content,
+        re.IGNORECASE,
+    )
+    if not platform_match:
+        # Also try inline "Platform: X" without ## heading
+        platform_match = re.search(
+            r"\bPlatform\s*:\s*([^\n]+)",
+            rules_content,
+            re.IGNORECASE,
+        )
+    if not platform_match:
+        return "unknown"
+
+    raw = platform_match.group(1).strip().lower()
+    if "immunefi" in raw:
+        return "immunefi"
+    if "bugcrowd" in raw:
+        return "bugcrowd"
+    if "hackerone" in raw or "h1" == raw:
+        return "hackerone"
+    if "yeswehack" in raw or "ywh" in raw or "yes we hack" in raw:
+        return "yeswehack"
+    if "intigriti" in raw:
+        return "intigriti"
+    if "huntr" in raw:
+        return "huntr"
+    return "unknown"
+
+
 # v12.5: Port of Antwerp postmortem (2026-04-14) — info-disclosure collision guards.
 # Both PORTOFANTWERP-7TS0VZVW and PORTOFANTWERP-56QI3QB6 closed OOS with
 # 'Verbose messages/files/directory listings without disclosing any sensitive
@@ -556,6 +1132,125 @@ _SENSITIVITY_ANCHORS = (
     "source code leak", "source code disclosure",
 )
 
+# HackerOne NA/Informative prevention triggers (v13.2 — W4)
+# Each entry: (key, regex, description)
+_H1_NA_TRIGGERS: tuple[tuple[str, str, str], ...] = (
+    (
+        "hypothetical",
+        r"\b(?:hypothetical|theoretical|potential|could\s+possibly|may\s+allow)\b",
+        "Speculative language without live proof — HackerOne marks as Informative.",
+    ),
+    (
+        "no_poc",
+        r"\b(?:no\s+poc|without\s+poc|proof[\s-]?of[\s-]?concept\s+not\s+provided)\b",
+        "PoC absent — HackerOne requires reproducible proof for valid report.",
+    ),
+    (
+        "needs_invest",
+        r"\b(?:needs\s+(?:more\s+)?investigation|requires\s+further\s+(?:testing|analysis))\b",
+        "Incomplete investigation — triager cannot validate without complete analysis.",
+    ),
+    (
+        "vague_steps",
+        r"\b(?:vague|unclear|not\s+reproducible)\s+(?:steps|reproduction)\b",
+        "Vague/unclear reproduction steps — HackerOne marks as Not Applicable.",
+    ),
+    (
+        "third_party_saas",
+        r"\b(?:third[\s-]?party\s+(?:saas|integration|service|vendor)|external\s+(?:vendor|service))\b",
+        "Third-party SaaS/integration out of scope — HackerOne redirects to vendor.",
+    ),
+    (
+        "scanner_output",
+        r"\b(?:nuclei|nessus|burp|zap|automated\s+scanner)\s+(?:output|report|finding)\b",
+        "Raw scanner output without manual verification — HackerOne marks as Informative.",
+    ),
+    (
+        "dup_unchecked",
+        r"\b(?:duplicates?\s+not\s+verified|did\s+not\s+check\s+duplicates)\b",
+        "Duplicates not checked — HackerOne penalizes unverified duplicate submissions.",
+    ),
+)
+
+_AI_SLOP_MARKERS = (
+    "it is worth noting",
+    "this showcases",
+    "it should be noted",
+    "it is important to note",
+    "furthermore",
+    "moreover",
+    "in conclusion",
+    "to summarize",
+    "in essence",
+    "it is crucial to",
+    "seamless",
+    "robust",
+    "comprehensive",
+    "cutting-edge",
+    "state-of-the-art",
+    "leverage",
+    "navigate",
+    "elevate",
+    "embark on",
+    "delve into",
+)
+
+_AI_SLOP_EMOJI_RE = r"[\U0001F300-\U0001FAFF\u2600-\u27BF]"
+
+
+def _scope_domains_from_rules(rules_content: str) -> list[str]:
+    """Extract in-scope domain/host entries from program_rules_summary.md."""
+    match = re.search(
+        r"##\s*In-Scope Assets[^\n]*\n(.*?)(?=\n##|\Z)",
+        rules_content,
+        re.DOTALL | re.IGNORECASE,
+    )
+    if not match:
+        return []
+    domains: list[str] = []
+    for line in match.group(1).splitlines():
+        line_clean = line.strip().lstrip("-*•").strip()
+        if not line_clean or line_clean.startswith("#"):
+            continue
+        m = re.search(
+            r"(https?://)?(\*\.)?([a-zA-Z0-9][a-zA-Z0-9.-]+\.[a-zA-Z]{2,})",
+            line_clean,
+        )
+        if m:
+            domains.append(m.group(0).rstrip("/"))
+    return domains
+
+
+def _parse_scope_has_wildcard(scope_domains: list) -> bool:
+    return any(d.startswith("*.") or "*." in d for d in scope_domains)
+
+
+def _finding_mentions_ood_subdomain(
+    finding: str, impact: str, scope_domains: list[str]
+) -> tuple[bool, str]:
+    """Check if finding/impact mentions a host not covered by scope_domains.
+
+    Returns (is_out_of_domain, detected_host).
+    """
+    combined = (finding + " " + impact).lower()
+    for m in re.finditer(r"\b([a-zA-Z0-9][a-zA-Z0-9-]*(?:\.[a-zA-Z0-9-]+){2,})\b", combined):
+        candidate = m.group(1)
+        if re.match(r"^\d+\.\d+\.\d+\.\d+$", candidate):
+            continue  # skip IPs
+        matched = False
+        for d in scope_domains:
+            dl = d.lower().replace("https://", "").replace("http://", "").rstrip("/")
+            if dl.startswith("*."):
+                if candidate.endswith(dl[2:]):
+                    matched = True
+                    break
+            elif candidate == dl:
+                matched = True
+                break
+        if not matched:
+            return True, candidate
+    return False, ""
+
 
 def _info_disc_oos_check(finding: str, impact: str, rules_content: str) -> tuple[list, list]:
     """v12.5: Catch info-disclosure findings that collide with a program's
@@ -593,8 +1288,35 @@ def _info_disc_oos_check(finding: str, impact: str, rules_content: str) -> tuple
         return warnings, hard_kills
 
     # Gate 3: demand concrete sensitivity anchor in --impact or finding.
+    # v13 FIX: ignore anchors that appear in a negation context, e.g.
+    # "no credentials leaked", "without session tokens", "not exposing PII".
+    # Previously "credentials" matched even with "no" in front, so a finding
+    # explicitly denying any sensitive impact still got grey-zoned instead of
+    # HARD_KILL'd.
+    def _anchor_present(anchor: str, text: str) -> bool:
+        if anchor not in text:
+            return False
+        # Look at the 40 chars preceding each occurrence for negation markers.
+        start = 0
+        while True:
+            idx = text.find(anchor, start)
+            if idx < 0:
+                return False
+            prefix = text[max(0, idx - 40):idx]
+            if not re.search(
+                r"\b(?:no|without|not|never|zero|absent|exclude(?:s|d)?|"
+                r"does\s+not\s+(?:leak|expose|disclose)|doesn'?t\s+(?:leak|expose)|"
+                r"lack(?:s|ing)?\s+of|none\s+of\s+the)\s+(?:\w+\s+){0,3}$",
+                prefix,
+            ):
+                return True
+            start = idx + len(anchor)
+
     sensitivity_hit = next(
-        (a for a in _SENSITIVITY_ANCHORS if a in impact_lower or a in finding_lower),
+        (
+            a for a in _SENSITIVITY_ANCHORS
+            if _anchor_present(a, impact_lower) or _anchor_present(a, finding_lower)
+        ),
         None,
     )
 
@@ -617,6 +1339,47 @@ def _info_disc_oos_check(finding: str, impact: str, rules_content: str) -> tuple
         )
 
     return warnings, hard_kills
+
+
+def _detect_finding_class(finding: str) -> str:
+    """Classify finding description into a broad vulnerability class.
+
+    Returns: 'xss' | 'sqli' | 'ssrf' | 'idor' | 'rce' | 'csrf' | 'info_disc'
+             | 'dos' | 'broken_auth' | 'other'
+    """
+    f = finding.lower()
+    if re.search(r"\bxss\b|cross[\s-]?site\s+script", f):
+        return "xss"
+    if re.search(r"\bsqli?\b|sql\s+injection|structured\s+query", f):
+        return "sqli"
+    if re.search(r"\bssrf\b|server[\s-]?side\s+request\s+forg", f):
+        return "ssrf"
+    if re.search(r"\bidor\b|insecure\s+direct\s+object|broken\s+access\s+control", f):
+        return "idor"
+    if re.search(r"\brce\b|remote\s+code\s+exec|command\s+injection|code\s+execution", f):
+        return "rce"
+    if re.search(r"\bcsrf\b|cross[\s-]?site\s+request\s+forg", f):
+        return "csrf"
+    if re.search(r"\bdos\b|denial[\s-]?of[\s-]?service|resource\s+exhaustion", f):
+        return "dos"
+    if re.search(
+        r"stack\s*trace|verbose|error\s+message|banner|version\s+disclosure|"
+        r"info(?:rmation)?\s+(?:disclosure|exposure|leak)|env\s+dump|hostname\s+disclosure",
+        f,
+    ):
+        return "info_disc"
+    if re.search(
+        r"auth(?:entication)?\s+bypass|broken\s+auth|account\s+takeover|"
+        r"session\s+(?:hijack|fixation)|pkce|oauth",
+        f,
+    ):
+        return "broken_auth"
+    return "other"
+
+
+def _web_app_vuln_class(finding_class: str) -> bool:
+    """Return True if finding_class is a standard web-app vulnerability."""
+    return finding_class in ("xss", "sqli", "ssrf", "idor", "rce", "csrf", "info_disc", "broken_auth")
 
 
 def kill_gate_1(target_dir: str, finding: str, severity: str = "", impact: str = "") -> int:
@@ -695,9 +1458,17 @@ def kill_gate_1(target_dir: str, finding: str, severity: str = "", impact: str =
         inscope_match = re.search(
             r"##\s*In-Scope Assets.*?\n(.*?)(?=\n##|\Z)", rules_content, re.DOTALL
         )
-        # Also check for explicit impact categories (Immunefi-style)
+        # Also check for explicit impact categories (Immunefi-style).
+        # v13 FIX (bookbeat false-positive): the regex must be anchored to a proper
+        # Markdown heading (## ...) so we do not accidentally capture "impact" used
+        # inside exclusion prose ("Self-XSS ... to impact other users"). Previously
+        # IGNORECASE + no heading anchor meant any occurrence of the substring
+        # "impact" started the extraction and pulled in whole OOS sections, which
+        # then surfaced "xss"/"sqli" words as fake in-scope impacts.
         impact_match = re.search(
-            r"(?:Impact|Impacts? in Scope)[^\n]*\n(.*?)(?=\n##|\Z)", rules_content, re.DOTALL | re.IGNORECASE
+            r"(?:^|\n)##\s*(?:Impacts?\s+in\s+Scope|Impact\s+Scope|Impacts?)\b[^\n]*\n(.*?)(?=\n##|\Z)",
+            rules_content,
+            re.DOTALL | re.IGNORECASE,
         )
 
         scope_impacts = set()
@@ -718,12 +1489,23 @@ def kill_gate_1(target_dir: str, finding: str, severity: str = "", impact: str =
 
         claimed_impact = impact.strip().lower() if impact else ""
         if claimed_impact and scope_impacts:
-            # Check if claimed impact matches any in-scope impact
-            claimed_words = set(w for w in re.split(r"\W+", claimed_impact) if len(w) >= 4)
+            # Check if claimed impact matches any in-scope impact.
+            # v13 FIX: keep short vuln abbreviations ("xss", "rce", "dos", "xxe")
+            # — the original >=4 filter dropped them so an "XSS" impact could
+            # never score against an "xss" scope_impact entry.
+            vuln_shorthands = {"xss", "rce", "dos", "xxe", "csrf", "idor", "ssrf", "sqli"}
+
+            def _impact_tokens(text: str) -> set[str]:
+                return set(
+                    w for w in re.split(r"\W+", text)
+                    if len(w) >= 4 or w in vuln_shorthands
+                )
+
+            claimed_words = _impact_tokens(claimed_impact)
             best_match_score = 0
             best_match = ""
             for si in scope_impacts:
-                si_words = set(w for w in re.split(r"\W+", si) if len(w) >= 4)
+                si_words = _impact_tokens(si)
                 if not si_words:
                     continue
                 overlap = claimed_words & si_words
@@ -774,6 +1556,366 @@ def kill_gate_1(target_dir: str, finding: str, severity: str = "", impact: str =
         idoc_warnings, idoc_kills = _info_disc_oos_check(finding, impact, rules_content)
         warnings.extend(idoc_warnings)
         hard_kills.extend(idoc_kills)
+
+    # --- Check 6: Ambiguous OOS keyword semantic (v13 — G02, G05, G13) ---
+    # Catches "site vulnerabilities", "hypothetical flaw", generalised info-disc catch-alls.
+    if rules_content:
+        excl_match6 = re.search(
+            r"##\s*(?:Out-of-Scope|Exclusion List)[^\n]*\n(.*?)(?=\n##|\Z)",
+            rules_content, re.DOTALL | re.IGNORECASE,
+        )
+        if excl_match6:
+            oos_body6 = excl_match6.group(1).lower()
+            finding_lower6 = finding.lower()
+            finding_class6 = _detect_finding_class(finding)
+
+            for pattern, oos_class in _AMBIGUOUS_OOS_PATTERNS:
+                if re.search(pattern, oos_body6, re.IGNORECASE):
+                    if oos_class == "web_app_class" and _web_app_vuln_class(finding_class6):
+                        hard_kills.append(
+                            f"[HARD_KILL] AMBIGUOUS OOS CATCH-ALL: Program OOS contains a broad "
+                            f"web-app-class exclusion (matched r'{pattern}'). Finding is classified "
+                            f"as '{finding_class6}' — directly covered by this catch-all. "
+                            f"DataDome 'site vulnerabilities' pattern. KILL."
+                        )
+                    elif oos_class == "speculative":
+                        # Check if finding description itself uses speculative language
+                        if any(spec in finding_lower6 for spec in _SPECULATIVE_FINDING_WORDS):
+                            hard_kills.append(
+                                f"[HARD_KILL] SPECULATIVE FINDING + SPECULATIVE OOS: Program OOS "
+                                f"excludes hypothetical/theoretical findings (matched r'{pattern}') "
+                                f"AND finding uses speculative language "
+                                f"(e.g. 'could', 'potential', 'might'). "
+                                f"Provide a working PoC or KILL."
+                            )
+                    elif oos_class == "info_disc_no_impact":
+                        # Duplicate with Check 3.5 but escalate to HARD_KILL here for G13 generalised form
+                        if _detect_finding_class(finding) == "info_disc":
+                            hard_kills.append(
+                                f"[HARD_KILL] INFO-DISC / GENERALISED-NO-IMPACT OOS: Program OOS "
+                                f"contains a broad info-disclosure exclusion without direct security "
+                                f"impact (matched r'{pattern}'). Finding is info-disclosure class. "
+                                f"G13 pattern (Port of Antwerp generalised form). KILL unless "
+                                f"--impact cites concrete credentials/RCE/account-takeover chain."
+                            )
+                    elif oos_class == "prohibited_activity":
+                        # Only fire when the finding itself mentions social engineering / phishing
+                        _SOCIAL_ENG_FINDING_WORDS = (
+                            "social engineering", "phishing", "spear phishing",
+                            "vishing", "pretexting", "impersonat",
+                        )
+                        if any(kw in finding_lower6 for kw in _SOCIAL_ENG_FINDING_WORDS):
+                            hard_kills.append(
+                                f"[HARD_KILL] PROHIBITED ACTIVITY: Program OOS explicitly bans this class "
+                                f"(matched r'{pattern}'). Social engineering/phishing findings are "
+                                f"categorically rejected — do NOT submit."
+                            )
+                    elif oos_class == "explicit_oos_sentence":
+                        # For patterns added in 2026-04-17 (US-W8) that directly name a
+                        # specific prohibited finding class (captcha bypass OCR, clickjacking
+                        # on static, logout/login CSRF, reflected plain text injection,
+                        # un-prompted user actions), the OOS match itself is sufficient for
+                        # HARD_KILL — no secondary keyword overlap needed.
+                        _DIRECT_KILL_PATTERNS = (
+                            r"un[\s-]?prompted\s+(?:user\s+)?actions?",
+                            r"captcha\s+bypass\s+(?:using|via|with)\s+(?:ocr|machine)",
+                            r"reflected\s+plain[\s-]?text\s+injection",
+                            r"clickjacking\s+on\s+(?:static|informational|login|logout)",
+                            r"(?:logout|login)\s+csrf",
+                        )
+                        if any(re.search(p, oos_body6, re.IGNORECASE) for p in _DIRECT_KILL_PATTERNS):
+                            hard_kills.append(
+                                f"[HARD_KILL] EXPLICIT OOS — NAMED FINDING CLASS: Program OOS "
+                                f"explicitly names this finding class as excluded "
+                                f"(matched r'{pattern}'). Categorically rejected. KILL."
+                            )
+                        # Extract the 6-8 words after the trigger phrase for semantic overlap
+                        sent_match = re.search(
+                            r"(?:do\s+not\s+accept|not\s+eligible|considered\s+out\s+of\s+scope|"
+                            r"will\s+not\s+be\s+rewarded)[^.\n]{0,80}",
+                            oos_body6, re.IGNORECASE,
+                        )
+                        if sent_match:
+                            sent_text = sent_match.group(0)
+                            sent_words = set(w for w in re.split(r"\W+", sent_text) if len(w) >= 4)
+                            finding_words6 = set(
+                                w for w in re.split(r"\W+", finding_lower6) if len(w) >= 4
+                            )
+                            overlap6 = sent_words & finding_words6
+                            if len(overlap6) >= 3:
+                                hard_kills.append(
+                                    f"[HARD_KILL] EXPLICIT OOS SENTENCE MATCH: Program OOS sentence "
+                                    f"'{sent_text.strip()}' shares {len(overlap6)} keywords with "
+                                    f"finding (overlap: {', '.join(sorted(overlap6))}). KILL."
+                                )
+                            elif len(overlap6) >= 2:
+                                warnings.append(
+                                    f"[WARN] EXPLICIT OOS SENTENCE PARTIAL MATCH: OOS sentence "
+                                    f"'{sent_text.strip()}' shares {len(overlap6)} keywords with "
+                                    f"finding (overlap: {', '.join(sorted(overlap6))}). Verify manually."
+                                )
+
+    # --- Check 7: Program intent mismatch (v13 — G03) ---
+    # Detects narrow-scope programs (anti-bot, CDN, dedicated track) and kills generic vuln findings.
+    if rules_content:
+        subm_match7 = re.search(
+            r"##\s*Submission Rules[^\n]*\n(.*?)(?=\n##|\Z)", rules_content, re.DOTALL
+        )
+        if subm_match7:
+            subm_body7 = subm_match7.group(1).lower()
+            for intent_pattern in _PROGRAM_INTENT_PATTERNS:
+                m7 = re.search(intent_pattern, subm_body7, re.IGNORECASE)
+                if m7:
+                    expected_scope_raw = m7.group(1).rstrip(".;, \n")
+                    expected_words = set(
+                        w for w in re.split(r"\W+", expected_scope_raw.lower()) if len(w) >= 4
+                    )
+                    finding_words7 = set(
+                        w for w in re.split(r"\W+", finding.lower()) if len(w) >= 4
+                    )
+                    overlap7 = expected_words & finding_words7
+                    # Finding must share at least 1 word with the expected scope to be considered aligned
+                    if not overlap7:
+                        hard_kills.append(
+                            f"[HARD_KILL] PROGRAM INTENT MISMATCH: Program submission rules declare "
+                            f"a narrow scope: '...{expected_scope_raw}...'. "
+                            f"Finding has zero keyword overlap with declared scope. "
+                            f"DataDome/anti-bot pattern (G03) — generic web vulns are OOS "
+                            f"even when asset domain matches. KILL."
+                        )
+                    break  # Only apply the first matching intent pattern
+
+    # --- Check 8: Separate Impacts in Scope list (v13 — G04) ---
+    # Extend Check 2 with Immunefi-specific section headings for impact scope.
+    if rules_content:
+        impact8 = (impact or "").strip().lower()
+        if impact8:
+            # Search for Immunefi-style impact-scope sections not caught by Check 2
+            impact_section8 = _IMPACT_SCOPE_HEADINGS.search(rules_content)
+            if impact_section8:
+                # Extract body of that section
+                section_start = impact_section8.end()
+                next_heading = re.search(r"\n##\s", rules_content[section_start:])
+                section_end = section_start + next_heading.start() if next_heading else len(rules_content)
+                impact_body8 = rules_content[section_start:section_end].lower()
+
+                # Extract individual impact bullet items
+                impact_items8 = [
+                    line.strip().lstrip("-*• ").strip()
+                    for line in impact_body8.splitlines()
+                    if line.strip() and not line.strip().startswith("#")
+                ]
+                impact_items8 = [i for i in impact_items8 if len(i) >= 5]
+
+                if impact_items8:
+                    claimed_words8 = set(w for w in re.split(r"\W+", impact8) if len(w) >= 4)
+                    best8 = 0.0
+                    best8_item = ""
+                    for item in impact_items8:
+                        item_words = set(w for w in re.split(r"\W+", item) if len(w) >= 4)
+                        if not item_words:
+                            continue
+                        overlap8 = claimed_words8 & item_words
+                        score8 = len(overlap8) / max(len(item_words), 1)
+                        if score8 > best8:
+                            best8 = score8
+                            best8_item = item
+                    if best8 < 0.3:
+                        hard_kills.append(
+                            f"[HARD_KILL] IMPACT NOT IN SCOPE LIST (extended heading check): "
+                            f"Claimed impact '{impact8}' does not match any item in the program's "
+                            f"dedicated impact scope section (section: '{impact_section8.group(0).strip()}'). "
+                            f"Closest item: '{best8_item}' (score: {best8:.0%}). "
+                            f"Immunefi impact-scope mismatch is an immediate auto-reject (Utix incident). KILL."
+                        )
+                    elif best8 < 0.6:
+                        warnings.append(
+                            f"[IMPACT WEAK MATCH v2] Claimed '{impact8}' partially matches "
+                            f"impact-scope item '{best8_item}' (score: {best8:.0%}) in extended "
+                            f"impact section '{impact_section8.group(0).strip()}'. Verify wording."
+                        )
+
+    # --- Check 9: Client-side-only N/R pattern (v13 — G08, magiclabs PKCE incident) ---
+    # Reads ## Submission Rules (not ## Exclusion List) for client-side eligibility clauses.
+    if rules_content:
+        subm_match9 = re.search(
+            r"##\s*Submission Rules[^\n]*\n(.*?)(?=\n##|\Z)", rules_content, re.DOTALL
+        )
+        if subm_match9:
+            subm_body9 = subm_match9.group(1).lower()
+            for cs_pattern in _CLIENT_SIDE_ONLY_PATTERNS:
+                if re.search(cs_pattern, subm_body9, re.IGNORECASE):
+                    # Check if finding itself describes a client-side-only scenario
+                    finding_lower9 = finding.lower()
+                    if any(sl in finding_lower9 for sl in _CLIENT_SIDE_SELF_LIMITING):
+                        hard_kills.append(
+                            f"[HARD_KILL] CLIENT-SIDE-ONLY N/R: Program submission rules exclude "
+                            f"client-side-only vulnerabilities (matched r'{cs_pattern}'). "
+                            f"Finding description contains a self-limiting client-side indicator. "
+                            f"Magic Labs PKCE bc91fc04 pattern (G08). "
+                            f"No server-side impact demonstrated → KILL."
+                        )
+                    else:
+                        warnings.append(
+                            f"[WARN] CLIENT-SIDE ELIGIBILITY CLAUSE: Program submission rules "
+                            f"contain a client-side-only exclusion (matched r'{cs_pattern}'). "
+                            f"Verify finding has server-side impact before proceeding."
+                        )
+                    break  # One client-side check per finding is sufficient
+
+    # --- Check 10: Government/public platform intentional behavior (v13 — G14, DINUM incident) ---
+    # Warns when a government/civic platform's accessibility mandate may cover the finding class.
+    if rules_content:
+        rules_lower10 = rules_content.lower()
+        is_govt = any(ind in rules_lower10 for ind in _GOVT_PLATFORM_INDICATORS)
+        has_accessibility = any(kw in rules_lower10 for kw in _GOVT_ACCESSIBILITY_KEYWORDS)
+        if is_govt or has_accessibility:
+            finding_lower10 = finding.lower()
+            if any(afp in finding_lower10 for afp in _ACCESSIBILITY_FINDING_PATTERNS):
+                warnings.append(
+                    "[WARN] GOVT/PUBLIC PLATFORM ACCESSIBILITY DESIGN: Program rules indicate a "
+                    "government or public platform with accessibility-first mandate. Finding "
+                    "describes an input/rate/validation restriction absence which may be "
+                    "intentional design for universal access (DINUM 'tous et toutes' pattern, G14). "
+                    "Verify finding has a concrete security consequence beyond the restriction gap. "
+                    "Won't Fix risk: high."
+                )
+
+    # --- Check 11: Immunefi-specific 41-category exclusion gate (US-W2+W5) ---
+    if rules_content:
+        platform11 = _detect_platform(rules_content)
+        if platform11 == "immunefi":
+            finding_lower11 = finding.lower()
+            impact_lower11 = (impact or "").lower()
+            combined11 = f"{finding_lower11} {impact_lower11}"
+            for cat_idx, (short_key, pattern, need_anchor) in enumerate(_IMMUNEFI_EXCLUSIONS, start=1):
+                if re.search(pattern, combined11, re.IGNORECASE):
+                    if need_anchor:
+                        # Check for sensitivity anchor — if present, downgrade to WARN
+                        anchor_hit11 = next(
+                            (a for a in _SENSITIVITY_ANCHORS
+                             if a in finding_lower11 or a in impact_lower11),
+                            None,
+                        )
+                        if anchor_hit11:
+                            warnings.append(
+                                f"[IMMUNEFI CAT-{cat_idx} GREY-ZONE] Finding matches Immunefi "
+                                f"common exclusion category {cat_idx} ('{short_key}', "
+                                f"r'{pattern[:60]}...'). Sensitivity anchor '{anchor_hit11}' "
+                                f"claimed — verify it is concretely demonstrated, not asserted."
+                            )
+                        else:
+                            hard_kills.append(
+                                f"[HARD_KILL] IMMUNEFI EXCLUSION CAT-{cat_idx}: Finding matches "
+                                f"Immunefi common exclusion category {cat_idx} ('{short_key}'). "
+                                f"Verbatim: \"{_IMMUNEFI_EXCLUSIONS[cat_idx - 1][1][:80]}\". "
+                                f"No sensitivity anchor found in --impact or finding. "
+                                f"Immunefi common-vulnerabilities-to-exclude list. KILL."
+                            )
+                    else:
+                        hard_kills.append(
+                            f"[HARD_KILL] IMMUNEFI EXCLUSION CAT-{cat_idx}: Finding matches "
+                            f"Immunefi common exclusion category {cat_idx} ('{short_key}'). "
+                            f"Verbatim: \"{_IMMUNEFI_EXCLUSIONS[cat_idx - 1][1][:80]}\". "
+                            f"This class is explicitly excluded by Immunefi regardless of severity. KILL."
+                        )
+
+    # --- Check 12: Bugcrowd VRT-P5 severity downgrade gate (v13.2 — W3) ---
+    if rules_content:
+        platform12 = _detect_platform(rules_content)
+        if platform12 == "bugcrowd":
+            finding_lower12 = finding.lower()
+            impact_lower12 = (impact or "").lower()
+            combined12 = f"{finding_lower12} {impact_lower12}"
+            for short_key12, pattern12, desc12 in _BUGCROWD_P5_PATTERNS:
+                if re.search(pattern12, combined12, re.IGNORECASE):
+                    sev = severity  # already normalised to lower earlier
+                    if sev in ("", "low"):
+                        warnings.append(
+                            f"[BUGCROWD P5 INFO] Finding matches P5/varies category "
+                            f"'{desc12}' (key={short_key12}). Appropriate severity is 'low' or informational. "
+                            f"Bugcrowd VRT: https://bugcrowd.com/vulnerability-rating-taxonomy"
+                        )
+                    else:
+                        hard_kills.append(
+                            f"[HARD_KILL] BUGCROWD P5 SEVERITY MISMATCH: Finding matches "
+                            f"Bugcrowd P5 category '{desc12}' (key={short_key12}) — claimed severity "
+                            f"'{sev}' exceeds maximum severity for this category. "
+                            f"Downgrade to 'low' or KILL. "
+                            f"Bugcrowd VRT: https://bugcrowd.com/vulnerability-rating-taxonomy"
+                        )
+
+    # --- Check 13: HackerOne Informative/NA prevention (v13.2 — W4) ---
+    if rules_content:
+        platform_h1 = _detect_platform(rules_content)
+        if platform_h1 == "hackerone":
+            scope_domains = _scope_domains_from_rules(rules_content)
+            if scope_domains:
+                is_ood, detected = _finding_mentions_ood_subdomain(finding, impact, scope_domains)
+                if is_ood:
+                    hard_kills.append(
+                        f"[HARD_KILL] HACKERONE SUBDOMAIN DRIFT: Finding mentions host '{detected}' "
+                        f"which is NOT covered by in-scope {scope_domains[:5]}. "
+                        f"HackerOne #1 cause of 'Not Applicable' (reputation -5)."
+                    )
+            combined = (finding + " " + (impact or "")).lower()
+            for key, pat, desc in _H1_NA_TRIGGERS:
+                if re.search(pat, combined, re.IGNORECASE):
+                    warnings.append(f"[HACKERONE NA/INFORMATIVE RISK] {key}: {desc}")
+
+    # --- Check 14: AI-slop report pattern (v13.2 — W6) ---
+    combined_slop = (finding + " " + (impact or "")).lower()
+    slop_hits = [m for m in _AI_SLOP_MARKERS if m in combined_slop]
+    emoji_count = len(re.findall(_AI_SLOP_EMOJI_RE, finding + (impact or "")))
+    slop_score = len(slop_hits) + (emoji_count // 2)
+    if slop_score >= 3:
+        warnings.append(
+            f"[AI-SLOP RISK score={slop_score}] Finding/impact uses AI-template language: "
+            f"{slop_hits[:5]}"
+            + (f" + {emoji_count} emojis" if emoji_count else "")
+            + ". Rhino.fi / similar platforms reject AI-spam. Rewrite naturally."
+        )
+
+    # --- Check 15: Scope drift detection (v13.2 — W7) ---
+    # HackerOne #1 informative 원인: scope가 main URL만이고 wildcard 없는데
+    # finding이 서브도메인/서브패스 명시
+    if rules_content:
+        scope_domains15 = _scope_domains_from_rules(rules_content)
+        if scope_domains15 and not _parse_scope_has_wildcard(scope_domains15):
+            # only main URLs in scope, no wildcards — strict scope
+            combined15 = finding + " " + (impact or "")
+            # detect mentioned hostnames in finding
+            host_pattern = re.compile(
+                r"\b([a-zA-Z0-9][a-zA-Z0-9-]*\.[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)+)\b"
+            )
+            for m in host_pattern.finditer(combined15):
+                candidate = m.group(1).lower()
+                if re.match(r"^\d+\.\d+\.\d+\.\d+$", candidate):
+                    continue  # IP, skip
+                # check if candidate is an exact in-scope entry
+                exact_match = False
+                for d in scope_domains15:
+                    dl = d.lower().replace("https://", "").replace("http://", "").rstrip("/")
+                    if candidate == dl:
+                        exact_match = True
+                        break
+                if not exact_match:
+                    # is it a subdomain of a scope entry? If program has only
+                    # main URL without wildcard, subdomain drift = informative risk
+                    parent_hit = False
+                    for d in scope_domains15:
+                        dl = d.lower().replace("https://", "").replace("http://", "").rstrip("/")
+                        if candidate.endswith("." + dl) and candidate != dl:
+                            parent_hit = True
+                            break
+                    if parent_hit:
+                        warnings.append(
+                            f"[SCOPE DRIFT] Finding mentions '{candidate}' which is a subdomain "
+                            f"of an in-scope asset, but program scope lists only main URLs "
+                            f"without wildcards ({scope_domains15[:3]}). "
+                            f"HackerOne #1 'Informative' cause. Verify scope wildcard wording."
+                        )
+                        break  # one warning sufficient
 
     # --- Check 4: Asset scope constraints (branch/tag) ---
     if rules_content:
@@ -838,6 +1980,192 @@ def kill_gate_1(target_dir: str, finding: str, severity: str = "", impact: str =
     return 0
 
 
+def poc_pattern_check(submission_dir: str) -> tuple:
+    """Static-analyse PoC .py files for Paradex-style anti-patterns.
+
+    Detects three classes of defects that caused Paradex #72418 / #72759 autoban:
+    1. try/except wrapping attack logic with hardcoded fallback values
+    2. bare except (or except Exception) swallowing on-chain call failures
+    3. assert statements that only compare Python literals (arithmetic simulation,
+       no live on-chain read involved)
+
+    Infrastructure files (name starts with devnet_, setup_, infra_) are skipped
+    because they legitimately use try/except for process management.
+
+    Returns: (warnings: list[str], hard_kills: list[str])
+    """
+    INFRA_PREFIXES = ("devnet_", "setup_", "infra_")
+    ONCHAIN_ATTRS = ("starknet_call", "eth_call", "w3.", "rpc.", "contract.",
+                     "web3.", "cast ", "forge ", "provider.", "client.")
+
+    warnings: list = []
+    hard_kills: list = []
+
+    sdir = Path(submission_dir)
+    py_files = list(sdir.glob("**/*.py"))
+
+    for fpath in py_files:
+        # Skip infrastructure files
+        if fpath.name.startswith(INFRA_PREFIXES):
+            continue
+
+        try:
+            source = fpath.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+
+        try:
+            tree = ast.parse(source, filename=str(fpath))
+        except SyntaxError:
+            # Unparseable file — skip AST checks, text-based checks already done
+            continue
+
+        rel = str(fpath.relative_to(sdir)) if fpath.is_relative_to(sdir) else str(fpath)
+
+        for node in ast.walk(tree):
+            # ---- Check 1 & 2: Try/Except patterns ----
+            if isinstance(node, ast.Try):
+                body_source = ast.unparse(node.body) if hasattr(ast, "unparse") else ""
+                has_onchain = any(kw in body_source for kw in ONCHAIN_ATTRS)
+                has_call = any(isinstance(n, ast.Call) for n in ast.walk(
+                    ast.Module(body=node.body, type_ignores=[])))
+
+                for handler in node.handlers:
+                    handler_source = ast.unparse(handler) if hasattr(ast, "unparse") else ""
+
+                    # Detect bare except / except Exception
+                    is_broad = (
+                        handler.type is None
+                        or (isinstance(handler.type, ast.Name)
+                            and handler.type.id == "Exception")
+                        or (isinstance(handler.type, ast.Attribute)
+                            and getattr(handler.type, "attr", "") == "Exception")
+                    )
+
+                    # Detect hardcoded fallback: assignment of a literal in handler body
+                    has_literal_fallback = False
+                    for stmt in handler.body:
+                        if isinstance(stmt, ast.Assign):
+                            for val in ast.walk(stmt.value):
+                                if isinstance(val, (ast.Constant, ast.Tuple, ast.List)):
+                                    has_literal_fallback = True
+                                    break
+                        elif isinstance(stmt, (ast.Return,)):
+                            for val in ast.walk(stmt):
+                                if isinstance(val, (ast.Constant, ast.Tuple, ast.List)):
+                                    has_literal_fallback = True
+                                    break
+
+                    # Detect silent swallow: print + exit(0)
+                    has_print_exit = (
+                        "print(" in handler_source and "exit(0)" in handler_source
+                    )
+
+                    # HARD_KILL: on-chain call in try + broad except swallowing failure
+                    if has_onchain and is_broad:
+                        hard_kills.append(
+                            f"[POC PATTERN] {rel}: broad except swallows on-chain call failure "
+                            f"(try body contains on-chain interaction + bare/Exception handler). "
+                            f"Paradex #72418 root cause: failures silenced → PoC appeared to succeed."
+                        )
+
+                    # HARD_KILL: attack logic in try + literal fallback in except
+                    if has_call and has_literal_fallback:
+                        hard_kills.append(
+                            f"[POC PATTERN] {rel}: except handler assigns hardcoded literal "
+                            f"fallback when attack call fails. "
+                            f"This masks PoC failure and inflates claimed impact."
+                        )
+
+                    # HARD_KILL: silent swallow
+                    if has_print_exit:
+                        hard_kills.append(
+                            f"[POC PATTERN] {rel}: except handler prints error then calls exit(0) "
+                            f"— failure is silenced. PoC must exit non-zero on attack failure."
+                        )
+
+            # ---- Check 2b: contextlib.suppress swallowing attack logic ----
+            # NH1 follow-up: `with contextlib.suppress(Exception): <on-chain call>`
+            # is equivalent to a bare except and must be caught the same way.
+            if isinstance(node, ast.With):
+                with_source = ast.unparse(node) if hasattr(ast, "unparse") else ""
+                body_source = ast.unparse(node.body) if hasattr(ast, "unparse") else ""
+                has_onchain_w = any(kw in body_source for kw in ONCHAIN_ATTRS)
+                has_call_w = any(
+                    isinstance(n, ast.Call)
+                    for n in ast.walk(ast.Module(body=list(node.body), type_ignores=[]))
+                )
+
+                def _is_broad_suppress(call: ast.Call) -> bool:
+                    # Match suppress(...) or contextlib.suppress(...).
+                    func = call.func
+                    name = None
+                    if isinstance(func, ast.Name):
+                        name = func.id
+                    elif isinstance(func, ast.Attribute):
+                        name = func.attr
+                    if name != "suppress":
+                        return False
+                    if not call.args:
+                        return False
+                    for arg in call.args:
+                        arg_name = None
+                        if isinstance(arg, ast.Name):
+                            arg_name = arg.id
+                        elif isinstance(arg, ast.Attribute):
+                            arg_name = arg.attr
+                        if arg_name in ("Exception", "BaseException"):
+                            return True
+                    return False
+
+                for item in node.items:
+                    cm = item.context_expr
+                    if isinstance(cm, ast.Call) and _is_broad_suppress(cm):
+                        if has_onchain_w or has_call_w:
+                            hard_kills.append(
+                                f"[POC PATTERN] {rel}: contextlib.suppress(Exception) swallows "
+                                f"attack call (or on-chain interaction). "
+                                f"Equivalent to bare except — use explicit failure handling."
+                            )
+                        break
+
+            # ---- Check 3: Arithmetic-only assert ----
+            if isinstance(node, ast.Assert):
+                test = node.test
+
+                def _is_pure_arithmetic(n: ast.expr) -> bool:
+                    """True if expression is built entirely from literals + BinOp/UnaryOp."""
+                    if isinstance(n, ast.Constant):
+                        return True
+                    if isinstance(n, (ast.BinOp, ast.UnaryOp)):
+                        return all(_is_pure_arithmetic(c) for c in ast.walk(n)
+                                   if c is not n and isinstance(c, ast.expr))
+                    return False
+
+                def _has_live_call(n: ast.expr) -> bool:
+                    """True if expression contains any function call."""
+                    return any(isinstance(c, ast.Call) for c in ast.walk(n))
+
+                # assert <expr> == <expr> — check both sides
+                if isinstance(test, ast.Compare):
+                    lhs = test.left
+                    rhs_list = test.comparators
+                    all_rhs_arith = all(_is_pure_arithmetic(r) for r in rhs_list)
+                    lhs_arith = _is_pure_arithmetic(lhs)
+                    lhs_has_call = _has_live_call(lhs)
+                    rhs_has_call = any(_has_live_call(r) for r in rhs_list)
+
+                    if all_rhs_arith and lhs_arith and not lhs_has_call and not rhs_has_call:
+                        warnings.append(
+                            f"[ARITHMETIC ASSERT] {rel} line {node.lineno}: "
+                            f"`{ast.unparse(node.test) if hasattr(ast, 'unparse') else 'assert ...'}` "
+                            f"compares only Python literals — no on-chain read involved. "
+                            f"Replace with assertion on live contract/RPC state."
+                        )
+
+    return warnings, hard_kills
+
+
 def kill_gate_2(submission_dir: str) -> int:
     """Pre-validate PoC/evidence quality before Kill Gate 2.
 
@@ -856,6 +2184,12 @@ def kill_gate_2(submission_dir: str) -> int:
     if not sdir.exists():
         print(f"FAIL: submission directory not found: {submission_dir}")
         return 1
+
+    # --- Check -2: PoC static pattern analysis (v12.6 — Paradex #72418/#72759) ---
+    print("[Gate 2 Pre-check] Running poc_pattern_check (static AST analysis)...")
+    poc_warns, poc_kills = poc_pattern_check(submission_dir)
+    warnings.extend(poc_warns)
+    failures.extend(poc_kills)
 
     # --- Check -1: Strengthening Report (v12.3 — LiteLLM cross-user exfil lesson) ---
     # MUST run before any other Gate 2 check. strengthening_report.md is required.

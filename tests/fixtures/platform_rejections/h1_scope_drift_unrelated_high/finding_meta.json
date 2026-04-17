@@ -1,0 +1,7 @@
+{
+  "finding": "SQL injection on completely-unrelated-domain.xyz allows full database read",
+  "severity": "high",
+  "impact": "Full database read via SQL injection leading to authentication bypass on completely-unrelated-domain.xyz",
+  "expected": "PASS",
+  "check": "13_no_kill_unrelated"
+}

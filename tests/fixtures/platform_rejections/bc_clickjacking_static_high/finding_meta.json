@@ -1,0 +1,7 @@
+{
+  "finding": "Clickjacking on static informational public page missing X-Frame-Options",
+  "severity": "high",
+  "impact": "Attacker could embed the static page in an iframe to trick users",
+  "expected": "HARD_KILL",
+  "check": "12"
+}

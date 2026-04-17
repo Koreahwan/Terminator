@@ -1,0 +1,7 @@
+{
+  "finding": "Subdomain takeover on old.target.com could potentially allow phishing without working demonstrated PoC",
+  "severity": "low",
+  "impact": "Potential subdomain takeover that might enable attacker-controlled page — no exploitable proof of concept",
+  "expected": "HARD_KILL",
+  "check": "3_or_6"
+}

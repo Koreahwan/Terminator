@@ -5,12 +5,19 @@ on HackerOne / Bugcrowd / Immunefi can throttle us cleanly instead of blocking.
 
 Retries on 429/5xx with exponential backoff.
 Surfaces 4xx as TransportError so handlers can decide whether to fall back.
+
+FlareSolverr fallback (2026-04-17, v13.3):
+Cloudflare-protected platforms (YesWeHack docs, Intigriti kb) return 403 to
+plain urllib even with a browser UA. If FLARESOLVERR_URL env var is set (or
+the default http://localhost:8191/v1 is reachable), http_get auto-falls back
+to FlareSolverr on 403/503. Set FLARESOLVERR_DISABLE=1 to skip.
 """
 
 from __future__ import annotations
 
 import gzip
 import json
+import os
 import time
 import urllib.error
 import urllib.request
@@ -24,6 +31,11 @@ DEFAULT_UA = (
 DEFAULT_TIMEOUT = 20.0  # seconds
 DEFAULT_RETRIES = 3
 DEFAULT_BACKOFF = 1.5
+
+_FLARE_URL = os.environ.get("FLARESOLVERR_URL", "http://localhost:8191/v1")
+_FLARE_TIMEOUT_MS = int(os.environ.get("FLARESOLVERR_TIMEOUT_MS", "60000"))
+_FLARE_DISABLED = os.environ.get("FLARESOLVERR_DISABLE", "") == "1"
+_FLARE_CHECKED: Optional[bool] = None  # cached availability probe
 
 
 class TransportError(Exception):
@@ -90,6 +102,12 @@ def http_get(
                 last_error = f"HTTP {status}: retrying"
                 _sleep_backoff(attempt, backoff)
                 continue
+            # 403 Cloudflare-style: try FlareSolverr once before hard-failing.
+            if status == 403 and _flaresolverr_available():
+                try:
+                    return http_get_via_flaresolverr(url)
+                except TransportError:
+                    pass  # fall through to hard fail
             # 4xx non-429: hard fail, let caller decide to fall back.
             raise TransportError(url, status, body[:500] or str(e)) from e
         except urllib.error.URLError as e:
@@ -172,6 +190,59 @@ def http_post_json(
         last_status,
         last_error or "all retries exhausted",
     )
+
+
+def _flaresolverr_available() -> bool:
+    """Probe the FlareSolverr endpoint once and cache the result."""
+    global _FLARE_CHECKED
+    if _FLARE_DISABLED:
+        return False
+    if _FLARE_CHECKED is not None:
+        return _FLARE_CHECKED
+    try:
+        probe = _FLARE_URL.replace("/v1", "/")
+        req = urllib.request.Request(probe, method="GET")
+        with urllib.request.urlopen(req, timeout=3.0) as resp:
+            _FLARE_CHECKED = 200 <= resp.status < 300
+    except Exception:
+        _FLARE_CHECKED = False
+    return _FLARE_CHECKED
+
+
+def http_get_via_flaresolverr(
+    url: str, *, timeout_ms: int = _FLARE_TIMEOUT_MS,
+) -> tuple[int, str, dict[str, str]]:
+    """Fetch url through FlareSolverr (Cloudflare challenge solver).
+
+    Returns (status, body, response_headers). Raises TransportError on
+    FlareSolverr failure. Caller decides whether to swallow or propagate.
+    """
+    payload = {"cmd": "request.get", "url": url, "maxTimeout": timeout_ms}
+    body_bytes = json.dumps(payload).encode("utf-8")
+    req = urllib.request.Request(
+        _FLARE_URL,
+        data=body_bytes,
+        headers={"Content-Type": "application/json", "User-Agent": DEFAULT_UA},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=(timeout_ms / 1000.0) + 5.0) as resp:
+            raw = resp.read()
+            if resp.headers.get("Content-Encoding", "").lower() == "gzip":
+                raw = gzip.decompress(raw)
+            data = json.loads(raw.decode("utf-8", errors="replace"))
+    except Exception as e:
+        raise TransportError(url, 0, f"FlareSolverr request failed: {e}") from e
+
+    if data.get("status") != "ok":
+        raise TransportError(
+            url, 0, f"FlareSolverr: {data.get('message', 'unknown error')}"
+        )
+    sol = data.get("solution", {})
+    status = int(sol.get("status", 0))
+    body = sol.get("response", "") or ""
+    headers = {k.lower(): v for k, v in (sol.get("headers") or {}).items()}
+    return status, body, headers
 
 
 def _sleep_backoff(attempt: int, base: float) -> None:

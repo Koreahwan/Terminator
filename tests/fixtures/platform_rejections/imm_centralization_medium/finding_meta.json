@@ -1,0 +1,7 @@
+{
+  "finding": "Centralization risk via over-centralization of admin key control in protocol",
+  "severity": "medium",
+  "impact": "Centralization concern via single admin key controlling all protocol funds",
+  "expected": "HARD_KILL",
+  "check": "11_cat13"
+}

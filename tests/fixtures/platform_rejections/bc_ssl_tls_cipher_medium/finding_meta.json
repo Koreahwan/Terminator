@@ -1,0 +1,7 @@
+{
+  "finding": "SSL/TLS cipher suite weak configuration on main domain allows downgrade",
+  "severity": "medium",
+  "impact": "Downgrade to weaker cipher possible on MITM network position",
+  "expected": "HARD_KILL",
+  "check": "12"
+}

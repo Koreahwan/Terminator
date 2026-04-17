@@ -136,15 +136,17 @@ def _populate_from_api(pd: ProgramData, data: dict) -> None:
                     pd.scope_out.append(txt)
 
     # Non-qualifying vulnerabilities are also effective OOS classes.
+    # Prefix each with "(non-qualifying) " so downstream tools can distinguish
+    # them from the hard out_of_scope list.
     non_qual = data.get("non_qualifying_vulnerability") or []
     if isinstance(non_qual, list):
         for item in non_qual:
             if isinstance(item, str) and item.strip():
-                pd.scope_out.append(item.strip())
+                pd.scope_out.append(f"(non-qualifying) {item.strip()}")
             elif isinstance(item, dict):
                 txt = item.get("description") or item.get("title") or ""
                 if txt:
-                    pd.scope_out.append(txt)
+                    pd.scope_out.append(f"(non-qualifying) {txt}")
 
     # --- Known issues / disclosure rules
     pd.known_issues = []

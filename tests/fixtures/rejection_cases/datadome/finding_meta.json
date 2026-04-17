@@ -1,0 +1,5 @@
+{
+  "finding": "Reflected XSS in DataDome dashboard search parameter allows session hijacking",
+  "severity": "high",
+  "impact": "attacker can steal session cookies via reflected XSS in dashboard"
+}

@@ -1,0 +1,7 @@
+{
+  "finding": "SQL injection on dev.target.com admin panel allows full database read",
+  "severity": "high",
+  "impact": "Full database read on dev.target.com via SQL injection",
+  "expected": "HARD_KILL",
+  "check": "13"
+}

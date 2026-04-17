@@ -1,0 +1,7 @@
+{
+  "finding": "Nuclei scanner output report showing potential vulnerability on app.target.com",
+  "severity": "low",
+  "impact": "Automated scanner finding without manual verification of data exposure",
+  "expected": "WARN",
+  "check": "13_scanner"
+}

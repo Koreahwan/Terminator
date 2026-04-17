@@ -252,8 +252,24 @@ def _populate_from_html(pd: ProgramData, html: str) -> None:
             )
         )
 
-    # --- OOS + rules: synthesize from huntr global terms.
+    # --- OOS + rules: synthesize from huntr global terms, then merge any
+    # per-repo OOS sections found in the raw markdown.
     pd.scope_out = list(HUNTR_DEFAULT_OOS)
+    md_oos = _extract_oos_from_markdown(pd.raw_markdown)
+    for item in md_oos:
+        if item not in pd.scope_out:
+            pd.scope_out.append(item)
+
+    # G-W5 (2026-04-17): fetch per-repo SECURITY.md via gh CLI and merge its
+    # OOS-class sections. LlamaIndex-style maintainer-defined exclusions
+    # ("path traversal not a vulnerability") go here.
+    if repo_url:
+        sec_md = _fetch_security_md_oos(repo_url)
+        if sec_md:
+            for item in _extract_oos_from_markdown(sec_md):
+                tagged = f"(security.md) {item}"
+                if tagged not in pd.scope_out:
+                    pd.scope_out.append(tagged)
     if not pd.submission_rules:
         pd.submission_rules = HUNTR_DEFAULT_RULES
     else:
@@ -264,6 +280,53 @@ def _populate_from_html(pd: ProgramData, html: str) -> None:
         pd.warnings.append(
             "bounty_range: $0 / CVE-only — verify live page before submitting"
         )
+
+
+_OOS_SECTION_HEADERS = re.compile(
+    r"^#{1,3}\s*(?:Out[\s-]of[\s-]Scope|Exclusions?|Not\s+Eligible|Prohibited|"
+    r"Non[\s-]?Qualifying|Out[\s-]of[\s-]Scope\s+Targets?|"
+    r"Out[\s-]of[\s-]Scope\s+Vulnerability\s+Classes?|"
+    r"Out[\s-]of[\s-]Scope\s+Vulnerabilit(?:y|ies))"
+    r"[^\n]*$",
+    re.IGNORECASE,
+)
+
+
+def _extract_oos_from_markdown(raw_md: str) -> list[str]:
+    """Extract OOS items from a markdown string with known OOS section headers.
+
+    Scans for any of: ## Out of Scope, ### Exclusions, ## Not Eligible,
+    ## Prohibited, ## Non-Qualifying. Collects everything until the next ##
+    header or end of string, extracting both bullet items and prose paragraphs.
+    """
+    out: list[str] = []
+    lines = (raw_md or "").splitlines()
+    in_oos_section = False
+    for line in lines:
+        stripped = line.strip()
+        if not stripped:
+            continue
+        # Check for any heading
+        if stripped.startswith("#"):
+            if _OOS_SECTION_HEADERS.match(stripped):
+                in_oos_section = True
+            else:
+                # Any other heading ends the OOS section
+                in_oos_section = False
+            continue
+        if not in_oos_section:
+            continue
+        # Extract bullet item
+        m = re.match(r"^(?:[-+•]|\*|\d+[.)])\s+(.+)$", stripped)
+        if m:
+            item = m.group(1).strip()
+            if item and item not in out:
+                out.append(item)
+        else:
+            # Prose paragraph line
+            if stripped and stripped not in out:
+                out.append(stripped)
+    return out
 
 
 def _unescape_js(s: str) -> str:
@@ -296,3 +359,38 @@ def _score_confidence(pd: ProgramData) -> None:
         pd.confidence = 0.5
     else:
         pd.confidence = 0.2
+
+
+def _fetch_security_md_oos(repo_url: str) -> str:
+    """Fetch SECURITY.md from the repo's GitHub (via gh CLI) and return its
+    markdown body. Empty string on any failure.
+
+    G-W5 (2026-04-17) — LlamaIndex case: maintainers list
+    "path traversal is not a vulnerability" in SECURITY.md; huntr handler
+    previously missed these per-repo OOS declarations. Uses gh CLI when
+    available so auth + rate limits follow the user's existing config.
+    """
+    m = re.match(r"https?://github\.com/([^/]+)/([^/?#]+)", repo_url)
+    if not m:
+        return ""
+    owner, repo = m.group(1), m.group(2).rstrip(".git")
+    import shutil
+    import subprocess
+
+    gh = shutil.which("gh")
+    if not gh:
+        return ""
+    # Candidate paths — GitHub community defaults + common variants
+    for path in ("SECURITY.md", ".github/SECURITY.md", "docs/SECURITY.md",
+                 "security.md", "Security.md"):
+        try:
+            proc = subprocess.run(
+                [gh, "api", f"repos/{owner}/{repo}/contents/{path}",
+                 "-H", "Accept: application/vnd.github.raw"],
+                capture_output=True, text=True, timeout=10,
+            )
+            if proc.returncode == 0 and proc.stdout.strip():
+                return proc.stdout
+        except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+            continue
+    return ""

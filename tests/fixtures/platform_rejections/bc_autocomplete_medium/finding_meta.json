@@ -1,0 +1,7 @@
+{
+  "finding": "Autocomplete enabled on the login form allowing credential exposure",
+  "severity": "medium",
+  "impact": "Browser stores credentials in autofill cache exposing login data",
+  "expected": "HARD_KILL",
+  "check": "12"
+}

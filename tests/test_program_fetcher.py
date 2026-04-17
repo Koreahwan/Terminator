@@ -148,6 +148,10 @@ class TestYesWeHack(unittest.TestCase):
         self.assertEqual(pd.bounty_range["currency"], "EUR")
         # Authoritative API + full data (scope + oos + rewards + rules) → 0.95.
         self.assertEqual(pd.confidence, 0.95)
+        # Non-qualifying items must carry the "(non-qualifying) " prefix.
+        nq_items = [x for x in pd.scope_out if x.startswith("(non-qualifying) ")]
+        self.assertGreaterEqual(len(nq_items), 1,
+                                "expected at least one (non-qualifying) prefixed item")
 
 
 class TestIntigriti(unittest.TestCase):
@@ -491,6 +495,114 @@ class TestBBPreflightFetchProgram(unittest.TestCase):
         self.assertEqual(ret, 1)
         # No program_data.json on FAIL.
         self.assertFalse((self.tmp / "program_data.json").exists())
+
+
+# ---------------------------------------------------------------------------
+# US-004: Handler upgrade tests
+# ---------------------------------------------------------------------------
+
+
+class TestYwhMergesNonQualifying(unittest.TestCase):
+    """YWH non_qualifying_vulnerability items appear in scope_out with prefix."""
+
+    def test_ywh_merges_non_qualifying_into_scope_out(self) -> None:
+        data = {
+            "title": "Test Corp",
+            "scopes": [
+                {"scope": "https://app.test.com", "scope_type": "web-application",
+                 "scope_type_name": "Web application", "asset_value": "HIGH"},
+            ],
+            "out_of_scope": ["Phishing attacks"],
+            "non_qualifying_vulnerability": [
+                "Self-XSS without impact",
+                "CSRF on logout",
+            ],
+            "rules": "Report via platform. Provide reproducible PoC. Do not exfiltrate data.",
+            "bounty_reward_min": 100,
+            "bounty_reward_max": 1000,
+            "reward_grid_default": {"bounty_low": 100, "bounty_medium": 500,
+                                    "bounty_high": 1000, "bounty_critical": None},
+        }
+        pd = yeswehack.parse_json(data, "https://yeswehack.com/programs/test-corp")
+        # Both non-qualifying items must be present with prefix.
+        self.assertIn("(non-qualifying) Self-XSS without impact", pd.scope_out)
+        self.assertIn("(non-qualifying) CSRF on logout", pd.scope_out)
+        # Hard OOS item must also be present without prefix.
+        self.assertIn("Phishing attacks", pd.scope_out)
+        # Total: 1 hard OOS + 2 non-qualifying.
+        self.assertEqual(len(pd.scope_out), 3)
+
+
+class TestIntigritiParsesProse(unittest.TestCase):
+    """Intigriti outOfScopes prose paragraphs with OOS keywords land in scope_out."""
+
+    def test_intigriti_parses_prose_oos(self) -> None:
+        data = {
+            "handle": "demo",
+            "companyHandle": "demo",
+            "name": "Demo Program",
+            "inScopes": [
+                {"content": {"content": "* https://app.demo.com", "attachments": []},
+                 "createdAt": 1700000000},
+            ],
+            "outOfScopes": [
+                {
+                    "content": {
+                        "content": (
+                            "- CSRF on logout\n"
+                            "Please refrain from testing the admin panel.\n"
+                            "Vulnerabilities in third-party libraries will not be accepted."
+                        ),
+                        "attachments": [],
+                    },
+                    "createdAt": 1700000000,
+                }
+            ],
+            "rulesOfEngagements": [],
+            "severityAssessments": [],
+            "assetsCollection": [],
+            "bountyTables": [],
+            "cvssVersion": "3.1",
+        }
+        pd = intigriti.parse_api(data, "https://app.intigriti.com/programs/demo/demo")
+        # Bullet item extracted normally (no prefix).
+        self.assertIn("CSRF on logout", pd.scope_out)
+        # Prose sentences with OOS keywords extracted with "(prose) " prefix.
+        prose_items = [x for x in pd.scope_out if x.startswith("(prose) ")]
+        self.assertGreaterEqual(len(prose_items), 2,
+                                f"expected 2+ prose items, got: {pd.scope_out}")
+        self.assertIn(
+            "(prose) Please refrain from testing the admin panel.", pd.scope_out
+        )
+        self.assertIn(
+            "(prose) Vulnerabilities in third-party libraries will not be accepted.",
+            pd.scope_out,
+        )
+
+
+class TestHuntrExtractsOosFromMarkdown(unittest.TestCase):
+    """huntr raw markdown with an OOS section header populates scope_out."""
+
+    def test_huntr_extracts_oos_from_markdown(self) -> None:
+        # Simulate a huntr page whose visible text contains an OOS markdown section.
+        # We call the helper directly since parse_html requires a full HTML fixture.
+        from tools.program_fetcher.huntr import _extract_oos_from_markdown
+
+        raw_md = (
+            "Some intro text about the repository.\n\n"
+            "## Out of Scope\n\n"
+            "Distributed attacks are not eligible\n"
+            "- Automated scanner output without manual verification\n"
+            "Social engineering against maintainers\n\n"
+            "## Rules\n\n"
+            "Report via huntr.com platform.\n"
+        )
+        items = _extract_oos_from_markdown(raw_md)
+        self.assertIn("Distributed attacks are not eligible", items)
+        self.assertIn("Automated scanner output without manual verification", items)
+        self.assertIn("Social engineering against maintainers", items)
+        # Items from the ## Rules section must NOT be included.
+        self.assertNotIn("Report via huntr.com platform.", items)
 
 
 if __name__ == "__main__":

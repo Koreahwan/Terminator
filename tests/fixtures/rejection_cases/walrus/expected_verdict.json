@@ -1,0 +1,5 @@
+{
+  "verdict": "HARD_KILL",
+  "expected_check": "1",
+  "reason": "Severity 'high' submitted to a 'Critical only' program. Program Severity Scope section says 'Critical only'. kill_gate_1 Check 1 (HARD severity scope check) fires HARD_KILL. Walrus incident — two scope violations (severity OOS + branch/tag OOS) found only at Phase 5.5."
+}

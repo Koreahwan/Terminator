@@ -1,0 +1,7 @@
+{
+  "finding": "Logout CSRF on the account logout endpoint forces session invalidation",
+  "severity": "medium",
+  "impact": "Logout CSRF that does not cause meaningful state modification beyond forced logout",
+  "expected": "HARD_KILL",
+  "check": "3"
+}

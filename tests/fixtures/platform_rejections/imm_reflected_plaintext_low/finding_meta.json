@@ -1,0 +1,7 @@
+{
+  "finding": "Reflected plain text injection in error response page parameter",
+  "severity": "low",
+  "impact": "Reflected plaintext injection in error page via URL parameter",
+  "expected": "HARD_KILL",
+  "check": "11_cat17"
+}

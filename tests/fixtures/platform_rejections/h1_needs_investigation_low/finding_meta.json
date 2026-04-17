@@ -1,0 +1,7 @@
+{
+  "finding": "Potential misconfiguration on app.target.com that needs more investigation",
+  "severity": "low",
+  "impact": "Possible data exposure but requires further testing to confirm impact",
+  "expected": "WARN",
+  "check": "13_needs_invest"
+}

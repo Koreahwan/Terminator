@@ -1,0 +1,7 @@
+{
+  "finding": "Browser save password feature stores credentials in local browser storage",
+  "severity": "low",
+  "impact": "Browser saves password for the user login form",
+  "expected": "WARN",
+  "check": "12"
+}

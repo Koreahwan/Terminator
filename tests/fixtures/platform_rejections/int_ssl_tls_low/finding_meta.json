@@ -1,0 +1,7 @@
+{
+  "finding": "SSL/TLS cipher suite weak configuration on target.com web server",
+  "severity": "low",
+  "impact": "Weak TLS cipher suite best practice recommendation for the main domain",
+  "expected": "WARN",
+  "check": "3"
+}

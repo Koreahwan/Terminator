@@ -1,0 +1,7 @@
+{
+  "finding": "Software version exposed via banner grab on main web server response headers",
+  "severity": "medium",
+  "impact": "Server version disclosure via banner grab allows targeted attack planning",
+  "expected": "HARD_KILL",
+  "check": "12"
+}

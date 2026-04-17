@@ -1,0 +1,5 @@
+{
+  "verdict": "HARD_KILL",
+  "expected_check": "3",
+  "reason": "Finding is on onboarding.okto.tech which is explicitly listed in Out-of-Scope: 'onboarding.okto.tech (not in scope)'. Exclusion keyword match fires. Okto CAND-08 incident — paraphrased scope during Phase 0.2 caused out-of-scope asset to appear in-scope."
+}

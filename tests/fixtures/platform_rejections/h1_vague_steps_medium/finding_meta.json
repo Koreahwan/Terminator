@@ -1,0 +1,7 @@
+{
+  "finding": "Authentication bypass on app.target.com via vague unclear reproduction steps",
+  "severity": "medium",
+  "impact": "Authentication bypass leading to account takeover via unclear steps",
+  "expected": "WARN",
+  "check": "13_vague_steps"
+}

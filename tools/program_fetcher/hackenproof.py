@@ -257,6 +257,13 @@ def _populate_from_html(pd: ProgramData, html: str) -> None:
         if ident and len(ident) > 2:
             pd.scope_out.append(f"{ident} ({cat}, {sev}, {rew})")
 
+    # Merge any OOS items found in Nuxt string entries that contain raw
+    # markdown with recognisable OOS section headers.
+    for nuxt_str in nuxt_strings:
+        for item in _extract_oos_from_markdown(nuxt_str):
+            if item not in pd.scope_out:
+                pd.scope_out.append(item)
+
     # --- Parse rewards section
     if rewards_text:
         # Bounty range line: "Range of bounty $500 - $1,500"
@@ -319,6 +326,45 @@ def _populate_from_html(pd: ProgramData, html: str) -> None:
         if m:
             if pd.bounty_range:
                 pd.bounty_range["total_paid"] = f"${m.group(1)}"
+
+
+_OOS_SECTION_HEADERS_HP = re.compile(
+    r"^#{1,3}\s*(?:Out of Scope|Exclusions|Not Eligible|Prohibited|Non-Qualifying)\s*$",
+    re.IGNORECASE,
+)
+
+
+def _extract_oos_from_markdown(raw_md: str) -> list[str]:
+    """Extract OOS items from a markdown string with known OOS section headers.
+
+    Scans for any of: ## Out of Scope, ### Exclusions, ## Not Eligible,
+    ## Prohibited, ## Non-Qualifying. Collects everything until the next ##
+    header or end of string, extracting both bullet items and prose paragraphs.
+    """
+    out: list[str] = []
+    lines = (raw_md or "").splitlines()
+    in_oos_section = False
+    for line in lines:
+        stripped = line.strip()
+        if not stripped:
+            continue
+        if stripped.startswith("#"):
+            if _OOS_SECTION_HEADERS_HP.match(stripped):
+                in_oos_section = True
+            else:
+                in_oos_section = False
+            continue
+        if not in_oos_section:
+            continue
+        m = re.match(r"^(?:[-+•]|\*|\d+[.)])\s+(.+)$", stripped)
+        if m:
+            item = m.group(1).strip()
+            if item and item not in out:
+                out.append(item)
+        else:
+            if stripped and stripped not in out:
+                out.append(stripped)
+    return out
 
 
 def _extract_nuxt_strings(html: str) -> list[str]:

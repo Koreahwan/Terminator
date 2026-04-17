@@ -1,0 +1,5 @@
+{
+  "verdict": "HARD_KILL",
+  "expected_check": "3.5",
+  "reason": "Info-disclosure finding (stack trace disclosure) + program OOS has 'verbose messages without disclosing any sensitive information' + impact lacks concrete sensitivity anchor. Port of Antwerp PORTOFANTWERP-56QI3QB6 incident."
+}

@@ -1,0 +1,7 @@
+{
+  "finding": "Email flood abuse on password reset endpoint allows sending unlimited emails to victim",
+  "severity": "low",
+  "impact": "Email spam flood via password reset form causes inbox disruption for victim",
+  "expected": "WARN",
+  "check": "3"
+}

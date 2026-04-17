@@ -1,0 +1,7 @@
+{
+  "finding": "User enumeration via login form differential response reveals valid accounts",
+  "severity": "low",
+  "impact": "Username enumeration via login response timing difference exposes valid user accounts",
+  "expected": "WARN",
+  "check": "3"
+}

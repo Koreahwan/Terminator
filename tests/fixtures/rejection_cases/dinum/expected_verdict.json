@@ -1,0 +1,5 @@
+{
+  "verdict": "WARN",
+  "expected_check": "10",
+  "reason": "Program rules indicate government public platform with accessibility-first mandate ('government public platform accessibility program', 'accessible to all citizens'). Finding is an input validation / restriction absence which may be intentional design. DINUM #7419-178 Won't Fix incident."
+}

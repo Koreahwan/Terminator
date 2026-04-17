@@ -1,0 +1,7 @@
+{
+  "finding": "SPF record missing on target.com email domain allows email spoofing",
+  "severity": "low",
+  "impact": "Missing SPF/DMARC record misconfiguration allows email spoofing of the domain",
+  "expected": "WARN",
+  "check": "3"
+}

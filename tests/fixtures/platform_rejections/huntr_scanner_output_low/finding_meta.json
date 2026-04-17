@@ -1,0 +1,7 @@
+{
+  "finding": "Automated scanner output report showing potential vulnerability that could indicate issue without manual exploitation",
+  "severity": "low",
+  "impact": "Tool-generated scan finding that might affect security but without demonstrated manual verification or exploitation",
+  "expected": "HARD_KILL",
+  "check": "3_or_6"
+}

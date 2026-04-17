@@ -1,0 +1,5 @@
+{
+  "finding": "Missing input length validation on SIRET prefill field allows arbitrary data injection",
+  "severity": "medium",
+  "impact": "attacker can inject oversized input into SIRET field bypassing validation"
+}

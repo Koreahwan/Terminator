@@ -1,0 +1,5 @@
+{
+  "verdict": "HARD_KILL",
+  "expected_check": "6",
+  "reason": "Program OOS contains 'Site vulnerabilities' (ambiguous catch-all for web-app class). Finding is XSS which is classified as web_app_class. kill_gate_1 Check 6 (AMBIGUOUS OOS CATCH-ALL) fires HARD_KILL. DataDome G02+G03 pattern."
+}

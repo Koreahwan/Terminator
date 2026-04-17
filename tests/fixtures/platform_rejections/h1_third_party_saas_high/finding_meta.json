@@ -1,0 +1,7 @@
+{
+  "finding": "Vulnerability in third-party SaaS integration Salesforce allows data exposure",
+  "severity": "high",
+  "impact": "Data exposure via third-party service Salesforce integration misconfiguration",
+  "expected": "WARN",
+  "check": "13_third_party"
+}

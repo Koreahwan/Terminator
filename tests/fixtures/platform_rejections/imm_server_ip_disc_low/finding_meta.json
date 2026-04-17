@@ -1,0 +1,7 @@
+{
+  "finding": "Server discloses internal IP address in HTTP response headers that is not sensitive",
+  "severity": "low",
+  "impact": "Server-side non-confidential information disclosure of internal server hostname",
+  "expected": "HARD_KILL",
+  "check": "11_cat22"
+}

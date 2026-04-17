@@ -1,0 +1,7 @@
+{
+  "finding": "Lack of rate limit on login endpoint allows brute force attacks",
+  "severity": "low",
+  "impact": "No rate limiting on authentication endpoint enables brute force credential guessing",
+  "expected": "WARN",
+  "check": "12"
+}

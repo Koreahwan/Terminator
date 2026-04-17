@@ -1,0 +1,7 @@
+{
+  "finding": "SSRF on app.target.com allows internal network access, duplicates not verified",
+  "severity": "medium",
+  "impact": "Data exposure via internal network SSRF — did not check duplicates before submitting",
+  "expected": "WARN",
+  "check": "13_dup_unchecked"
+}

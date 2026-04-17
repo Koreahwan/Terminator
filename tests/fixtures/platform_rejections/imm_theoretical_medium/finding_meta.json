@@ -1,0 +1,7 @@
+{
+  "finding": "Theoretical attack scenario without proof or demonstration of impact on vault",
+  "severity": "medium",
+  "impact": "Theoretical impact without any proof of exploitation possible",
+  "expected": "HARD_KILL",
+  "check": "11_cat14"
+}

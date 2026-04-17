@@ -1,0 +1,7 @@
+{
+  "finding": "Self-XSS in account settings field only affects attacker own browser session",
+  "severity": "low",
+  "impact": "Self-XSS cross-site scripting affecting only the attacker own account session",
+  "expected": "WARN",
+  "check": "3"
+}

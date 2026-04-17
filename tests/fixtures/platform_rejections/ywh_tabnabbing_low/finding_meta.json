@@ -1,0 +1,7 @@
+{
+  "finding": "Tabnabbing attack via reverse tabnabbing on external links without rel=noopener",
+  "severity": "low",
+  "impact": "Attacker redirects opened tab to phishing page via tabnabbing technique",
+  "expected": "WARN",
+  "check": "3"
+}

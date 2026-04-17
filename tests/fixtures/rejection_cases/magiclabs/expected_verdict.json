@@ -1,0 +1,5 @@
+{
+  "verdict": "HARD_KILL",
+  "expected_check": "9",
+  "reason": "Submission Rules contain 'Client-side only vulnerabilities are not eligible for a bounty award' + finding description contains 'client-side only' self-limiting indicator. Magic Labs PKCE bc91fc04 N/R incident — -1 accuracy point."
+}

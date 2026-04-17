@@ -1,0 +1,5 @@
+{
+  "verdict": "HARD_KILL",
+  "expected_check": "3.5",
+  "reason": "Info-disclosure finding (hostname disclosure) + program OOS has 'verbose messages without disclosing any sensitive information' + impact lacks concrete sensitivity anchor (no credentials, tokens, PII, auth-bypass, RCE chain). Port of Antwerp PORTOFANTWERP-7TS0VZVW incident."
+}

@@ -1,0 +1,7 @@
+{
+  "finding": "Captcha bypass using OCR machine learning on the registration captcha",
+  "severity": "medium",
+  "impact": "Captcha bypass via OCR allows automated account registration",
+  "expected": "HARD_KILL",
+  "check": "11_cat19"
+}

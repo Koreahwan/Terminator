@@ -1,0 +1,5 @@
+{
+  "finding": "PKCE client-side only bypass via localStorage codeVerifier extraction without server-side validation",
+  "severity": "medium",
+  "impact": "attacker can extract PKCE codeVerifier from localStorage to replay authorization code"
+}

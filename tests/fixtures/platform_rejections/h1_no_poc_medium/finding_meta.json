@@ -1,0 +1,7 @@
+{
+  "finding": "IDOR on app.target.com exposes user data, no PoC provided yet",
+  "severity": "medium",
+  "impact": "Data exposure of PII — proof of concept not provided",
+  "expected": "WARN",
+  "check": "13_no_poc"
+}

@@ -1,0 +1,5 @@
+{
+  "verdict": "HARD_KILL",
+  "expected_check": "kg2",
+  "reason": "kill_gate_2 poc_pattern_check detects try/except wrapping on-chain call with hardcoded fallback literal in except handler. Paradex #72418 pattern: POC PATTERN hard_kill fires. PoC assertions check Python literals not on-chain state."
+}

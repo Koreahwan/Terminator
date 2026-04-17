@@ -266,11 +266,14 @@ def _populate_from_api(pd: ProgramData, data: dict) -> None:
         if prior is None or created_at > prior[0]:
             latest_per_section[key] = (created_at, md)
 
-    # Now parse each kept section: bullet-only extraction.
+    # Now parse each kept section: bullet extraction + prose OOS sentences.
     oos_parts: list[str] = []
     for _ts, md in latest_per_section.values():
         oos_parts.append(md)
         for item in _extract_bullet_items(md):
+            if item not in pd.scope_out:
+                pd.scope_out.append(item)
+        for item in _extract_prose_oos_sentences(md):
             if item not in pd.scope_out:
                 pd.scope_out.append(item)
 
@@ -563,6 +566,39 @@ def _extract_bullet_items(md: str) -> list[str]:
             item = m.group(1).strip()
             if item:
                 out.append(item)
+    return out
+
+
+_OOS_PROSE_KEYWORDS = re.compile(
+    r"\b(out of scope|not eligible|will not be accepted|not accepted|"
+    r"considered|please refrain|do not|prohibited)\b",
+    re.IGNORECASE,
+)
+
+
+def _extract_prose_oos_sentences(md: str) -> list[str]:
+    """Extract non-bullet paragraph sentences that contain OOS indicator keywords.
+
+    Intigriti sometimes includes plain prose paragraphs inside an outOfScopes
+    entry alongside bullet lists (e.g. "Please refrain from testing X."). This
+    helper extracts those sentences and adds them with a "(prose) " prefix so
+    they are distinguishable from bullet items.
+    """
+    out: list[str] = []
+    for raw in (md or "").splitlines():
+        line = raw.strip()
+        if not line:
+            continue
+        if line.startswith("#"):
+            continue
+        # Skip lines that are bullet items (already handled by _extract_bullet_items).
+        if re.match(r"^(?:[-+•]|\*|\d+[.)])\s+", line):
+            continue
+        if _OOS_PROSE_KEYWORDS.search(line):
+            cleaned = line.replace("\\*", "*")
+            entry = f"(prose) {cleaned}"
+            if entry not in out:
+                out.append(entry)
     return out
 
 

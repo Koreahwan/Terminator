@@ -1,0 +1,7 @@
+{
+  "finding": "DMARC record missing on example.com allows email spoofing attacks",
+  "severity": "low",
+  "impact": "Missing DMARC record misconfiguration allows email spoofing of the domain",
+  "expected": "HARD_KILL",
+  "check": "11_cat31"
+}

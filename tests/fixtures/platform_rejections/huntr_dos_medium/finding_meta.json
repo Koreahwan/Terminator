@@ -1,0 +1,7 @@
+{
+  "finding": "Denial of service via crafted input causes application crash and resource exhaustion",
+  "severity": "medium",
+  "impact": "DDoS attack on project assets via resource exhaustion causing availability impact",
+  "expected": "WARN",
+  "check": "3"
+}

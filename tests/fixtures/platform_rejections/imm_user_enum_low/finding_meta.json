@@ -1,0 +1,7 @@
+{
+  "finding": "User enumeration via differential login response timing allows account discovery",
+  "severity": "low",
+  "impact": "Username enumeration via login response timing difference exposes valid accounts",
+  "expected": "HARD_KILL",
+  "check": "11_cat23"
+}

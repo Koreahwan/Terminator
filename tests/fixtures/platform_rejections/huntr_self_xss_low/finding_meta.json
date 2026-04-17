@@ -1,0 +1,7 @@
+{
+  "finding": "Self-XSS in markdown renderer only affects attacker own browser session preview",
+  "severity": "low",
+  "impact": "Self XSS cross-site scripting that only affects attacker own browser session",
+  "expected": "WARN",
+  "check": "3"
+}

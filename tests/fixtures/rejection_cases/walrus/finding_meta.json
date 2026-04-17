@@ -1,0 +1,5 @@
+{
+  "finding": "slashing.move validator penalty miscalculation allows double-slash of honest validators",
+  "severity": "high",
+  "impact": "unauthorized fund loss for honest validators via double-slashing"
+}

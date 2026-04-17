@@ -1,0 +1,7 @@
+{
+  "finding": "Automated Burp scanner output report showing potential vulnerability that could indicate security issue without demonstrated manual verification",
+  "severity": "medium",
+  "impact": "Automated scanner finding that could potentially affect users without demonstrated exploitation",
+  "expected": "HARD_KILL",
+  "check": "3_or_6"
+}

@@ -1,0 +1,7 @@
+{
+  "finding": "SQL injection on api.target.com allows full database read and authentication bypass",
+  "severity": "high",
+  "impact": "Full database read on api.target.com via SQL injection leading to authentication bypass",
+  "expected": "PASS",
+  "check": "13_no_kill"
+}

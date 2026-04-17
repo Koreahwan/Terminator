@@ -1,0 +1,7 @@
+{
+  "finding": "Logout CSRF allows attacker to force victim session termination",
+  "severity": "medium",
+  "impact": "Logout CSRF does not cause state modification beyond session termination",
+  "expected": "HARD_KILL",
+  "check": "11_cat20"
+}
