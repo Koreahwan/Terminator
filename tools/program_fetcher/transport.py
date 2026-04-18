@@ -47,6 +47,12 @@ _FIRECRAWL_API_URL = os.environ.get("FIRECRAWL_API_URL", "")
 _FIRECRAWL_DISABLED = os.environ.get("FIRECRAWL_DISABLE", "") == "1"
 _FIRECRAWL_CLIENT: Any = None  # lazy instance or False if init failed
 
+# v14 tier 4 (2026-04-18): Playwright Python SDK escalation for
+# SPA-rendered programs (Intigriti / HackerOne / BC auth-gated). Persists
+# across calls so we pay browser startup only once.
+_PLAYWRIGHT_DISABLED = os.environ.get("PLAYWRIGHT_DISABLE", "") == "1"
+_PLAYWRIGHT_STATE: dict[str, Any] = {"checked": False, "available": False}
+
 
 class TransportError(Exception):
     """Raised when a GET fails after all retries or returns a hard 4xx."""
@@ -308,6 +314,105 @@ def http_get_via_firecrawl(url: str) -> tuple[int, str, dict[str, str]]:
         return status, body, {}
     except Exception as e:
         raise TransportError(url, 0, f"Firecrawl request failed: {e}") from e
+
+
+def _playwright_available() -> bool:
+    """Probe Playwright + Chromium availability once. Cached."""
+    if _PLAYWRIGHT_DISABLED:
+        return False
+    if _PLAYWRIGHT_STATE["checked"]:
+        return _PLAYWRIGHT_STATE["available"]
+    _PLAYWRIGHT_STATE["checked"] = True
+    try:
+        from playwright.sync_api import sync_playwright  # noqa: F401
+        _PLAYWRIGHT_STATE["available"] = True
+    except ImportError:
+        _PLAYWRIGHT_STATE["available"] = False
+    return _PLAYWRIGHT_STATE["available"]
+
+
+def http_get_via_playwright(
+    url: str,
+    *,
+    timeout: float = 30.0,
+    wait_load_state: str = "domcontentloaded",
+    storage_state: Optional[str] = None,
+    profile_dir: Optional[str] = None,
+) -> tuple[int, str, dict[str, str]]:
+    """Fetch URL through headless Chromium via Playwright.
+
+    Tier 4 escalation for SPA-rendered programs (Intigriti / HackerOne)
+    where urllib + FlareSolverr + Firecrawl all fall back to marketing
+    HTML. Optional authentication:
+      - `profile_dir`: persistent browser user-data-dir. Defaults to
+        $PLAYWRIGHT_BOUNTY_PROFILE or ~/.config/playwright-bounty-profile.
+        If the directory exists and has session state, invitation-only
+        programs are accessible. Login happens manually once in
+        `playwright codegen` or `chromium --user-data-dir=<path>`.
+      - `storage_state`: explicit JSON file path with cookies/localStorage
+        (Playwright standard format). Alternative to profile_dir.
+
+    Returns (status, fully-rendered HTML, synthetic headers). Raises
+    TransportError if Playwright missing or navigation fails.
+    """
+    if not _playwright_available():
+        raise TransportError(url, 0, "Playwright unavailable (pip install playwright)")
+    try:
+        from playwright.sync_api import sync_playwright, TimeoutError as _PWTimeout
+    except ImportError as e:
+        raise TransportError(url, 0, f"Playwright import failed: {e}") from e
+
+    # Resolve auth source — prefer explicit, fall back to well-known profile.
+    if profile_dir is None:
+        profile_dir = os.environ.get("PLAYWRIGHT_BOUNTY_PROFILE") or os.path.expanduser(
+            "~/.config/playwright-bounty-profile"
+        )
+    use_persistent = (
+        profile_dir
+        and os.path.isdir(profile_dir)
+        and any(os.scandir(profile_dir))  # non-empty (has session data)
+    )
+
+    timeout_ms = int(timeout * 1000)
+    try:
+        with sync_playwright() as p:
+            if use_persistent:
+                context = p.chromium.launch_persistent_context(
+                    profile_dir,
+                    headless=True,
+                    user_agent=DEFAULT_UA,
+                )
+                browser = None
+            else:
+                browser = p.chromium.launch(headless=True)
+                context_kwargs: dict[str, Any] = {"user_agent": DEFAULT_UA}
+                if storage_state and os.path.exists(storage_state):
+                    context_kwargs["storage_state"] = storage_state
+                context = browser.new_context(**context_kwargs)
+            page = context.new_page()
+            try:
+                response = page.goto(url, timeout=timeout_ms, wait_until=wait_load_state)
+                status = response.status if response else 200
+                # Give SPA a moment to hydrate + render above-the-fold content.
+                try:
+                    page.wait_for_load_state("networkidle", timeout=5000)
+                except _PWTimeout:
+                    pass  # networkidle not reached — content may still be rendered
+                html = page.content()
+                headers = {
+                    "content-type": "text/html; charset=utf-8",
+                    "x-transport": "playwright",
+                    "x-playwright-auth": "persistent" if use_persistent else "anonymous",
+                }
+            finally:
+                context.close()
+                if browser is not None:
+                    browser.close()
+        return status, html, headers
+    except _PWTimeout as e:
+        raise TransportError(url, 0, f"Playwright timeout: {e}") from e
+    except Exception as e:
+        raise TransportError(url, 0, f"Playwright navigation failed: {type(e).__name__}: {e}") from e
 
 
 def _sleep_backoff(attempt: int, base: float) -> None:

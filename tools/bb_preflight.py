@@ -10,7 +10,14 @@ Usage:
     bb_preflight.py init <target_dir>                  Create template files
     bb_preflight.py fetch-program <target_dir> <program_url> [--no-cache] [--hold-ok] [--json]
                                                        Fetch program page verbatim + auto-fill rules (Phase 0.1)
+                                                       v14: also writes program_raw/bundle.md via raw_bundle layer
     bb_preflight.py rules-check <target_dir>           Validate program_rules_summary.md
+    bb_preflight.py verbatim-check <target_dir> [--warn] [--json]  (v14) Verify every VERBATIM section bullet
+                                                       exists as substring in program_raw/bundle.md. HARD FAIL by default;
+                                                       --warn downgrades to exit 2. Prevents Port-of-Antwerp-class OOS leakage.
+    bb_preflight.py historical-match <target_dir> [--finding "<>"] [--vuln-type "<>"] [--program "<>"] [--platform "<>"] [--json]
+                                                       (v13.7) Query knowledge/accepted_reports.db for same-program
+                                                       same-vuln-class reject history. Advisory for kill-gate-1 calibration.
     bb_preflight.py coverage-check <target_dir> [THR] [--json]  Check endpoint coverage %
     bb_preflight.py inject-rules <target_dir>          Output compact rules for HANDOFF
     bb_preflight.py exclusion-filter <target_dir>      Output exclusion list for analyst
@@ -42,6 +49,13 @@ import shutil
 import time
 from pathlib import Path
 from datetime import datetime
+
+# v14 self-contained PYTHONPATH: ensure `import tools.program_fetcher...`
+# resolves when bb_preflight.py is invoked as a script from any cwd.
+# Previously required callers to export PYTHONPATH=<repo_root>.
+_REPO_ROOT = str(Path(__file__).resolve().parent.parent)
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
 
 RULES_FILE = "program_rules_summary.md"
 ENDPOINT_MAP = "endpoint_map.md"
@@ -3794,36 +3808,41 @@ def fetch_program(
         write_artifacts(result, tdir)
         render_to_target(result.data, tdir)
 
-        # v14: raw-bundle capture is MANDATORY after fetch so the subsequent
-        # `verbatim-check` call documented in Phase 0.2 actually has a bundle.md
-        # to search against. Without this, the documented pipeline would ERROR
-        # at every verbatim-check invocation (codex review P1, 2026-04-18).
-        try:
-            from tools.program_fetcher.raw_bundle import capture as capture_raw_bundle
-            bundle_summary = capture_raw_bundle(program_url, tdir)
-            errs = bundle_summary.get("errors") or []
-            linked_n = len(bundle_summary.get("linked_pages", []))
-            if errs:
-                print(
-                    f"raw-bundle: landing + {linked_n} linked pages "
-                    f"({bundle_summary.get('bundle_md_bytes', 0)} bytes) "
-                    f"with {len(errs)} non-fatal error(s)",
-                    file=sys.stderr,
-                )
-            else:
-                print(
-                    f"raw-bundle: landing + {linked_n} linked pages "
-                    f"({bundle_summary.get('bundle_md_bytes', 0)} bytes)",
-                    file=sys.stderr,
-                )
-        except Exception as e:
-            # Raw-bundle failure must NOT break structured intake — bubble up
-            # a warning so Phase 0.2 verbatim-check can flag missing bundle.md.
+    # v14: raw-bundle capture runs REGARDLESS of structured verdict. Even if
+    # every handler fails, we still want verbatim landing HTML + linked pages
+    # on disk so the operator (or Phase 0.2 verbatim-check) can work against
+    # the authoritative substring source. This is the entire point of the
+    # raw-bundle layer: independent of platform-specific parsers.
+    try:
+        from tools.program_fetcher.raw_bundle import capture as capture_raw_bundle
+        bundle_summary = capture_raw_bundle(program_url, tdir)
+        errs = bundle_summary.get("errors") or []
+        linked_n = len(bundle_summary.get("linked_pages", []))
+        spa_note = ""
+        if bundle_summary.get("spa_escalation") == "playwright":
+            effective = bundle_summary.get("spa_escalation_effective")
+            spa_note = f" [SPA→Playwright {'hit' if effective else 'miss'}]"
+        if errs:
             print(
-                f"raw-bundle: CAPTURE FAILED ({type(e).__name__}: {e}) — "
-                "structured parse was still saved; verbatim-check will ERROR",
+                f"raw-bundle: landing + {linked_n} linked pages "
+                f"({bundle_summary.get('bundle_md_bytes', 0)} bytes) "
+                f"with {len(errs)} non-fatal error(s){spa_note}",
                 file=sys.stderr,
             )
+        else:
+            print(
+                f"raw-bundle: landing + {linked_n} linked pages "
+                f"({bundle_summary.get('bundle_md_bytes', 0)} bytes){spa_note}",
+                file=sys.stderr,
+            )
+    except Exception as e:
+        # Raw-bundle failure must NOT break structured intake — bubble up
+        # a warning so Phase 0.2 verbatim-check can flag missing bundle.md.
+        print(
+            f"raw-bundle: CAPTURE FAILED ({type(e).__name__}: {e}) — "
+            "structured parse was still saved (if any); verbatim-check will ERROR",
+            file=sys.stderr,
+        )
 
     # Record into checkpoint.json if present.
     ckpt_path = tdir / "checkpoint.json"

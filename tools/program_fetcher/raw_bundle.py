@@ -410,6 +410,67 @@ def capture(
     summary["landing_final_url"] = url  # transport doesn't surface redirects yet
     landing_ct = (resp_headers.get("content-type") or "").lower()
     summary["landing_content_type"] = landing_ct
+
+    # v14 tier 4 (2026-04-18): SPA escalation. Angular/React/Vue SPAs return
+    # a shell HTML with <app-root></app-root> + no visible text. html_to_text
+    # of that shell is tiny vs the HTML size. If ratio is catastrophic and
+    # we're hitting an HTML page (not JSON), re-fetch via Playwright so the
+    # DOM is fully hydrated. Covers Intigriti / HackerOne / BC auth-gated.
+    if (
+        "application/json" not in landing_ct
+        and html.lstrip()[:1] not in ("{", "[")
+    ):
+        preview_md = html_to_text(html)
+        # SPA shell heuristics:
+        #  H1: landing md is tiny outright
+        #  H2: huge HTML but near-zero rendered text ratio
+        #  H3 (v14 hardened): URL has a program identifier in the path
+        #     (/programs/<X>, /engagements/<X>, /repos/<X>, /bug-bounty/<X>)
+        #     but the rendered text mentions none of those identifiers —
+        #     classic Angular/React shell where the real scope is loaded
+        #     via XHR after auth, and anonymous fetch lands on marketing.
+        path_segments = [
+            seg.lower() for seg in urlparse(url).path.strip("/").split("/") if seg
+        ]
+        program_id_segments = [
+            seg for seg in path_segments
+            if seg not in {
+                "programs", "program", "engagements", "engagement",
+                "repos", "repo", "bug-bounty", "bounty", "bounties",
+                "advisories", "rules", "scope", "policy",
+            } and len(seg) >= 3
+        ]
+        preview_lower = preview_md.lower()
+        program_id_hit = any(seg in preview_lower for seg in program_id_segments)
+        is_spa_shell = (
+            len(preview_md.strip()) < 500
+            or (len(html) > 5000 and len(preview_md.strip()) / max(len(html), 1) < 0.01)
+            or (bool(program_id_segments) and not program_id_hit)
+        )
+        if is_spa_shell:
+            try:
+                from .transport import http_get_via_playwright
+                summary["spa_escalation"] = "playwright"
+                pw_status, pw_html, pw_headers = http_get_via_playwright(
+                    url, timeout=max(timeout, 30.0),
+                )
+                pw_md = html_to_text(pw_html)
+                # Accept only if Playwright rendering gave us meaningfully
+                # more text (2x minimum).
+                if len(pw_md.strip()) > max(len(preview_md.strip()) * 2, 500):
+                    status = pw_status
+                    html = pw_html
+                    landing_ct = (pw_headers.get("content-type") or "text/html").lower()
+                    summary["landing_content_type"] = landing_ct
+                    summary["spa_escalation_effective"] = True
+                else:
+                    summary["spa_escalation_effective"] = False
+            except Exception as e:
+                summary["errors"].append({
+                    "url": url, "stage": "spa_escalation", "error": str(e),
+                })
+                summary["spa_escalation_effective"] = False
+
     # Pick raw extension based on content-type so bytes land in the right
     # suffix (JSON APIs vs HTML pages). `bundle.md` is always the grep target.
     if "application/json" in landing_ct or html.lstrip()[:1] in ("{", "["):
