@@ -29,10 +29,15 @@ PASSED: list[str] = []
 
 
 def _assert(name: str, cond: bool, detail: str = "") -> None:
+    """v14 (codex iter 2 P2): raise AssertionError on fail so pytest
+    picks up regressions. Fallback prints still happen in the script
+    runner via run_all()."""
     if cond:
         PASSED.append(name)
     else:
-        FAILED.append(f"{name}: {detail}")
+        msg = f"{name}: {detail}"
+        FAILED.append(msg)
+        raise AssertionError(msg)
 
 
 def test_html_to_text_anchor_preserved():

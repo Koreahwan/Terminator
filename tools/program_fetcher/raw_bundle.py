@@ -395,16 +395,44 @@ def capture(
     }
 
     # --- Landing ---
+    # v14 (2026-04-18 codex iter 2 P1): when urllib + FlareSolverr + firecrawl
+    # all return hard 403/503 (common on Bugcrowd/HackerOne/Intigriti auth-
+    # gated program pages), fall through to Playwright tier 4 IMMEDIATELY
+    # rather than early-returning. Without this, auth-gated targets never
+    # get a bundle.md.
     try:
         status, html, resp_headers = http_get(
             url, accept=accept_for_url(url), timeout=timeout
         )
     except TransportError as e:
         summary["errors"].append({"url": url, "stage": "landing", "error": str(e)})
-        (raw_dir / "bundle_meta.json").write_text(
-            json.dumps(summary, indent=2, ensure_ascii=False), encoding="utf-8"
-        )
-        return summary
+        # Try Playwright tier 4 immediately — we have nothing else.
+        try:
+            from .transport import http_get_via_playwright
+            summary["landing_403_503_escalation"] = "playwright"
+            pw_status, pw_html, pw_headers = http_get_via_playwright(
+                url, timeout=max(timeout, 30.0),
+            )
+            if pw_html and len(pw_html) > 500:
+                status = pw_status
+                html = pw_html
+                resp_headers = pw_headers
+                summary["errors"].append({
+                    "url": url, "stage": "landing", "error": f"recovered via playwright from: {e}",
+                })
+            else:
+                (raw_dir / "bundle_meta.json").write_text(
+                    json.dumps(summary, indent=2, ensure_ascii=False), encoding="utf-8"
+                )
+                return summary
+        except Exception as pw_e:
+            summary["errors"].append({
+                "url": url, "stage": "landing_playwright_recovery", "error": str(pw_e),
+            })
+            (raw_dir / "bundle_meta.json").write_text(
+                json.dumps(summary, indent=2, ensure_ascii=False), encoding="utf-8"
+            )
+            return summary
 
     summary["landing_status"] = status
     summary["landing_final_url"] = url  # transport doesn't surface redirects yet
@@ -456,8 +484,28 @@ def capture(
                 )
                 pw_md = html_to_text(pw_html)
                 # Accept only if Playwright rendering gave us meaningfully
-                # more text (2x minimum).
-                if len(pw_md.strip()) > max(len(preview_md.strip()) * 2, 500):
+                # more text (2x minimum) AND does NOT look like a login /
+                # bot-wall redirect.
+                # v14 (codex iter 2 P1): reject if the rendered body is
+                # dominated by login / "sign in" / bot-challenge markers —
+                # otherwise anonymous Playwright on auth-gated programs
+                # replaces the program shell with unrelated login copy.
+                pw_lower = pw_md.lower()[:4000]  # check top only (forms at top)
+                login_markers = (
+                    "sign in", "sign-in", "sign up", "log in", "login",
+                    "enter your password", "enter password", "forgot password",
+                    "two-factor", "2fa", "verify your identity",
+                    "cloudflare", "just a moment", "access denied",
+                    "please complete the challenge", "security check",
+                )
+                login_hits = sum(1 for m in login_markers if m in pw_lower)
+                is_login_page = login_hits >= 3  # 3+ markers = almost certainly login
+                if is_login_page:
+                    summary["spa_escalation_effective"] = False
+                    summary["spa_escalation_rejected"] = (
+                        f"login/bot-wall markers detected ({login_hits} hits)"
+                    )
+                elif len(pw_md.strip()) > max(len(preview_md.strip()) * 2, 500):
                     status = pw_status
                     html = pw_html
                     landing_ct = (pw_headers.get("content-type") or "text/html").lower()

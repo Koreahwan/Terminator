@@ -162,6 +162,41 @@ summarisation leakage.
 
 Opt-out (NOT recommended): `--no-raw-bundle`. Disables verbatim kill-gate.
 
+**Private / invitation-only SPA programs (Intigriti / HackerOne private / BC private) — operational guide**
+
+Raw-bundle tier 4 (Playwright) auto-escalates on SPA shells but defaults
+to **anonymous** Chromium session. Invitation-only programs 404 / redirect
+to marketing without a logged-in session. One-time setup:
+
+```bash
+# 1. Run the login helper — opens a visible Chromium with persistent profile.
+./scripts/playwright_login.sh https://app.intigriti.com/auth/login
+#    (or https://hackerone.com/users/sign_in for H1 private)
+# 2. Log in normally (OAuth / 2FA / passkey — whatever the platform requires).
+# 3. Close the browser window. Profile is saved to
+#    $PLAYWRIGHT_BOUNTY_PROFILE (default: ~/.config/playwright-bounty-profile).
+# 4. Thereafter, every bb_preflight.py fetch-program run auto-detects the
+#    profile and Playwright tier 4 uses session cookies. Headless.
+```
+
+Verification: `bundle_meta.json` records `x-playwright-auth: persistent` vs
+`anonymous`. If a private program still lands on marketing after login,
+the session expired — re-run step 1.
+
+**Retrospective refetch for pre-v14 targets**
+
+Targets captured before 2026-04-18 have no `program_raw/bundle.md`.
+Run once to populate:
+
+```bash
+./scripts/refetch_active_targets.sh             # all public + auth-required where profile exists
+./scripts/refetch_active_targets.sh --dry-run   # preview
+./scripts/refetch_active_targets.sh --only qwant  # filter
+```
+
+Auth-required targets are auto-skipped if no Playwright session cookies
+are present — run `scripts/playwright_login.sh` first.
+
 ### Phase 0.2: Program Rules Generation (MANDATORY)
 
 Orchestrator runs directly (not agent):
