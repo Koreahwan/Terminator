@@ -45,6 +45,8 @@ redteam:
       numTests: 5
     - id: "pii:session"
       numTests: 5
+    - id: "pii:api-db"       # CVP-enabled: backend PII exfiltration via model
+      numTests: 5
     # OWASP LLM06 — Excessive Agency
     - id: "rbac"
       numTests: 5
@@ -54,16 +56,31 @@ redteam:
     # OWASP LLM08 — Vector and Embedding Weaknesses
     - id: "cross-session-leak"
       numTests: 3
-    # Jailbreak / policy bypass
+    # Jailbreak / policy bypass (CVP-enabled — harmful subcategories verbose)
     - id: "harmful"
-      numTests: 5
+      numTests: 10
     - id: "hijacking"
       numTests: 5
+    # CVP-enabled extensions (uncomment per-target; verify plugin IDs with `promptfoo redteam plugins`)
+    # - id: "harmful:cybercrime"
+    #   numTests: 5
+    # - id: "harmful:privacy"
+    #   numTests: 5
+    # - id: "harmful:non-violent-crime"
+    #   numTests: 5
+    # - id: "indirect-prompt-injection"
+    #   numTests: 10
+    # - id: "harmbench"
+    #   numTests: 10
 
   strategies:
-    - id: "jailbreak:tree"   # multi-turn tree search jailbreak
-    - id: "jailbreak"        # single-turn jailbreak
-    - id: "prompt-injection" # injection payloads
+    - id: "jailbreak:tree"      # multi-turn tree search jailbreak
+    - id: "jailbreak"           # single-turn jailbreak
+    - id: "prompt-injection"    # injection payloads
+    # CVP-enabled encoding strategies (uncomment when running against real AI bounty target)
+    # - id: "base64"
+    # - id: "rot13"
+    # - id: "multilingual"
 
   # Rate limit applies per-strategy too
   delay: 2100

@@ -126,14 +126,44 @@ class ReportScrubber:
 
     def normalize_whitespace(self, text: str) -> str:
         original = text
+
+        # Preserve fenced code blocks and inline backticks verbatim — the
+        # space-after-punctuation rewrite would corrupt `Array.from`,
+        # `ctx.oidc.foo`, `file.ts:42`, `gouv.fr`, CVSS `AV:N/AC:L`, etc.
+        protected: list[str] = []
+
+        def _stash(match: re.Match) -> str:
+            protected.append(match.group(0))
+            return f"\x00SCRUB{len(protected) - 1}\x00"
+
+        # Fenced code blocks first
+        text = re.sub(r"```[\s\S]*?```", _stash, text)
+        # Inline backtick runs
+        text = re.sub(r"`[^`\n]*`", _stash, text)
+        # URLs (simple match)
+        text = re.sub(r"https?://\S+", _stash, text)
+        # Bare hostnames / domains (2+ dots, lowercase labels)
+        text = re.sub(r"\b[a-z0-9][a-z0-9-]*(?:\.[a-z0-9][a-z0-9-]*){2,}\b", _stash, text)
+        # File paths with extensions (e.g. foo/bar.ts, poc.sh, report.md)
+        text = re.sub(
+            r"\b[\w./-]+\.(?:ts|tsx|js|jsx|py|sh|md|json|yaml|yml|toml|sql|html|css|go|rs|java|c|cc|cpp|h|hpp|svg|png|jpg)\b",
+            _stash,
+            text,
+        )
+        # CVSS vector tokens
+        text = re.sub(r"\b(?:AV|AC|PR|UI|S|C|I|A|E|RL|RC|CR|IR|AR|MAV|MAC|MPR|MUI|MS|MC|MI|MA):[A-Z]\b", _stash, text)
+
         # Multiple spaces → single
         text = re.sub(r" {2,}", " ", text)
         # Space before punctuation
         text = re.sub(r" ([.,;:!?])", r"\1", text)
-        # Ensure space after punctuation (but not in URLs or file paths)
+        # Ensure space after punctuation in prose only (code/URLs already stashed)
         text = re.sub(r"([.,;:!?])([A-Za-z])", r"\1 \2", text)
         # Excessive blank lines (3+ → 2)
         text = re.sub(r"\n{3,}", "\n\n", text)
+
+        # Restore protected tokens
+        text = re.sub(r"\x00SCRUB(\d+)\x00", lambda m: protected[int(m.group(1))], text)
 
         if text != original:
             self.stats["whitespace_normalized"] += 1
