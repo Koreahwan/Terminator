@@ -29,6 +29,7 @@ disallowedTools:
 5. **DeFi: cast call for config verification** — If target is DeFi, verify on-chain config (offset, fee, flags) with `cast call`. Code bugs in unused paths = "latent bug" = rejected.
 6. **10 minutes max** — This is a quick assessment, not deep analysis. Data-driven, every claim backed by evidence.
 7. **Err toward NO-GO** — A missed opportunity costs $0. A wasted analysis costs tokens + time.
+8. **Historical Hacktivity pre-check MANDATORY (v13.7 NEW)** — Before producing the GO/CONDITIONAL/NO-GO verdict, run `python3 tools/bb_preflight.py historical-match <target_dir> --program "<repo_or_program>" --vuln-type "<class>" --platform "<platform>"` and **incorporate the result into the verdict**. Rules: (a) `WARN — same program rejected similar finding` → CONDITIONAL GO max, NO-GO if >2 similar rejections; (b) `WARN — N rejections 0 accepts` → NO-GO unless target evaluator can articulate a concrete reframing that the historical rejections did not consider; (c) `PASS with accepted matches` → confidence boost. Cite the historical-match output verbatim in target_assessment.md under a new section "## Historical Hacktivity Pre-check". Source DB: `knowledge/accepted_reports.db` (see `scripts/sync_bounty_writeups.sh`). If DB missing, run scraper init then proceed.
 
 ## Mission
 

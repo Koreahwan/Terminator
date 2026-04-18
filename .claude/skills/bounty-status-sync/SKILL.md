@@ -234,6 +234,62 @@ Edit  — 변경 엔트리 또는 신규 push
 
 ---
 
+## Phase 4.6 — Canonical Tracker Sync (`coordination/SUBMISSIONS.md`)
+
+Phase 4.5 의 `docs/submissions.json` 업데이트 직후 **동일한 변경을 `coordination/SUBMISSIONS.md`에 재렌더링**. 이 파일은 사람이 읽는 canonical tracker이며 memory/project_*.md 에서 포인터로 참조됨.
+
+### 렌더링 규칙 (JSON → Markdown)
+
+1. **Active** 섹션 = status ∈ {`Pending`, `Triage`, `Accepted` (bounty 미확정), `Hold`, `Ready-to-submit`}
+2. **Resolved** 섹션 = status ∈ {`Won't fix`, `OOS`, `Not Applicable`, `N/R`, `Closed`, `Paid`, `Duplicate`}
+3. **Appeals / Escalations In Flight** = 수동 유지 (auto-render 영역 밖). JSON에는 없고 markdown에만 있는 메타 섹션.
+
+### 각 행 필드 매핑
+
+| Markdown 컬럼 | JSON 필드 | 변환 |
+|---|---|---|
+| Platform | `platform` | as-is |
+| Target | `target` | as-is |
+| Title | `title` | as-is |
+| Sev | `severity` | as-is |
+| Bounty | `bounty` | as-is (`—` 허용) |
+| Status | `status` | as-is |
+| Submitted | `submitted` | `YYYY-MM-DD` 또는 `—` (not-yet-submitted) |
+| Last Check | 계산 | `$(date +%Y-%m-%d)` (sync 실행일) |
+| Note | `note` | as-is |
+
+### Statistics 블록 (auto-compute, 수동 수정 금지)
+
+```
+**Active: N** (N = count of Active rows)
+- Pending: X
+- Triage: X
+- Accepted (bounty 미확정): X
+- Ready-to-submit: X
+- Hold: X
+
+**Resolved: M**
+- Won't fix: X / OOS: X / Not Applicable: X / N/R: X / Closed: X / Paid: X
+```
+
+### Update 명령 (Phase 4 confirm 후 실행)
+
+```bash
+# 1. docs/submissions.json Edit 완료 시점에
+# 2. Orchestrator 가 다음을 실행:
+python3 tools/render_submissions_tracker.py \
+  --json docs/submissions.json \
+  --out coordination/SUBMISSIONS.md \
+  --preserve-section "Appeals / Escalations In Flight"
+# (도구 미구현 시 수동 edit: Active/Resolved 테이블 행 맞춰 재작성, Statistics 블록 재계산)
+```
+
+### IRON RULE
+- JSON 과 Markdown 동시 갱신. 둘 중 하나만 변경된 상태로 커밋/세션 종료 금지.
+- `coordination/SUBMISSIONS.md` 는 JSON 의 파생물이지만 Appeals 섹션만 수동. **JSON에 없는 엔트리를 마크다운에만 추가하는 것 금지** (ProConnect 같은 Ready-to-submit 도 JSON에 먼저 추가: `submitted: ""` 또는 `status: "Ready-to-submit"`).
+
+---
+
 ## Phase 5 (full/discover-missed 모드만) — Missed Submissions Sweep
 
 ### 5.1 플랫폼별 전체 submission 목록 수집
