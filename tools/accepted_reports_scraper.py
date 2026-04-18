@@ -525,10 +525,16 @@ def ingest_github_security_lab() -> tuple[int, int]:
         print(f"[ghsec-lab] fetch failed: {e}")
         return 0, 0
 
-    # Each advisory entry typically: <a href="/advisories/GHSL-..."> + <h2>title</h2>
+    # v14 (2026-04-18 codex review P2): each GHSL card has the same advisory
+    # URL linked twice — once wrapping the date (contains <span>, no title
+    # text), once wrapping the title inside <h4 class="post-title">. The
+    # previous regex matched the date link and captured empty whitespace as
+    # the "title", leaving the feed unsearchable by vulnerability text.
+    # Target the post-title anchor explicitly.
     entries = re.findall(
-        r'href="(/advisories/(GHSL-[0-9]{4}-[0-9]+)[^"]*?)"[^>]*>\s*([^<]+)',
+        r'<h[1-6][^>]*post-title[^>]*>\s*<a\s+[^>]*href="(/advisories/(GHSL-[0-9]{4}-[0-9]+)[^"]*?)"[^>]*>([^<]+)</a>',
         html,
+        flags=re.IGNORECASE | re.DOTALL,
     )
     for path, ghsl_id, title in entries:
         url = f"https://securitylab.github.com{path}"

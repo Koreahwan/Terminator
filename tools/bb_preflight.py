@@ -378,25 +378,40 @@ def verbatim_check(
     bundle_text = bundle_path.read_text(encoding="utf-8")
 
     # Sections whose bullets are verbatim claims about the program page.
+    # v14 (2026-04-18 codex review P2): Submission Rules included — previously
+    # paraphrased mandatory-headers / safe-harbour wording would slip past.
     VERBATIM_HEADINGS = [
         "Out-of-Scope / Exclusion List",
         "In-Scope Assets",
         "Known Issues",
         "Severity Scope",
         "Asset Scope Constraints",
+        "Submission Rules",
     ]
 
     def _normalise(s: str) -> str:
-        """Collapse markdown bullet / backticks / whitespace; lowercase."""
+        """Collapse markdown bullet / backticks / whitespace; lowercase.
+
+        v14 (2026-04-18 codex review P2): JSON string bodies in bundle.md
+        keep their escape sequences (\\" \\n \\t), so rules summaries that
+        paste the raw text won't substring-match. Unescape a conservative
+        subset before normalising.
+        """
         s = s.strip()
         # Markdown link: [text](url) → "text url"
         s = re.sub(r"\[([^\]]+)\]\(([^)]+)\)", r"\1 \2", s)
         # Strip bullet prefixes (one pass).
         s = re.sub(r"^(?:[-+•*]|\d+[.)])\s+", "", s)
+        # JSON-escape unescape (\" → ", \\n → space, etc.)
+        s = s.replace('\\"', '"').replace("\\'", "'")
+        s = re.sub(r"\\[ntr]", " ", s)
         # Strip backticks.
         s = s.replace("`", "")
         # Strip bold/italic markers.
         s = re.sub(r"\*\*|__|_|\*", "", s)
+        # Quote character normalisation (curly vs straight, JSON escaped).
+        s = s.replace("\u201c", '"').replace("\u201d", '"')
+        s = s.replace("\u2018", "'").replace("\u2019", "'")
         # Whitespace collapse.
         s = re.sub(r"\s+", " ", s)
         return s.strip().lower()
@@ -430,10 +445,22 @@ def verbatim_check(
             # field couldn't be auto-detected — they're not verbatim claims).
             if re.search(r"fetcher did not detect|verify against the live", line, re.IGNORECASE):
                 continue
-            # Only check bullet / numbered items — prose paragraphs in these
-            # sections are typically meta-commentary (e.g. "Fresh-Surface
-            # Scope Restriction"), not verbatim OOS claims.
-            if not re.match(r"^(?:[-+•*]|\d+[.)])\s+", line):
+            # Accept bullet / numbered items — prose is meta-commentary.
+            # v14 (2026-04-18 codex review P2): also accept markdown table
+            # rows (|cell|cell|) when the section is Severity Scope, since
+            # render.py renders the severity matrix as a pipe-table and
+            # skipping it left `checked == 0` for the whole section.
+            is_bullet = bool(re.match(r"^(?:[-+•*]|\d+[.)])\s+", line))
+            is_table_row = (
+                heading in ("Severity Scope", "Asset Scope Constraints")
+                and line.startswith("|")
+                and line.count("|") >= 2
+                # Skip divider rows like |---|---|
+                and not re.match(r"^\|[\s|:\-]+\|\s*$", line)
+                # Skip header row by heuristic (all cells short / bold-ish)
+                and not re.match(r"^\|\s*(?:Severity|Asset class|Reward|Notes|Asset|Tier|Range)\s*\|", line, re.IGNORECASE)
+            )
+            if not (is_bullet or is_table_row):
                 continue
             normalised = _normalise(line)
             # Too-short fragments can false-match. Enforce min 6 chars after
@@ -460,7 +487,14 @@ def verbatim_check(
             # 0xAddress smart-contract tokens.
             for atok in re.findall(r"0x[a-fA-F0-9]{40}", line):
                 tokens.add(atok.lower())
-            if tokens and any(t in bundle_norm for t in tokens if len(t) >= 6):
+            # v14 (2026-04-18 codex review P2): monetary reward tokens for
+            # Severity Scope table rows (€100, $5,000, etc).
+            for mtok in re.findall(r"[€$£¥]\s?\d[\d,.]*", line):
+                tokens.add(re.sub(r"\s+", "", mtok.lower()))
+            # Severity label tokens.
+            for ltok in re.findall(r"\b(?:critical|high|medium|low|informational|info)\b", line, re.IGNORECASE):
+                tokens.add(ltok.lower())
+            if tokens and any(t in bundle_norm for t in tokens if len(t) >= 3):
                 continue
 
             missing.append({
@@ -3760,6 +3794,37 @@ def fetch_program(
         write_artifacts(result, tdir)
         render_to_target(result.data, tdir)
 
+        # v14: raw-bundle capture is MANDATORY after fetch so the subsequent
+        # `verbatim-check` call documented in Phase 0.2 actually has a bundle.md
+        # to search against. Without this, the documented pipeline would ERROR
+        # at every verbatim-check invocation (codex review P1, 2026-04-18).
+        try:
+            from tools.program_fetcher.raw_bundle import capture as capture_raw_bundle
+            bundle_summary = capture_raw_bundle(program_url, tdir)
+            errs = bundle_summary.get("errors") or []
+            linked_n = len(bundle_summary.get("linked_pages", []))
+            if errs:
+                print(
+                    f"raw-bundle: landing + {linked_n} linked pages "
+                    f"({bundle_summary.get('bundle_md_bytes', 0)} bytes) "
+                    f"with {len(errs)} non-fatal error(s)",
+                    file=sys.stderr,
+                )
+            else:
+                print(
+                    f"raw-bundle: landing + {linked_n} linked pages "
+                    f"({bundle_summary.get('bundle_md_bytes', 0)} bytes)",
+                    file=sys.stderr,
+                )
+        except Exception as e:
+            # Raw-bundle failure must NOT break structured intake — bubble up
+            # a warning so Phase 0.2 verbatim-check can flag missing bundle.md.
+            print(
+                f"raw-bundle: CAPTURE FAILED ({type(e).__name__}: {e}) — "
+                "structured parse was still saved; verbatim-check will ERROR",
+                file=sys.stderr,
+            )
+
     # Record into checkpoint.json if present.
     ckpt_path = tdir / "checkpoint.json"
     if ckpt_path.exists():
@@ -3932,22 +3997,48 @@ def historical_match(
         print(f"WARN: {db_path} missing. Run `python3 tools/accepted_reports_scraper.py ingest all` first.")
         return 0  # advisory only — never block on missing data
 
-    terms = [t.strip() for t in (finding, vuln_type, program, platform) if t and t.strip()]
-    if not terms:
+    # v14 (2026-04-18 codex review P1): split search terms from filter terms.
+    # Previously all 4 were OR-joined in the FTS query, so passing just
+    # `--platform bugcrowd` would match every row that mentioned Bugcrowd
+    # anywhere, inflating the rejected-count and producing spurious WARNs.
+    # Now: finding + vuln_type are FTS text search; program + platform are
+    # SQL LIKE filters applied on top.
+    search_terms = [t.strip() for t in (finding, vuln_type) if t and t.strip()]
+    program_filter = program.strip() if program and program.strip() else ""
+    platform_filter = platform.strip() if platform and platform.strip() else ""
+
+    if not search_terms and not (program_filter or platform_filter):
         print("FAIL: historical-match requires at least one of --finding / --vuln-type / --program / --platform")
         return 1
 
-    safe_terms = [t.replace('"', '""') for t in terms]
-    fts_query = " OR ".join(f'"{t}"' for t in safe_terms)
+    if search_terms:
+        safe_terms = [t.replace('"', '""') for t in search_terms]
+        fts_query = " OR ".join(f'"{t}"' for t in safe_terms)
+    else:
+        # No text search — use the program or platform as a broad FTS term
+        # so SQLite FTS has something to MATCH against. LIKE filters narrow
+        # the result set afterwards.
+        broad = (program_filter or platform_filter).replace('"', '""')
+        fts_query = f'"{broad}"'
+
+    where_clauses = ["reports MATCH ?"]
+    sql_params: list = [fts_query]
+    if program_filter:
+        where_clauses.append("lower(program) LIKE ?")
+        sql_params.append(f"%{program_filter.lower()}%")
+    if platform_filter:
+        where_clauses.append("lower(platform) LIKE ?")
+        sql_params.append(f"%{platform_filter.lower()}%")
+    sql = (
+        "SELECT source, platform, program, title, status, bounty, url, disclosed_at "
+        "FROM reports WHERE " + " AND ".join(where_clauses)
+        + " ORDER BY rank LIMIT 30"
+    )
 
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
     try:
-        rows = conn.execute(
-            "SELECT source, platform, program, title, status, bounty, url, disclosed_at "
-            "FROM reports WHERE reports MATCH ? ORDER BY rank LIMIT 30",
-            (fts_query,),
-        ).fetchall()
+        rows = conn.execute(sql, sql_params).fetchall()
     except sqlite3.OperationalError as e:
         print(f"FAIL: FTS query error ({e}). Query was: {fts_query}")
         conn.close()
@@ -4002,7 +4093,12 @@ def historical_match(
             "verdict": verdict,
             "exit_code": exit_code,
             "message": verdict_msg,
-            "query": {"terms": terms, "fts": fts_query},
+            "query": {
+                "search_terms": search_terms,
+                "program_filter": program_filter,
+                "platform_filter": platform_filter,
+                "fts": fts_query,
+            },
             "counts": {
                 "total": len(rows),
                 "accepted": len(accepted),
