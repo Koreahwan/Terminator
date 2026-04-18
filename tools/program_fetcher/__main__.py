@@ -57,6 +57,17 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--no-cache", action="store_true", help="bypass the disk cache")
     p.add_argument("--hold-ok", action="store_true",
                    help="exit 0 on HOLD (still write artifacts)")
+    # v14 raw-bundle layer: verbatim landing HTML + linked page recursion.
+    # Default ON because kill-gate-1 verbatim enforcement depends on bundle.md.
+    p.add_argument("--no-raw-bundle", action="store_false", dest="raw_bundle",
+                   help="skip program_raw/ capture (NOT recommended — disables verbatim kill-gate)")
+    p.add_argument("--raw-bundle", action="store_true", dest="raw_bundle",
+                   default=True,
+                   help="capture raw HTML + linked scope pages into program_raw/ (default ON)")
+    p.add_argument("--link-depth", type=int, default=1,
+                   help="raw-bundle link recursion depth (0=landing only, 1=default, 2=deep)")
+    p.add_argument("--max-links", type=int, default=20,
+                   help="max linked pages to follow per depth level (default 20)")
     args = p.parse_args(argv)
 
     if not args.url and not args.fixture:
@@ -80,6 +91,42 @@ def main(argv: list[str] | None = None) -> int:
         out_dir.mkdir(parents=True, exist_ok=True)
         write_artifacts(result, out_dir)
         render_to_target(result.data, out_dir)
+
+        # v14: raw-bundle capture (opt-out via --no-raw-bundle).
+        # Runs only when we actually fetched from network — fixtures skip it
+        # because the fixture is already a local file and there's no URL to
+        # crawl.
+        if args.raw_bundle and args.url and not args.fixture:
+            try:
+                from .raw_bundle import capture as capture_raw_bundle
+                bundle_summary = capture_raw_bundle(
+                    args.url,
+                    out_dir,
+                    depth=args.link_depth,
+                    max_links=args.max_links,
+                )
+                if bundle_summary.get("errors"):
+                    err_count = len(bundle_summary["errors"])
+                    print(
+                        f"raw-bundle: captured with {err_count} non-fatal error(s) "
+                        f"(see program_raw/bundle_meta.json)",
+                        file=sys.stderr,
+                    )
+                else:
+                    linked_n = len(bundle_summary.get("linked_pages", []))
+                    print(
+                        f"raw-bundle: landing + {linked_n} linked pages "
+                        f"({bundle_summary.get('bundle_md_bytes', 0)} bytes)",
+                        file=sys.stderr,
+                    )
+            except Exception as e:
+                # Never let raw-bundle capture break the primary fetch flow —
+                # structured parse is still saved regardless.
+                print(
+                    f"raw-bundle: CAPTURE FAILED ({type(e).__name__}: {e}) — "
+                    "structured parse was still saved",
+                    file=sys.stderr,
+                )
 
     # Exit code.
     if result.verdict == PASS:

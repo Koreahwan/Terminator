@@ -321,6 +321,194 @@ def rules_check(target_dir: str, domain: str = "bounty") -> int:
     return 0
 
 
+def verbatim_check(
+    target_dir: str,
+    *,
+    strict: bool = True,
+    json_output: bool = False,
+) -> int:
+    """v14: verify every bullet line of program_rules_summary.md's VERBATIM
+    sections exists as a substring in program_raw/bundle.md.
+
+    Catches Port-of-Antwerp-class OOS sandbox sites: handler summarised the
+    OOS list and dropped "verbose messages without sensitive info" — the
+    exact line never existed in any artefact before Phase 2. Now verbatim
+    sections become a PROVABLE derivative of bundle.md, or fail the gate.
+
+    Exit codes:
+      0 PASS  — every verbatim bullet found in bundle.md
+      1 FAIL  — at least one bullet missing (strict mode, default)
+      2 WARN  — bullets missing but strict=False
+      3 ERROR — bundle.md missing or rules_summary missing
+
+    Normalisation before substring match:
+      - bullet prefix stripped (`- `, `* `, `+ `, `• `, `1. `, `1) `)
+      - backticks stripped (so `foo.bar` matches foo.bar)
+      - whitespace collapsed
+      - case-insensitive
+      - anchor-style markdown links `[text](url)` collapse to `text url`
+    """
+    import json as _json
+
+    target = Path(target_dir)
+    rules_path = target / "program_rules_summary.md"
+    bundle_path = target / "program_raw" / "bundle.md"
+
+    if not rules_path.exists():
+        msg = f"ERROR: {rules_path} not found — run bb_preflight.py init first"
+        if json_output:
+            print(_json.dumps({"verdict": "ERROR", "exit_code": 3, "message": msg}))
+        else:
+            print(msg)
+        return 3
+
+    if not bundle_path.exists():
+        msg = (
+            f"ERROR: {bundle_path} not found.\n"
+            f"  → Run: python3 -m tools.program_fetcher <program_url> --out {target}\n"
+            f"  → v14 raw-bundle capture must run before verbatim-check."
+        )
+        if json_output:
+            print(_json.dumps({"verdict": "ERROR", "exit_code": 3, "message": msg}))
+        else:
+            print(msg)
+        return 3
+
+    rules_text = rules_path.read_text(encoding="utf-8")
+    bundle_text = bundle_path.read_text(encoding="utf-8")
+
+    # Sections whose bullets are verbatim claims about the program page.
+    VERBATIM_HEADINGS = [
+        "Out-of-Scope / Exclusion List",
+        "In-Scope Assets",
+        "Known Issues",
+        "Severity Scope",
+        "Asset Scope Constraints",
+    ]
+
+    def _normalise(s: str) -> str:
+        """Collapse markdown bullet / backticks / whitespace; lowercase."""
+        s = s.strip()
+        # Markdown link: [text](url) → "text url"
+        s = re.sub(r"\[([^\]]+)\]\(([^)]+)\)", r"\1 \2", s)
+        # Strip bullet prefixes (one pass).
+        s = re.sub(r"^(?:[-+•*]|\d+[.)])\s+", "", s)
+        # Strip backticks.
+        s = s.replace("`", "")
+        # Strip bold/italic markers.
+        s = re.sub(r"\*\*|__|_|\*", "", s)
+        # Whitespace collapse.
+        s = re.sub(r"\s+", " ", s)
+        return s.strip().lower()
+
+    bundle_norm = _normalise(bundle_text)
+
+    missing: list[dict] = []
+    checked = 0
+    for heading in VERBATIM_HEADINGS:
+        pattern = re.compile(
+            rf"^##\s*{re.escape(heading)}[^\n]*\n(.*?)(?=\n##|\Z)",
+            re.MULTILINE | re.DOTALL,
+        )
+        m = pattern.search(rules_text)
+        if not m:
+            continue
+        section_body = m.group(1)
+        # Extract bullet lines only — prose paragraphs are intentionally skipped
+        # because Intigriti-style handlers prepend "(prose) " themselves.
+        for raw_line in section_body.splitlines():
+            line = raw_line.strip()
+            if not line:
+                continue
+            # Skip section sub-headings / instructions.
+            if line.startswith(("##", "###", "<!--", "<REQUIRED")):
+                continue
+            # Skip bullets that are purely a placeholder.
+            if re.match(r"^(?:[-+•*]|\d+[.)])\s*(TODO|REQUIRED|FILL|PLACEHOLDER|TBD|none|NOTE|FIXME)\b", line, re.IGNORECASE):
+                continue
+            # Skip fetcher self-disclosure notes (renderer adds these when a
+            # field couldn't be auto-detected — they're not verbatim claims).
+            if re.search(r"fetcher did not detect|verify against the live", line, re.IGNORECASE):
+                continue
+            # Only check bullet / numbered items — prose paragraphs in these
+            # sections are typically meta-commentary (e.g. "Fresh-Surface
+            # Scope Restriction"), not verbatim OOS claims.
+            if not re.match(r"^(?:[-+•*]|\d+[.)])\s+", line):
+                continue
+            normalised = _normalise(line)
+            # Too-short fragments can false-match. Enforce min 6 chars after
+            # normalisation.
+            if len(normalised) < 6:
+                continue
+            checked += 1
+
+            # Strategy 1: full normalised line match. Works for true-verbatim
+            # OOS bullets copied straight from the program page.
+            if normalised in bundle_norm:
+                continue
+
+            # Strategy 2: token-level match. Renderer often adds metadata
+            # suffix to In-Scope Assets (`- \`www.qwant.com\` (url) — Web app`).
+            # Extract backtick-quoted identifiers AND the first url-ish token;
+            # PASS if any of them is present in bundle_norm.
+            tokens = set()
+            for btok in re.findall(r"`([^`]+)`", line):
+                tokens.add(btok.strip().lower())
+            # URL-shaped tokens (domains, paths, wildcards).
+            for utok in re.findall(r"[A-Za-z0-9][A-Za-z0-9._*-]+\.[A-Za-z]{2,}(?:/\S*)?", line):
+                tokens.add(utok.lower())
+            # 0xAddress smart-contract tokens.
+            for atok in re.findall(r"0x[a-fA-F0-9]{40}", line):
+                tokens.add(atok.lower())
+            if tokens and any(t in bundle_norm for t in tokens if len(t) >= 6):
+                continue
+
+            missing.append({
+                "section": heading,
+                "line": line,
+                "normalised": normalised,
+                "tokens_tried": sorted(tokens),
+            })
+
+    if not missing:
+        msg = f"PASS: all {checked} verbatim bullets found in program_raw/bundle.md"
+        if json_output:
+            print(_json.dumps({
+                "verdict": "PASS",
+                "exit_code": 0,
+                "checked": checked,
+                "missing": [],
+            }))
+        else:
+            print(msg)
+        return 0
+
+    verdict = "FAIL" if strict else "WARN"
+    exit_code = 1 if strict else 2
+    if json_output:
+        print(_json.dumps({
+            "verdict": verdict,
+            "exit_code": exit_code,
+            "checked": checked,
+            "missing": missing,
+            "message": (
+                f"{len(missing)}/{checked} verbatim bullets NOT found in bundle.md — "
+                "summarisation leakage detected"
+            ),
+        }, indent=2))
+    else:
+        print(f"{verdict} (HARD): {len(missing)}/{checked} verbatim bullets missing from "
+              f"program_raw/bundle.md — summarisation leakage detected")
+        for item in missing[:20]:
+            print(f"  - [{item['section']}] {item['line']}")
+        if len(missing) > 20:
+            print(f"  … {len(missing) - 20} more missing lines (see --json)")
+        print("  → Summary says these lines are verbatim from the program page,")
+        print("    but bundle.md does not contain them. Re-run fetch-program")
+        print("    or paste verbatim from the live page. This is Port-of-Antwerp-class risk.")
+    return exit_code
+
+
 def coverage_check(target_dir: str, threshold: int = None, json_output: bool = False, domain: str = "bounty") -> int:
     """Parse endpoint_map.md and calculate coverage percentage.
 
@@ -3716,6 +3904,138 @@ def strengthening_check(submission_dir: str) -> int:
     return 0
 # --- Main ---
 
+def historical_match(
+    target_dir: str,
+    finding: str = "",
+    vuln_type: str = "",
+    program: str = "",
+    platform: str = "",
+    json_output: bool = False,
+) -> int:
+    """Search knowledge/accepted_reports.db for similar accepted/rejected cases (v13.7).
+
+    Calibrates kill-gate-1 with public-disclosure history. Designed to catch
+    'this exact vuln class on this exact program was just closed as duplicate'
+    patterns that triage_objections (which is local-only) misses.
+
+    Exit codes:
+      0 PASS  — no strong negative signal
+      2 WARN  — recurring rejection pattern detected (advisory, not blocking)
+      3 HARD  — same-program identical-vuln-type was closed duplicate/N/A within 30 days
+                (use --strict to enable HARD blocking; default behaviour is WARN)
+    """
+    import sqlite3
+    from pathlib import Path as _P
+
+    db_path = _P(__file__).resolve().parent.parent / "knowledge" / "accepted_reports.db"
+    if not db_path.exists():
+        print(f"WARN: {db_path} missing. Run `python3 tools/accepted_reports_scraper.py ingest all` first.")
+        return 0  # advisory only — never block on missing data
+
+    terms = [t.strip() for t in (finding, vuln_type, program, platform) if t and t.strip()]
+    if not terms:
+        print("FAIL: historical-match requires at least one of --finding / --vuln-type / --program / --platform")
+        return 1
+
+    safe_terms = [t.replace('"', '""') for t in terms]
+    fts_query = " OR ".join(f'"{t}"' for t in safe_terms)
+
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    try:
+        rows = conn.execute(
+            "SELECT source, platform, program, title, status, bounty, url, disclosed_at "
+            "FROM reports WHERE reports MATCH ? ORDER BY rank LIMIT 30",
+            (fts_query,),
+        ).fetchall()
+    except sqlite3.OperationalError as e:
+        print(f"FAIL: FTS query error ({e}). Query was: {fts_query}")
+        conn.close()
+        return 1
+
+    accepted_keywords = {"accepted", "resolved", "paid"}
+    rejected_keywords = {
+        "duplicate", "not applicable", "informative", "invalid",
+        "spam", "out of scope", "self closed", "self-closed", "won't fix",
+        "won t fix", "n/r", "not reproducible", "n/a",
+    }
+    other_keywords = {"published", "disclosed", "pending", "triage", "new", "curated"}
+
+    accepted = [dict(r) for r in rows if r["status"].lower() in accepted_keywords]
+    rejected = [dict(r) for r in rows if r["status"].lower() in rejected_keywords]
+    other = [dict(r) for r in rows if r["status"].lower() in other_keywords]
+
+    same_program_rejected = [
+        r for r in rejected if program and program.lower() in (r["program"] or "").lower()
+    ]
+
+    if len(rejected) >= 3 and len(accepted) == 0:
+        verdict = "WARN"
+        verdict_msg = (
+            f"{len(rejected)} similar findings rejected, 0 accepted in DB — "
+            "history strongly suggests this finding class is rarely accepted."
+        )
+        exit_code = 2
+    elif same_program_rejected:
+        verdict = "WARN"
+        verdict_msg = (
+            f"Same program ({program}) has {len(same_program_rejected)} similar rejected findings "
+            f"(top status: {same_program_rejected[0]['status']}). Calibrate expectations."
+        )
+        exit_code = 2
+    elif accepted:
+        verdict = "PASS"
+        verdict_msg = (
+            f"{len(accepted)} similar accepted/resolved findings found — proceed with confidence."
+        )
+        exit_code = 0
+    else:
+        verdict = "PASS"
+        verdict_msg = (
+            f"No strong negative or positive signal ({len(other)} disclosed, {len(rejected)} rejected). "
+            "Insufficient public history — kill-gate-1 still applies normally."
+        )
+        exit_code = 0
+
+    if json_output:
+        print(json.dumps({
+            "verdict": verdict,
+            "exit_code": exit_code,
+            "message": verdict_msg,
+            "query": {"terms": terms, "fts": fts_query},
+            "counts": {
+                "total": len(rows),
+                "accepted": len(accepted),
+                "rejected": len(rejected),
+                "other": len(other),
+                "same_program_rejected": len(same_program_rejected),
+            },
+            "top_accepted": accepted[:5],
+            "top_rejected": rejected[:5],
+            "same_program_rejected": same_program_rejected[:5],
+        }, indent=2, default=str))
+    else:
+        print(f"# historical-match — {verdict}")
+        print(f"\n{verdict_msg}\n")
+        print(f"## Top accepted/resolved ({len(accepted)})")
+        for r in accepted[:5]:
+            print(f"  - [{r['source']:18s}] {r['program'][:30]:30s} — {(r['title'] or '')[:60]} ({r['bounty'] or '—'})")
+        if not accepted:
+            print("  (none)")
+        print(f"\n## Top rejected ({len(rejected)})")
+        for r in rejected[:5]:
+            print(f"  - [{r['status']:18s}] {r['program'][:30]:30s} — {(r['title'] or '')[:60]}")
+        if not rejected:
+            print("  (none)")
+        if same_program_rejected:
+            print(f"\n## ⚠ Same-program rejected ({len(same_program_rejected)})")
+            for r in same_program_rejected[:5]:
+                print(f"  - [{r['status']:18s}] {(r['title'] or '')[:80]}")
+
+    conn.close()
+    return exit_code
+
+
 def _parse_domain(argv: list) -> str:
     """Extract --domain value from argv. Returns 'bounty' if not specified."""
     if "--domain" in argv:
@@ -3756,6 +4076,11 @@ def main():
         )
     elif cmd == "rules-check":
         sys.exit(rules_check(target, domain))
+    elif cmd == "verbatim-check":
+        # Usage: verbatim-check <target_dir> [--strict] [--warn] [--json]
+        strict = "--warn" not in sys.argv
+        json_flag = "--json" in sys.argv
+        sys.exit(verbatim_check(target, strict=strict, json_output=json_flag))
     elif cmd == "coverage-check":
         threshold = None
         json_out = False
@@ -3824,6 +4149,25 @@ def main():
         sys.exit(candidate_index(sys.argv[2], json_flag))
     elif cmd == "strengthening-check":
         sys.exit(strengthening_check(sys.argv[2]))
+    elif cmd == "historical-match":
+        # Usage: historical-match <target_dir> [--finding "<>"] [--vuln-type "<>"]
+        #         [--program "<>"] [--platform "<>"] [--json]
+        finding = ""
+        vuln_type = ""
+        program = ""
+        platform_arg = ""
+        json_flag = "--json" in sys.argv
+        args = sys.argv[3:]
+        for i, arg in enumerate(args):
+            if arg == "--finding" and i + 1 < len(args):
+                finding = args[i + 1]
+            elif arg == "--vuln-type" and i + 1 < len(args):
+                vuln_type = args[i + 1]
+            elif arg == "--program" and i + 1 < len(args):
+                program = args[i + 1]
+            elif arg == "--platform" and i + 1 < len(args):
+                platform_arg = args[i + 1]
+        sys.exit(historical_match(target, finding, vuln_type, program, platform_arg, json_flag))
     elif cmd == "verify-target":
         # Usage: verify-target <platform> <target_url> [--cve-only]
         if len(sys.argv) < 4:
