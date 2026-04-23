@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import tempfile
 import unittest
 from datetime import date
@@ -15,6 +16,8 @@ if str(REPO_ROOT) not in __import__("sys").path:
 from tools.ops_wiki import (
     build_ops_wiki,
     load_tracker_context,
+    load_submissions_from_tracker,
+    ops_wiki_needs_rebuild,
     parse_first_table,
     split_sections,
 )
@@ -135,6 +138,15 @@ class TestTrackerParsing(unittest.TestCase):
             self.assertEqual(len(ctx.appeals), 1)
             self.assertEqual(len(ctx.platform_notes), 2)
 
+    def test_load_submissions_from_tracker_fallback(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="opswiki_tracker_only_") as td:
+            tracker = Path(td) / "SUBMISSIONS.md"
+            tracker.write_text(TRACKER_FIXTURE, encoding="utf-8")
+            ctx = load_tracker_context(tracker)
+            submissions = load_submissions_from_tracker(ctx)
+            self.assertEqual(len(submissions), 3)
+            self.assertEqual(submissions[0].platform, "Bugcrowd")
+
 
 class TestOpsWikiBuild(unittest.TestCase):
     def test_build_generates_expected_pages(self) -> None:
@@ -198,6 +210,66 @@ class TestOpsWikiBuild(unittest.TestCase):
 
             index_text = (out_dir / "index.md").read_text(encoding="utf-8")
             self.assertIn("Operations Wiki", index_text)
+
+    def test_build_without_submissions_json_uses_tracker_fallback(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="opswiki_tracker_fallback_") as td:
+            root = Path(td)
+            tracker_md = root / "SUBMISSIONS.md"
+            out_dir = root / "out"
+            tracker_md.write_text(TRACKER_FIXTURE, encoding="utf-8")
+
+            build_ops_wiki(
+                submissions_json=root / "missing_submissions.json",
+                tracker_md=tracker_md,
+                gmail_state_path=root / "missing_gmail.json",
+                out_dir=out_dir,
+                today=date(2026, 4, 23),
+            )
+
+            manifest = json.loads((out_dir / "manifest.json").read_text(encoding="utf-8"))
+            self.assertEqual(manifest["submissions_mode"], "tracker_only")
+
+    def test_ops_wiki_needs_rebuild_when_source_is_newer(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="opswiki_stale_") as td:
+            root = Path(td)
+            submissions_json = root / "submissions.json"
+            tracker_md = root / "SUBMISSIONS.md"
+            out_dir = root / "out"
+            submissions_json.write_text(json.dumps(SUBMISSIONS_FIXTURE), encoding="utf-8")
+            tracker_md.write_text(TRACKER_FIXTURE, encoding="utf-8")
+
+            build_ops_wiki(
+                submissions_json=submissions_json,
+                tracker_md=tracker_md,
+                gmail_state_path=root / "missing_gmail.json",
+                out_dir=out_dir,
+                today=date(2026, 4, 23),
+            )
+
+            stale, reason = ops_wiki_needs_rebuild(
+                out_dir,
+                {
+                    "submissions_json": submissions_json,
+                    "tracker_md": tracker_md,
+                    "gmail_state": root / "missing_gmail.json",
+                },
+            )
+            self.assertFalse(stale)
+            self.assertEqual(reason, "fresh")
+
+            tracker_md.write_text(TRACKER_FIXTURE + "\n<!-- changed -->\n", encoding="utf-8")
+            stat = tracker_md.stat()
+            os.utime(tracker_md, (stat.st_atime + 2, stat.st_mtime + 2))
+            stale, reason = ops_wiki_needs_rebuild(
+                out_dir,
+                {
+                    "submissions_json": submissions_json,
+                    "tracker_md": tracker_md,
+                    "gmail_state": root / "missing_gmail.json",
+                },
+            )
+            self.assertTrue(stale)
+            self.assertEqual(reason, "tracker_md_newer")
 
 
 if __name__ == "__main__":

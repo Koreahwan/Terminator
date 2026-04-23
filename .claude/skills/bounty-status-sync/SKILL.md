@@ -290,6 +290,24 @@ python3 tools/render_submissions_tracker.py \
 
 ---
 
+## Phase 4.7 — Compiled Ops Wiki Refresh (`coordination/cache/ops_wiki/`)
+
+Phase 4.6 완료 직후 compiled query layer 도 재생성한다. 이 레이어는 정본이 아니라 status/follow-up/appeal 질문 최적화용 파생물이다.
+
+실행:
+
+```bash
+python3 tools/ops_wiki.py build
+python3 tools/ops_wiki.py check
+```
+
+규칙:
+- `check` 가 stale 을 반환하면 raw tracker 대신 compiled layer 를 먼저 읽지 말고, build 후 다시 확인.
+- `docs/submissions.json` 가 없는 환경에서도 tracker-only fallback 으로 build 가능.
+- `.gmail_monitor_state.json` 이 있으면 enrichment 포함, 없으면 정상적으로 no-enrichment build.
+
+---
+
 ## Phase 5 (full/discover-missed 모드만) — Missed Submissions Sweep
 
 ### 5.1 플랫폼별 전체 submission 목록 수집

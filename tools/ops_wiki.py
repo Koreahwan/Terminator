@@ -196,6 +196,42 @@ def load_submissions(path: Path) -> list[SubmissionEntry]:
     return entries
 
 
+def load_submissions_from_tracker(tracker: TrackerContext) -> list[SubmissionEntry]:
+    entries: list[SubmissionEntry] = []
+    for row in tracker.active_rows.values():
+        entries.append(
+            SubmissionEntry(
+                platform=strip_md(row.get("Platform", "—")),
+                target=strip_md(row.get("Target", "—")),
+                title=strip_md(row.get("Title", "—")),
+                severity=strip_md(row.get("Sev", "—")),
+                bounty=strip_md(row.get("Bounty", "—")),
+                status=normalize_status(row.get("Status", "—")),
+                submitted=strip_md(row.get("Submitted", "—")),
+                note=strip_md(row.get("Note", "")),
+                last_check=strip_md(row.get("Last Check", "")),
+                source_refs=["coordination/SUBMISSIONS.md#active"],
+            )
+        )
+    for row in tracker.resolved_rows.values():
+        entries.append(
+            SubmissionEntry(
+                platform=strip_md(row.get("Platform", "—")),
+                target=strip_md(row.get("Target", "—")),
+                title=strip_md(row.get("Title", "—")),
+                severity=strip_md(row.get("Sev", "—")),
+                bounty=strip_md(row.get("Bounty", "—")),
+                status=normalize_status(row.get("Status", "—")),
+                submitted=strip_md(row.get("Submitted", "—")),
+                note="",
+                resolved=strip_md(row.get("Resolved", "")),
+                memory_lesson=row.get("Memory Lesson", "").strip(),
+                source_refs=["coordination/SUBMISSIONS.md#resolved"],
+            )
+        )
+    return entries
+
+
 def load_tracker_context(path: Path) -> TrackerContext:
     text = path.read_text(encoding="utf-8")
     sections = split_sections(text)
@@ -238,6 +274,60 @@ def load_gmail_state(path: Path) -> dict:
     if not path.exists():
         return {}
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def canonical_paths(submissions_json: Path, tracker_md: Path, gmail_state_path: Path | None) -> dict[str, Path]:
+    paths = {"submissions_json": submissions_json, "tracker_md": tracker_md}
+    if gmail_state_path is not None:
+        paths["gmail_state"] = gmail_state_path
+    return paths
+
+
+def source_mtimes(paths: dict[str, Path]) -> dict[str, str]:
+    mtimes: dict[str, str] = {}
+    for key, path in paths.items():
+        if path.exists():
+            mtimes[key] = datetime.fromtimestamp(path.stat().st_mtime, UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return mtimes
+
+
+def load_manifest(path: Path) -> dict:
+    if not path.exists():
+        return {}
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def ops_wiki_needs_rebuild(out_dir: Path, paths: dict[str, Path]) -> tuple[bool, str]:
+    manifest_path = out_dir / "manifest.json"
+    manifest = load_manifest(manifest_path)
+    if not manifest:
+        return True, "manifest_missing"
+
+    manifest_generated = manifest.get("generated_at", "")
+    manifest_source_mtimes = manifest.get("source_mtimes", {})
+    if not manifest_generated:
+        return True, "manifest_generated_at_missing"
+
+    try:
+        generated_dt = datetime.strptime(manifest_generated, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=UTC)
+    except ValueError:
+        return True, "manifest_generated_at_invalid"
+
+    for key, path in paths.items():
+        if not path.exists():
+            if key in {"submissions_json", "gmail_state"}:
+                continue
+            return True, f"{key}_missing"
+        recorded_mtime = manifest_source_mtimes.get(key)
+        if recorded_mtime:
+            current_mtime = datetime.fromtimestamp(path.stat().st_mtime, UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+            if current_mtime > recorded_mtime:
+                return True, f"{key}_newer"
+            continue
+        path_dt = datetime.fromtimestamp(path.stat().st_mtime, UTC)
+        if path_dt > generated_dt:
+            return True, f"{key}_newer"
+    return False, "fresh"
 
 
 def attach_tracker_context(submissions: list[SubmissionEntry], tracker: TrackerContext) -> None:
@@ -540,17 +630,24 @@ def render_submission_pages(submissions: list[SubmissionEntry], out_dir: Path) -
         write_text(sub_dir / f"{entry.slug}.md", "\n".join(lines) + "\n")
 
 
-def render_manifest(submissions: list[SubmissionEntry], tracker: TrackerContext, out_dir: Path) -> None:
+def render_manifest(
+    submissions: list[SubmissionEntry],
+    tracker: TrackerContext,
+    out_dir: Path,
+    paths: dict[str, Path],
+    submissions_mode: str,
+) -> None:
     manifest = {
         "generated_at": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "submission_count": len(submissions),
         "appeal_count": len(tracker.appeals),
         "platform_count": len({s.platform for s in submissions}),
+        "submissions_mode": submissions_mode,
         "sources": {
-            "submissions_json": str(DEFAULT_SUBMISSIONS_JSON.relative_to(PROJECT_ROOT)),
-            "tracker_md": str(DEFAULT_TRACKER_MD.relative_to(PROJECT_ROOT)),
-            "gmail_state": str(DEFAULT_GMAIL_STATE.relative_to(PROJECT_ROOT)),
+            key: str(path.relative_to(PROJECT_ROOT)) if path.is_absolute() and str(path).startswith(str(PROJECT_ROOT)) else str(path)
+            for key, path in paths.items()
         },
+        "source_mtimes": source_mtimes(paths),
     }
     write_text(out_dir / "manifest.json", json.dumps(manifest, indent=2, ensure_ascii=False) + "\n")
 
@@ -568,9 +665,15 @@ def build_ops_wiki(
     today: date | None = None,
 ) -> None:
     today = today or date.today()
-    submissions = load_submissions(submissions_json)
     tracker = load_tracker_context(tracker_md)
+    if submissions_json.exists():
+        submissions = load_submissions(submissions_json)
+        submissions_mode = "json+tracker"
+    else:
+        submissions = load_submissions_from_tracker(tracker)
+        submissions_mode = "tracker_only"
     gmail_state = load_gmail_state(gmail_state_path) if gmail_state_path else {}
+    paths = canonical_paths(submissions_json, tracker_md, gmail_state_path)
 
     attach_tracker_context(submissions, tracker)
     attach_gmail_context(submissions, gmail_state)
@@ -582,7 +685,7 @@ def build_ops_wiki(
     render_followups(submissions, tracker, out_dir)
     render_platform_pages(submissions, tracker, out_dir)
     render_submission_pages(submissions, out_dir)
-    render_manifest(submissions, tracker, out_dir)
+    render_manifest(submissions, tracker, out_dir, paths, submissions_mode)
 
 
 def parse_args() -> argparse.Namespace:
@@ -595,6 +698,12 @@ def parse_args() -> argparse.Namespace:
     build.add_argument("--gmail-state", default=str(DEFAULT_GMAIL_STATE))
     build.add_argument("--out", default=str(DEFAULT_OUTPUT_DIR))
     build.add_argument("--today", default="")
+
+    check = sub.add_parser("check", help="Check whether compiled ops wiki needs rebuild.")
+    check.add_argument("--submissions-json", default=str(DEFAULT_SUBMISSIONS_JSON))
+    check.add_argument("--tracker-md", default=str(DEFAULT_TRACKER_MD))
+    check.add_argument("--gmail-state", default=str(DEFAULT_GMAIL_STATE))
+    check.add_argument("--out", default=str(DEFAULT_OUTPUT_DIR))
     return parser.parse_args()
 
 
@@ -611,6 +720,16 @@ def main() -> int:
         )
         print(f"Ops wiki built at {args.out}")
         return 0
+    if args.command == "check":
+        paths = canonical_paths(
+            Path(args.submissions_json),
+            Path(args.tracker_md),
+            Path(args.gmail_state) if args.gmail_state else None,
+        )
+        stale, reason = ops_wiki_needs_rebuild(Path(args.out), paths)
+        payload = {"out": args.out, "stale": stale, "reason": reason}
+        print(json.dumps(payload, indent=2))
+        return 1 if stale else 0
     return 1
 
 
