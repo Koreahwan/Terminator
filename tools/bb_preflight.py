@@ -18,16 +18,16 @@ Usage:
     bb_preflight.py historical-match <target_dir> [--finding "<>"] [--vuln-type "<>"] [--program "<>"] [--platform "<>"] [--json]
                                                        (v13.7) Query knowledge/accepted_reports.db for same-program
                                                        same-vuln-class reject history. Advisory for kill-gate-1 calibration.
-    bb_preflight.py coverage-check <target_dir> [THR] [--json]  Check endpoint coverage %
+    bb_preflight.py coverage-check <target_dir> [THR] [--json]  Check risk-weighted endpoint coverage %
     bb_preflight.py inject-rules <target_dir>          Output compact rules for HANDOFF
     bb_preflight.py exclusion-filter <target_dir>      Output exclusion list for analyst
     bb_preflight.py kill-gate-1 <target_dir> --finding "<desc>" --severity <sev> [--impact "<claimed>"]  Pre-validate finding viability
                                                        (v12.5: info-disc + verbose-OOS collision → HARD_KILL unless --impact cites sensitivity anchor)
     bb_preflight.py kill-gate-2 <submission_dir>       Pre-validate PoC/evidence quality (includes evidence-tier enforcement)
-    bb_preflight.py workflow-check <target_dir>        Validate workflow_map.md completeness (v12)
+    bb_preflight.py workflow-check <target_dir>        Validate workflow_map.md semantic completeness (v12)
     bb_preflight.py fresh-surface-check <target_dir> [--repo <path>]  Check for fresh attack surface (v12)
     bb_preflight.py evidence-tier-check <submission_dir> [--json]     Classify evidence E1-E4 tier (v12)
-    bb_preflight.py duplicate-graph-check <target_dir> --finding "<desc>" [--json]  Enhanced duplicate detection (v12)
+    bb_preflight.py duplicate-graph-check <target_dir> --finding "<desc>" [--json]  Graph-assisted duplicate detection with heuristic fallback (v12)
 
 Global option: --domain <bounty|ai|robotics|supplychain>  (default: bounty)
   Selects domain-specific rules file, endpoint map, coverage threshold, and required sections.
@@ -72,6 +72,58 @@ REQUIRED_RULES_SECTIONS = [
 ]
 
 TEMPLATE_DIR = Path(__file__).parent / "templates"
+RISK_WEIGHTS = {"HIGH": 2, "MEDIUM": 1, "LOW": 1}
+WORKFLOW_ATTACK_CLASS_PATTERNS = {
+    "skip-step": r"\bskip[- ]step\b",
+    "replay": r"\breplay\b",
+    "race condition": r"\brace condition\b",
+    "state reversal": r"\bstate reversal\b",
+    "partial-failure": r"\bpartial[- ]failure\b",
+}
+
+
+def _validate_workflow_section(section_text: str) -> list[str]:
+    """Return semantic validation issues for a single workflow section."""
+    section_lower = section_text.lower()
+    state_nodes = re.findall(r"\[[^\]]+\]", section_text)
+    has_state_diagram = "state diagram" in section_lower or len(state_nodes) >= 2
+    has_state_parameters = "state parameters" in section_lower
+    has_entry = "entry point" in section_lower or "entry state" in section_lower or has_state_diagram
+    has_terminal = "terminal" in section_lower or len(state_nodes) >= 2 or has_state_parameters
+    has_reversible = "reversible" in section_lower
+    has_rollback = "rollback" in section_lower or has_reversible
+    has_anomaly_flags = "anomaly flags" in section_lower or "expected anomalies" in section_lower
+    has_transitions = (
+        "### transitions" in section_lower
+        or re.search(r"\|\s*from\s*\|\s*to\s*\|", section_lower) is not None
+        or "→" in section_text
+        or "->" in section_text
+    )
+    attack_classes_found = [
+        name for name, pattern in WORKFLOW_ATTACK_CLASS_PATTERNS.items()
+        if re.search(pattern, section_lower)
+    ]
+    has_attack_analysis = (
+        "5-class attack analysis" in section_lower
+        or len(attack_classes_found) == len(WORKFLOW_ATTACK_CLASS_PATTERNS)
+        or has_anomaly_flags
+    )
+
+    issues = []
+    if not has_entry:
+        issues.append("No entry point/state found")
+    if not has_terminal:
+        issues.append("No terminal/state-outcome coverage found")
+    if not (has_rollback or has_anomaly_flags or has_state_parameters):
+        issues.append("No rollback, reversibility, or anomaly coverage found")
+    if not has_transitions:
+        issues.append("No transitions found (expected state → state patterns)")
+    if not has_attack_analysis:
+        issues.append("No explicit attack-analysis section found")
+    if not has_anomaly_flags and len(attack_classes_found) != len(WORKFLOW_ATTACK_CLASS_PATTERNS):
+        missing = sorted(set(WORKFLOW_ATTACK_CLASS_PATTERNS) - set(attack_classes_found))
+        issues.append("Missing attack classes: {}".format(", ".join(missing)))
+    return issues
 
 # --- Domain-specific overrides ---
 
@@ -582,44 +634,76 @@ def coverage_check(target_dir: str, threshold: int = None, json_output: bool = F
             print(f"  → Scout must generate {ENDPOINT_MAP} during Phase 1")
         return 1
 
-    content = map_path.read_text()
+    content = map_path.read_text(encoding="utf-8")
     lines = content.split("\n")
 
     statuses = {"UNTESTED": 0, "TESTED": 0, "VULN": 0, "SAFE": 0, "EXCLUDED": 0}
     untested_endpoints = []
     total = 0
+    weighted_testable = 0
+    weighted_tested = 0
 
-    # Find Status column index from header row
+    def _table_cells(line: str) -> list[str]:
+        stripped = line.strip()
+        if "|" not in stripped:
+            return []
+        return [c.strip() for c in stripped.strip("|").split("|")]
+
+    def _normalise_status(raw_status: str) -> str | None:
+        cleaned = raw_status.upper().strip()
+        for known in statuses:
+            if cleaned.startswith(known):
+                return known
+        return None
+
+    def _normalise_risk(raw_risk: str) -> str:
+        cleaned = raw_risk.upper()
+        for risk in RISK_WEIGHTS:
+            if risk in cleaned:
+                return risk
+        return "MEDIUM"
+
+    # Find Status/Risk column indices from the header row.
+    endpoint_col = None
     status_col = None
+    risk_col = None
     for line in lines:
-        if "|" in line and "Status" in line:
-            hcells = [c.strip() for c in line.split("|")]
-            for idx, cell in enumerate(hcells):
-                if cell.upper() == "STATUS":
-                    status_col = idx
-                    break
+        hcells = _table_cells(line)
+        upper_cells = [c.upper() for c in hcells]
+        if "STATUS" in upper_cells and "ENDPOINT" in upper_cells:
+            endpoint_col = upper_cells.index("ENDPOINT")
+            status_col = upper_cells.index("STATUS")
+            risk_col = upper_cells.index("RISK") if "RISK" in upper_cells else None
             break
     if status_col is None:
-        status_col = 4  # Default: | Endpoint | Method | Auth | Status | Notes |
+        endpoint_col = 0
+        status_col = 3  # Default stripped row: Endpoint | Method | Auth | Status | Notes
 
     for line in lines:
-        if "|" not in line:
+        cells = _table_cells(line)
+        if not cells:
             continue
-        cells = [c.strip() for c in line.split("|")]
         if len(cells) <= status_col:
             continue
         # Skip header, separator, empty rows
-        if cells[1] in ("", "Endpoint", "---") or cells[1].startswith("-"):
+        endpoint = cells[endpoint_col] if endpoint_col is not None and len(cells) > endpoint_col else ""
+        if endpoint in ("", "Endpoint", "---") or endpoint.startswith("-"):
             continue
-        if set(cells[1]) <= {"-", " "}:
+        if set(endpoint) <= {"-", " "}:
             continue
 
-        status = cells[status_col].upper()
+        status = _normalise_status(cells[status_col])
         if status in statuses:
             statuses[status] += 1
             total += 1
             if status == "UNTESTED":
-                untested_endpoints.append(cells[1])
+                untested_endpoints.append(endpoint)
+            if status != "EXCLUDED":
+                risk_value = cells[risk_col] if risk_col is not None and len(cells) > risk_col else ""
+                weight = RISK_WEIGHTS[_normalise_risk(risk_value)]
+                weighted_testable += weight
+                if status in {"TESTED", "VULN", "SAFE"}:
+                    weighted_tested += weight
 
     if total == 0:
         if json_output:
@@ -643,7 +727,7 @@ def coverage_check(target_dir: str, threshold: int = None, json_output: bool = F
     effective_threshold = 100 if testable < 10 else threshold
 
     tested = statuses["TESTED"] + statuses["VULN"] + statuses["SAFE"]
-    coverage = (tested / testable) * 100
+    coverage = (weighted_tested / weighted_testable) * 100
 
     passed = coverage >= effective_threshold
 
@@ -656,15 +740,23 @@ def coverage_check(target_dir: str, threshold: int = None, json_output: bool = F
             "total": total,
             "testable": testable,
             "tested": tested,
+            "weighted_testable": weighted_testable,
+            "weighted_tested": weighted_tested,
+            "risk_weighting_active": risk_col is not None,
             "statuses": statuses,
             "untested_endpoints": untested_endpoints,
             "small_target_override": testable < 10,
         }))
     else:
-        print(f"Coverage: {coverage:.1f}% ({tested}/{testable} testable endpoints)")
+        print(
+            f"Coverage: {coverage:.1f}% "
+            f"(weighted {weighted_tested}/{weighted_testable}; raw {tested}/{testable} endpoints)"
+        )
         print(f"  VULN={statuses['VULN']} SAFE={statuses['SAFE']} "
               f"TESTED={statuses['TESTED']} UNTESTED={statuses['UNTESTED']} "
               f"EXCLUDED={statuses['EXCLUDED']}")
+        if risk_col is None:
+            print("  (Risk column absent → all testable endpoints counted as 1x)")
         if testable < 10:
             print(f"  (Small target: <10 endpoints → threshold auto-raised to 100%)")
 
@@ -2835,7 +2927,7 @@ Status values: UNTESTED | TESTED | VULN | SAFE | EXCLUDED
 # --- v12 Subcommands ---
 
 def workflow_check(target_dir: str) -> int:
-    """Check that workflow_map.md exists and has minimum content.
+    """Check that workflow_map.md exists and has semantically useful content.
 
     v12: Validates workflow mapping completeness before Phase 2 handoff.
     Rationale: Business logic bugs (CWE-840, CWE-362) have the highest
@@ -2859,27 +2951,19 @@ def workflow_check(target_dir: str) -> int:
         print("[FAIL] workflow_map.md too short ({} lines) — needs substantive content".format(len(lines)))
         return 1
 
-    # Check for workflow structure markers
-    has_workflow = False
-    has_states = False
-    has_transitions = False
-
-    for line in lines:
-        lower = line.lower()
-        if "## workflow" in lower or "### workflow" in lower:
-            has_workflow = True
-        if "state" in lower and ("→" in line or "->" in line or "transition" in lower):
-            has_transitions = True
-        if any(marker in lower for marker in ["entry", "terminal", "pending", "active", "completed", "init"]):
-            has_states = True
-
+    workflow_starts = list(re.finditer(r"^##+\s+workflow\b.*$", content, re.MULTILINE | re.IGNORECASE))
     issues = []
-    if not has_workflow:
+    if not workflow_starts:
         issues.append("No workflow sections found (expected ## Workflow headers)")
-    if not has_states:
-        issues.append("No state definitions found (expected entry/terminal states)")
-    if not has_transitions:
-        issues.append("No transitions found (expected state → state patterns)")
+    else:
+        for idx, match in enumerate(workflow_starts, start=1):
+            start = match.start()
+            end = workflow_starts[idx].start() if idx < len(workflow_starts) else len(content)
+            section = content[start:end]
+            section_title = match.group(0).strip()
+            section_issues = _validate_workflow_section(section)
+            for issue in section_issues:
+                issues.append(f"{section_title}: {issue}")
 
     if issues:
         print("[FAIL] workflow_map.md structure incomplete:")
@@ -2887,7 +2971,10 @@ def workflow_check(target_dir: str) -> int:
             print("  →", issue)
         return 1
 
-    print("[PASS] workflow_map.md exists with valid structure ({} lines)".format(len(lines)))
+    print(
+        "[PASS] workflow_map.md passes semantic validation "
+        f"({len(workflow_starts)} workflows, {len(lines)} lines)"
+    )
     return 0
 
 
@@ -3099,8 +3186,67 @@ def evidence_tier_check(submission_dir: str, json_output: bool = False) -> int:
     return 0 if submit_ready else 1
 
 
+def _graphrag_duplicate_lookup(finding: str) -> dict[str, object]:
+    """Try graph-backed similar-findings lookup via the local GraphRAG CLI."""
+    import subprocess
+
+    cli_path = Path(__file__).resolve().parent / "graphrag_cli.py"
+    if not cli_path.exists():
+        return {
+            "available": False,
+            "matched": False,
+            "mode": "heuristic_fallback",
+            "reason": "graphrag_cli_missing",
+            "text": "",
+        }
+
+    try:
+        result = subprocess.run(
+            ["python3", str(cli_path), "--json", "similar", finding],
+            capture_output=True,
+            text=True,
+            timeout=20,
+        )
+    except (subprocess.TimeoutExpired, FileNotFoundError) as exc:
+        return {
+            "available": False,
+            "matched": False,
+            "mode": "heuristic_fallback",
+            "reason": f"graph_lookup_error:{type(exc).__name__}",
+            "text": "",
+        }
+
+    try:
+        payload = json.loads(result.stdout or "{}")
+    except json.JSONDecodeError:
+        return {
+            "available": False,
+            "matched": False,
+            "mode": "heuristic_fallback",
+            "reason": f"graph_lookup_unparseable_rc_{result.returncode}",
+            "text": (result.stdout or result.stderr or "")[:200],
+        }
+
+    if payload.get("env_gap") or result.returncode == 2:
+        return {
+            "available": False,
+            "matched": False,
+            "mode": "heuristic_fallback",
+            "reason": "graph_env_gap",
+            "text": payload.get("text", ""),
+        }
+
+    return {
+        "available": True,
+        "matched": bool(payload.get("matched")),
+        "mode": "graph+heuristic",
+        "reason": "graph_query_ok",
+        "text": payload.get("text", ""),
+    }
+
+
 def duplicate_graph_check(target_dir: str, finding: str, json_output: bool = False) -> int:
-    """Check finding against all prior submissions and triage feedback.
+    """Check finding against graph-backed hints plus local submission history.
 
     v12: Enhanced duplicate detection using submission history, triage feedback,
     and knowledge base. Goes beyond kill-gate-1's keyword overlap by checking
@@ -3125,6 +3271,13 @@ def duplicate_graph_check(target_dir: str, finding: str, json_output: bool = Fal
     finding_cwe = cwe_match.group(0) if cwe_match else None
 
     duplicates = []
+    graph_lookup = _graphrag_duplicate_lookup(finding)
+    if graph_lookup["available"] and graph_lookup["matched"]:
+        duplicates.append({
+            "source": "graphrag/similar_findings",
+            "match_type": "Graph similarity",
+            "detail": str(graph_lookup.get("text", ""))[:240],
+        })
 
     # Source 1: Previous submissions in this target
     submission_dir = target / "submission"
@@ -3212,17 +3365,23 @@ def duplicate_graph_check(target_dir: str, finding: str, json_output: bool = Fal
             "finding": finding,
             "duplicates_found": len(duplicates),
             "verdict": "WARN" if has_duplicates else "PASS",
+            "match_mode": graph_lookup["mode"],
+            "graph_reason": graph_lookup["reason"],
             "matches": duplicates
         }
         print(json_module.dumps(result, indent=2))
     else:
         if has_duplicates:
-            print("[WARN] Possible duplicates found: {}".format(len(duplicates)))
+            print("[WARN] Possible duplicates found: {} [{}]".format(len(duplicates), graph_lookup["mode"]))
             for dup in duplicates[:5]:  # Show top 5
                 print("  →", dup.get("source", "unknown"), "| overlap:", dup.get("overlap_ratio", dup.get("match_type", "?")))
             print("  → Review these before submitting. May need differentiation argument.")
         else:
-            print("[PASS] No duplicates found for:", finding[:80])
+            print(
+                "[PASS] No duplicates found for: {} [{}:{}]".format(
+                    finding[:80], graph_lookup["mode"], graph_lookup["reason"]
+                )
+            )
 
     return 1 if has_duplicates else 0
 

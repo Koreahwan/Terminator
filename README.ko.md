@@ -306,7 +306,7 @@ Phase 0.5 @scout                자동화 도구 스캔 (Slither, Semgrep, Mythr
 Phase 1   @scout + @analyst     병렬 정찰 + finding별 OOS 교차 체크
           @threat-modeler       신뢰 경계 매핑 + 역할 매트릭스 + 불변식 추출 (병렬)
           @patch-hunter         보안 커밋 불완전 수정 + 변종 취약점 탐색 (병렬)
-          coverage-gate skill   80%+ 엔드포인트 커버리지 필수
+          coverage-gate skill   80%+ 리스크 가중 엔드포인트 커버리지 필수
 Phase 1.5 @analyst (N 병렬)    OWASP 카테고리별 병렬 헌팅 (대형 코드베이스 전용)
           @workflow-auditor      비즈니스 워크플로우 상태 전이 매핑 + 이상 탐지 (신규)
           @web-tester           웹 애플리케이션 테스트, 인증 우회, 인젝션 (신규)
@@ -332,7 +332,7 @@ Phase 6   TeamDelete            정리
 | 스킬 | 게이트 | 차단 조건 |
 |:-----|:-------|:----------|
 | `oos-check` | Phase 0 + finding별 | OOS 패턴 (oracle staleness, admin-gated 등) |
-| `coverage-gate` | Phase 1->2 | 엔드포인트 커버리지 <80% (소규모는 100%) |
+| `coverage-gate` | Phase 1->2 | 리스크 가중 엔드포인트 커버리지 <80% (소규모는 100%) |
 | `poc-tier` | Phase 2->3 | Tier 3-4 PoC (실행 캡처 없음) |
 | `threat-model-check` | Phase 2 | 비현실적 공격 전제조건 (2개+ 제어 필요) |
 | `slop-check` | Phase 4.5 | AI 템플릿 언어 점수 >5 |

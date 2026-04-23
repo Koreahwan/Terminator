@@ -306,7 +306,7 @@ Phase 0.5 @scout                Automated tool scan (Slither, Semgrep, Mythril)
 Phase 1   @scout + @analyst     Parallel recon + OOS cross-check per finding
           @threat-modeler       Trust boundary mapping, role matrix, state machine extraction (parallel)
           @patch-hunter         Incomplete fix + variant hunting from security commits (parallel)
-          coverage-gate skill   80%+ endpoint coverage required
+          coverage-gate skill   80%+ risk-weighted endpoint coverage required
 Phase 1.5 @analyst (N parallel) OWASP-category hunting (large codebases only)
           @workflow-auditor     Business workflow state transition mapping + anomaly detection
           @web-tester           Web application workflow pack testing
@@ -318,7 +318,7 @@ Phase 2   @exploiter            PoC development + poc-tier skill (Tier 1-2 only)
           threat-model-check    Attack prerequisite validation
           evidence-tier-check   Evidence quality classification (E1-E4) (v12 NEW)
 ★ Gate 2  @triager-sim (opus)   PoC destruction: evidence quality + triager objections + duplicate-graph-check (KILL/GO)
-          duplicate-graph-check Semantic duplicate detection via knowledge graph (v12 NEW)
+          duplicate-graph-check Graph-backed duplicate hints when available, heuristic fallback otherwise (v12 NEW)
 Phase 3   @reporter             Report draft + CVSS (platform style from context/report-templates/)
 Phase 3.5 report_scorer.py      5-dim quality gate (evidence/impact/repro/readability/slop, >=75)
           report_scrubber.py    AI signature removal (Unicode watermarks, em-dash, slop flags)
@@ -334,13 +334,13 @@ Phase 6   TeamDelete            Cleanup
 | Skill | Gate | Blocks |
 |:------|:-----|:-------|
 | `oos-check` | Phase 0 + per-finding | OOS patterns (oracle staleness, admin-gated, etc.) |
-| `coverage-gate` | Phase 1->2 | <80% endpoint coverage (100% for small targets) |
+| `coverage-gate` | Phase 1->2 | <80% risk-weighted endpoint coverage (100% for small targets) |
 | `workflow-check` | Gate 1->2 | Incomplete workflow state coverage (v12 NEW) |
 | `fresh-surface-check` | Gate 1->2 | Missed attack surface from recent commits (v12 NEW) |
 | `poc-tier` | Phase 2->3 | Tier 3-4 PoC (no live execution capture) |
 | `evidence-tier-check` | Phase 2->3 | Evidence below E2 tier (v12 NEW) |
 | `threat-model-check` | Phase 2 | Unrealistic attack prerequisites (2+ controlled) |
-| `duplicate-graph-check` | Gate 2 | Semantic duplicates via knowledge graph (v12 NEW) |
+| `duplicate-graph-check` | Gate 2 | Graph-backed duplicate hints when available, heuristic fallback otherwise (v12 NEW) |
 | `slop-check` | Phase 4.5 | AI template language score >5 |
 | `checkpoint-validate` | Any phase | Fake idle / fake completion detection |
 
