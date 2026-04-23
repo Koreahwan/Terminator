@@ -330,6 +330,27 @@ def ops_wiki_needs_rebuild(out_dir: Path, paths: dict[str, Path]) -> tuple[bool,
     return False, "fresh"
 
 
+def sync_ops_wiki(
+    submissions_json: Path,
+    tracker_md: Path,
+    gmail_state_path: Path | None,
+    out_dir: Path,
+    today: date | None = None,
+) -> dict[str, object]:
+    paths = canonical_paths(submissions_json, tracker_md, gmail_state_path)
+    stale, reason = ops_wiki_needs_rebuild(out_dir, paths)
+    if stale:
+        build_ops_wiki(
+            submissions_json=submissions_json,
+            tracker_md=tracker_md,
+            gmail_state_path=gmail_state_path,
+            out_dir=out_dir,
+            today=today,
+        )
+        return {"action": "rebuilt", "reason": reason, "out": str(out_dir)}
+    return {"action": "fresh", "reason": reason, "out": str(out_dir)}
+
+
 def attach_tracker_context(submissions: list[SubmissionEntry], tracker: TrackerContext) -> None:
     for entry in submissions:
         identity = submission_identity(entry.platform, entry.target, entry.title)
@@ -704,6 +725,13 @@ def parse_args() -> argparse.Namespace:
     check.add_argument("--tracker-md", default=str(DEFAULT_TRACKER_MD))
     check.add_argument("--gmail-state", default=str(DEFAULT_GMAIL_STATE))
     check.add_argument("--out", default=str(DEFAULT_OUTPUT_DIR))
+
+    sync = sub.add_parser("sync", help="Rebuild compiled ops wiki only if stale.")
+    sync.add_argument("--submissions-json", default=str(DEFAULT_SUBMISSIONS_JSON))
+    sync.add_argument("--tracker-md", default=str(DEFAULT_TRACKER_MD))
+    sync.add_argument("--gmail-state", default=str(DEFAULT_GMAIL_STATE))
+    sync.add_argument("--out", default=str(DEFAULT_OUTPUT_DIR))
+    sync.add_argument("--today", default="")
     return parser.parse_args()
 
 
@@ -730,6 +758,17 @@ def main() -> int:
         payload = {"out": args.out, "stale": stale, "reason": reason}
         print(json.dumps(payload, indent=2))
         return 1 if stale else 0
+    if args.command == "sync":
+        today = parse_iso_date(args.today) if args.today else None
+        payload = sync_ops_wiki(
+            submissions_json=Path(args.submissions_json),
+            tracker_md=Path(args.tracker_md),
+            gmail_state_path=Path(args.gmail_state) if args.gmail_state else None,
+            out_dir=Path(args.out),
+            today=today,
+        )
+        print(json.dumps(payload, indent=2))
+        return 0
     return 1
 
 

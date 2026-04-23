@@ -7,6 +7,7 @@ INPUT="$(cat || true)"
 PROJECT_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
 
 printf '%s' "$INPUT" | bash "$PROJECT_DIR/.claude/hooks/sync_shared_memory.sh" >/dev/null 2>&1 || true
+timeout 10 python3 "$PROJECT_DIR/tools/ops_wiki.py" sync >/dev/null 2>&1 || true
 
 TASKS=$(find "${CLAUDE_TASKS_DIR:-$HOME/.claude/tasks}" -name "*.json" -exec jq -r 'select(.status=="in_progress" or .status=="pending") | .subject' {} \; 2>/dev/null | head -5)
 if [ -n "$TASKS" ]; then

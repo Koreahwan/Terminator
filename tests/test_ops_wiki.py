@@ -19,6 +19,7 @@ from tools.ops_wiki import (
     load_submissions_from_tracker,
     ops_wiki_needs_rebuild,
     parse_first_table,
+    sync_ops_wiki,
     split_sections,
 )
 
@@ -270,6 +271,33 @@ class TestOpsWikiBuild(unittest.TestCase):
             )
             self.assertTrue(stale)
             self.assertEqual(reason, "tracker_md_newer")
+
+    def test_sync_ops_wiki_rebuilds_when_stale(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="opswiki_sync_") as td:
+            root = Path(td)
+            submissions_json = root / "submissions.json"
+            tracker_md = root / "SUBMISSIONS.md"
+            out_dir = root / "out"
+            submissions_json.write_text(json.dumps(SUBMISSIONS_FIXTURE), encoding="utf-8")
+            tracker_md.write_text(TRACKER_FIXTURE, encoding="utf-8")
+
+            result = sync_ops_wiki(
+                submissions_json=submissions_json,
+                tracker_md=tracker_md,
+                gmail_state_path=root / "missing_gmail.json",
+                out_dir=out_dir,
+                today=date(2026, 4, 23),
+            )
+            self.assertEqual(result["action"], "rebuilt")
+
+            result = sync_ops_wiki(
+                submissions_json=submissions_json,
+                tracker_md=tracker_md,
+                gmail_state_path=root / "missing_gmail.json",
+                out_dir=out_dir,
+                today=date(2026, 4, 23),
+            )
+            self.assertEqual(result["action"], "fresh")
 
 
 if __name__ == "__main__":

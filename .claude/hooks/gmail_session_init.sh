@@ -9,6 +9,9 @@ set -euo pipefail
 PROJECT_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 MONITOR="$PROJECT_ROOT/tools/gmail_monitor.py"
 
+# Keep the compiled ops wiki warm for operational status questions.
+timeout 10 python3 "$PROJECT_ROOT/tools/ops_wiki.py" sync >/dev/null 2>&1 || true
+
 # Get current state summary
 STATUS=""
 LABEL_STATUS=""
