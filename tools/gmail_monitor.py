@@ -20,13 +20,16 @@ Usage:
   python3 tools/gmail_monitor.py pending-confirmations      # Show submitted but unconfirmed (24h+)
   python3 tools/gmail_monitor.py add-payment <target> <finding> <amount> <currency> <platform>
   python3 tools/gmail_monitor.py payment-summary            # Revenue by platform/month/severity
+  python3 tools/gmail_monitor.py sync-search <json_or_->    # Ingest Gmail search_emails JSON into local state
   python3 tools/gmail_monitor.py label-ids                  # Show stored label IDs
   python3 tools/gmail_monitor.py filter-ids                 # Show stored filter IDs
   python3 tools/gmail_monitor.py queries                    # Show search query templates
 """
 
+import copy
 import json
 import os
+import re
 import sys
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -35,6 +38,7 @@ PROJECT_ROOT = Path(__file__).parent.parent
 STATE_FILE = PROJECT_ROOT / ".gmail_monitor_state.json"
 LABEL_IDS_FILE = PROJECT_ROOT / ".gmail_label_ids.json"
 FILTER_IDS_FILE = PROJECT_ROOT / ".gmail_filter_ids.json"
+CANONICAL_SUBMISSIONS_JSON = PROJECT_ROOT / "docs" / "submissions.json"
 SUBMISSIONS_DIR = PROJECT_ROOT / "knowledge" / "submissions"
 TRIAGE_DIR = PROJECT_ROOT / "knowledge" / "triage_objections"
 
@@ -67,6 +71,11 @@ LABEL_HIERARCHY = {
 STATUS_LABEL_MAP = {
     "confirmed": "BountyPipeline/Submissions/Confirmed",
     "triaged": "BountyPipeline/Submissions/Triaged",
+    "accepted": "BountyPipeline/Submissions/Resolved",
+    "wont_fix": "BountyPipeline/Submissions/Closed",
+    "oos": "BountyPipeline/Submissions/Closed",
+    "not_applicable": "BountyPipeline/Submissions/Closed",
+    "not_reproducible": "BountyPipeline/Submissions/Closed",
     "resolved": "BountyPipeline/Submissions/Resolved",
     "duplicate": "BountyPipeline/Submissions/Duplicate",
     "closed": "BountyPipeline/Submissions/Closed",
@@ -126,8 +135,10 @@ def load_state() -> dict:
         state = json.loads(STATE_FILE.read_text())
         # Migrate: ensure new sections exist
         state.setdefault("bounty_payments", {})
+        state.setdefault("mail_events", {})
         state["stats"].setdefault("payments_tracked", 0)
         state["stats"].setdefault("total_revenue_usd", 0)
+        state["stats"].setdefault("mail_events_synced", 0)
         return state
     return {
         "seen_emails": {},
@@ -136,6 +147,7 @@ def load_state() -> dict:
         "target_alerts": [],
         "response_drafts": [],
         "bounty_payments": {},
+        "mail_events": {},
         "last_check": {},
         "stats": {
             "total_processed": 0,
@@ -146,6 +158,7 @@ def load_state() -> dict:
             "drafts_created": 0,
             "payments_tracked": 0,
             "total_revenue_usd": 0,
+            "mail_events_synced": 0,
         },
     }
 
@@ -183,6 +196,261 @@ def get_label_id(label_name: str) -> str:
 def get_label_for_status(status: str) -> str:
     """Get the label name for a given report status."""
     return STATUS_LABEL_MAP.get(status, "")
+
+
+def _normalize_text(value: str) -> str:
+    return re.sub(r"\s+", " ", value.strip()).lower()
+
+
+def _compact_text(value: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "", _normalize_text(value))
+
+
+def _extract_identifiers(text: str) -> set[str]:
+    patterns = [
+        r"(YWH-[A-Z0-9-]+)",
+        r"(GHSA-[\w-]+)",
+        r"(CVE-\d{4}-\d+)",
+        r"(HRSGROUP-[A-Z0-9]+)",
+        r"(PORTOFANTWERP-[A-Z0-9]+)",
+        r"(#YWH-[A-Z0-9-]+)",
+        r"(#\d{1,}-\d{2,})",
+        r"(#\d{4,})",
+        r"\b([a-f0-9]{8})\b",
+    ]
+    out: set[str] = set()
+    for pattern in patterns:
+        for match in re.findall(pattern, text, re.IGNORECASE):
+            out.add(match.upper().lstrip("#"))
+    return out
+
+
+def _platform_key(value: str) -> str:
+    lowered = _normalize_text(value)
+    if "bugcrowd" in lowered:
+        return "bugcrowd"
+    if "yeswehack" in lowered:
+        return "yeswehack"
+    if "intigriti" in lowered:
+        return "intigriti"
+    if "immunefi" in lowered:
+        return "immunefi"
+    if "hackerone" in lowered:
+        return "hackerone"
+    if "hackenproof" in lowered:
+        return "hackenproof"
+    if "huntr" in lowered:
+        return "huntr"
+    if "github" in lowered or "ghsa" in lowered:
+        return "ghsa"
+    if "mitre" in lowered:
+        return "mitre"
+    return "unknown"
+
+
+def _load_submission_index() -> list[dict]:
+    if not CANONICAL_SUBMISSIONS_JSON.exists():
+        return []
+    payload = json.loads(CANONICAL_SUBMISSIONS_JSON.read_text(encoding="utf-8"))
+    out = []
+    for item in payload.get("submissions", []):
+        title = item.get("title", "")
+        note = item.get("note", "")
+        target = item.get("target", "")
+        out.append(
+            {
+                "platform": item.get("platform", ""),
+                "platform_key": _platform_key(item.get("platform", "")),
+                "target": target,
+                "target_compact": _compact_text(target),
+                "title": title,
+                "title_compact": _compact_text(title),
+                "identifiers": _extract_identifiers(f"{title} {note}"),
+                "finding": next(iter(_extract_identifiers(title)), title),
+            }
+        )
+    return out
+
+
+def _match_submission(email: dict, submission_index: list[dict]) -> dict | None:
+    subject = email.get("subject", "")
+    snippet = email.get("snippet", "")
+    full_text = f"{subject}\n{snippet}"
+    full_compact = _compact_text(full_text)
+    bracket_match = re.search(r"\[([^\]]+)\]", subject)
+    bracket_compact = _compact_text(bracket_match.group(1)) if bracket_match else ""
+    identifiers = _extract_identifiers(full_text)
+    platform = _platform_key(f"{email.get('from_', '')} {subject}")
+    candidates = [item for item in submission_index if item["platform_key"] == platform] or submission_index
+
+    if identifiers:
+        for item in candidates:
+            if identifiers & item["identifiers"]:
+                return item
+
+    target_matches = []
+    for item in candidates:
+        target_compact = item["target_compact"]
+        if not target_compact:
+            continue
+        if target_compact in full_compact or (bracket_compact and target_compact in bracket_compact):
+            target_matches.append(item)
+    if len(target_matches) == 1:
+        return target_matches[0]
+
+    title_matches = []
+    subject_after_bracket = subject.split("]", 1)[1] if "]" in subject else subject
+    subject_words = {
+        word
+        for word in re.findall(r"[a-z0-9]{4,}", _normalize_text(subject_after_bracket))
+        if word not in {"report", "submission", "status", "updated", "review"}
+    }
+    for item in target_matches or candidates:
+        title_words = set(re.findall(r"[a-z0-9]{4,}", _normalize_text(item["title"])))
+        overlap = len(subject_words & title_words)
+        if overlap >= 2:
+            title_matches.append((overlap, item))
+    if title_matches:
+        title_matches.sort(key=lambda pair: pair[0], reverse=True)
+        return title_matches[0][1]
+    return None
+
+
+def _classify_status(subject: str, snippet: str) -> tuple[str, str]:
+    text = _normalize_text(f"{subject}\n{snippet}")
+    patterns = [
+        ("under_review", [r"status updated to under review", r"changed to under review"]),
+        ("wont_fix", [r"status updated to won't fix", r"changed to won't fix", r"\bwon't fix\b"]),
+        ("not_reproducible", [r"changed .* to not reproducible", r"\bnot reproducible\b"]),
+        ("not_applicable", [r"changed .* to not applicable", r"\bnot applicable\b"]),
+        ("duplicate", [r"changed .* to duplicate", r"\bduplicate\b"]),
+        ("oos", [r"out of scope", r"\boos\b"]),
+        ("accepted", [r"status updated to accepted", r"changed to accepted"]),
+        ("closed", [r"status changed from .* to closed", r"\bclosed by auto-ban\b", r"\bclosed\b"]),
+        ("message_received", [r"thank you for your submission", r"you've successfully submitted", r"\bwe have received\b", r"\brequest received\b"]),
+        ("program_disabled", [r"bug bounty .* has been disabled", r"program has been disabled"]),
+        ("account_disabled", [r"your immunefi account has been disabled", r"account disabled"]),
+        ("account_enabled", [r"account has been re-enabled"]),
+        ("mention", [r"you have been mentioned"]),
+        ("comment", [r"commented on"]),
+    ]
+    for status, regexes in patterns:
+        for regex in regexes:
+            if re.search(regex, text):
+                return status, regex
+    return "unknown", ""
+
+
+def _build_mail_event(email: dict, submission_index: list[dict]) -> dict:
+    subject = email.get("subject", "")
+    snippet = email.get("snippet", "")
+    platform = _platform_key(f"{email.get('from_', '')} {subject}")
+    matched = _match_submission(email, submission_index)
+    status, classifier = _classify_status(subject, snippet)
+    identifiers = sorted(_extract_identifiers(f"{subject}\n{snippet}"))
+    event = {
+        "email_id": email.get("id", ""),
+        "platform": platform,
+        "subject": subject,
+        "email_ts": email.get("email_ts", ""),
+        "status": status,
+        "classifier": classifier,
+        "identifiers": identifiers,
+        "matched_submission": bool(matched),
+        "from": email.get("from_", ""),
+    }
+    if matched:
+        event["target"] = matched["target"]
+        event["finding"] = matched["finding"]
+        event["canonical_title"] = matched["title"]
+    elif identifiers:
+        event["finding"] = identifiers[0]
+        event["target"] = subject.split("]", 1)[0].strip("[] ") if subject.startswith("[") else platform
+    else:
+        event["target"] = subject.split("]", 1)[0].strip("[] ") if subject.startswith("[") else platform
+        event["finding"] = subject
+    event["details"] = snippet[:240]
+    return event
+
+
+def _record_report_status(state: dict, target: str, finding: str, status: str,
+                          details: str = "", email_id: str = "") -> None:
+    key = f"{target}/{finding}"
+    prev = state["report_statuses"].get(key, {}).get("status", "unknown")
+    entry = {
+        "target": target,
+        "finding": finding,
+        "status": status,
+        "details": details,
+        "updated_at": datetime.now().isoformat(),
+        "previous_status": prev,
+    }
+    if email_id:
+        entry["confirmation_email_id"] = email_id
+    state["report_statuses"][key] = entry
+    state["stats"]["status_changes"] += 1
+
+
+def _record_mail_event(state: dict, event: dict) -> None:
+    email_id = event.get("email_id", "")
+    if not email_id:
+        return
+    state["mail_events"][email_id] = event
+    state["stats"]["mail_events_synced"] += 1
+
+
+def _read_json_payload(path_or_dash: str) -> dict:
+    if path_or_dash == "-":
+        raw = sys.stdin.read()
+    else:
+        raw = Path(path_or_dash).read_text(encoding="utf-8")
+    return json.loads(raw)
+
+
+def sync_search_results(state: dict, payload: dict, *, mark_seen_flag: bool = True, force: bool = False) -> dict:
+    submission_index = _load_submission_index()
+    emails = payload.get("emails", payload if isinstance(payload, list) else [])
+    summary = {"processed": 0, "skipped_seen": 0, "updated_reports": 0, "events_recorded": 0}
+    for email in emails:
+        email_id = email.get("id", "")
+        if email_id and not force and email_id in state["seen_emails"]:
+            summary["skipped_seen"] += 1
+            continue
+
+        event = _build_mail_event(email, submission_index)
+        _record_mail_event(state, event)
+        summary["events_recorded"] += 1
+
+        if event["status"] in {
+            "under_review",
+            "wont_fix",
+            "not_reproducible",
+            "not_applicable",
+            "duplicate",
+            "oos",
+            "accepted",
+            "closed",
+            "message_received",
+        }:
+            _record_report_status(
+                state,
+                event["target"],
+                event["finding"],
+                event["status"],
+                details=f"{event['subject']} | {event['details']}",
+                email_id=email_id,
+            )
+            summary["updated_reports"] += 1
+
+        if mark_seen_flag and email_id:
+            state["seen_emails"][email_id] = {
+                "seen_at": datetime.now().isoformat(),
+                "category": f"gmail_sync:{event['status']}",
+            }
+            state["stats"]["total_processed"] += 1
+
+        summary["processed"] += 1
+    return summary
 
 
 # --- Core commands ---
@@ -514,6 +782,7 @@ def show_status(state: dict):
     print(f"New targets:      {state['stats']['new_targets']}")
     print(f"Drafts created:   {state['stats']['drafts_created']}")
     print(f"Payments tracked: {state['stats'].get('payments_tracked', 0)}")
+    print(f"Mail events sync: {state['stats'].get('mail_events_synced', 0)}")
     print(f"Total revenue:    ${state['stats'].get('total_revenue_usd', 0):,.2f}")
     print()
     print(f"Tracked reports:  {len(state.get('report_statuses', {}))}")
@@ -521,6 +790,7 @@ def show_status(state: dict):
     print(f"Target alerts:    {len(state.get('target_alerts', []))}")
     print(f"Pending drafts:   {len([d for d in state.get('response_drafts', []) if not d.get('sent')])}")
     print(f"Bounty payments:  {len(state.get('bounty_payments', {}))}")
+    print(f"Mail events:      {len(state.get('mail_events', {}))}")
     print()
 
     # Label/filter setup status
@@ -589,6 +859,10 @@ def parse_flag(args: list, flag: str) -> str:
     return ""
 
 
+def has_flag(args: list, flag: str) -> bool:
+    return any(a == f"--{flag}" for a in args)
+
+
 def main():
     if len(sys.argv) < 2:
         print(__doc__)
@@ -646,6 +920,18 @@ def main():
         show_queries()
     elif cmd == "update-check":
         update_last_check(state, sys.argv[2])
+    elif cmd == "sync-search":
+        payload = _read_json_payload(sys.argv[2])
+        work_state = copy.deepcopy(state) if has_flag(sys.argv, "dry-run") else state
+        summary = sync_search_results(
+            work_state,
+            payload,
+            mark_seen_flag=not has_flag(sys.argv, "no-mark-seen"),
+            force=has_flag(sys.argv, "force"),
+        )
+        print(json.dumps(summary, indent=2))
+        if not has_flag(sys.argv, "dry-run"):
+            save_state(work_state)
     else:
         print(f"Unknown command: {cmd}")
         print(__doc__)
