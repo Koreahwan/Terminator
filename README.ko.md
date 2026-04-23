@@ -265,12 +265,13 @@ psql "$DATABASE_URL" -f scripts/migrate_agent_runs_backend.sql
 ### 대시보드
 
 ```bash
-# 독립 모드 (Docker 불필요)
-cd web && pip install -r requirements.txt && uvicorn app:app --port 3000
+# Windows에서는 더블클릭
+dashboard.bat
 
-# 전체 스택 (Docker 서비스 6개)
-docker compose up -d
-# http://localhost:3000 접속
+# 수동 실행 (현재 overview 대시보드)
+./scripts/start_overview_server.sh
+# http://localhost:8450 접속
+# 마지막 요청 후 5분 지나면 자동 종료
 ```
 
 ---

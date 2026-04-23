@@ -4,7 +4,7 @@ description: Start CTF challenge solving pipeline. Auto-matches "ctf", "solve ch
 argument-hint: [challenge-path] [host:port]
 context: fork
 effort: high
-model: opus
+model: claude-opus-4-6[1m]
 ---
 
 # CTF Challenge Pipeline
@@ -12,7 +12,7 @@ model: opus
 ## CRITICAL RULES (NEVER VIOLATE)
 1. **Local flag file = FAKE** — only remote(host, port) has the real flag. Never read local flag and declare FLAG_FOUND
 2. **MUST use Agent Teams** — never solve by running r2/gdb/python directly (trivial exception only)
-3. **Agent model MANDATORY** — reverser=sonnet, chain=opus, critic=opus, verifier=sonnet, solver=opus
+3. **Agent model MANDATORY** — reverser=sonnet, chain=claude-opus-4-6[1m], critic=claude-opus-4-6[1m], verifier=sonnet, solver=claude-opus-4-6[1m]
 
 ## Pre-checks (auto-executed)
 

@@ -7,7 +7,18 @@
 | 스크립트 | 용도 | 실행 주기 |
 |---------|------|-----------|
 | `install_omx_wrapper.sh` | OMX 래퍼 설치 | 1회 (setup) |
+| `start_overview_server.sh` | 현재 overview 대시보드 백그라운드 기동 | 필요 시 수동 실행 |
 | `sync_poc_github.sh` | nomi-sec/PoC-in-GitHub 주간 pull + knowledge-fts 재인덱싱 | 주 1회 (cron) |
+
+## start_overview_server.sh — 현재 overview 대시보드 기동
+
+```bash
+./scripts/start_overview_server.sh
+# 브라우저에서 http://localhost:8450
+# 마지막 요청 후 5분 지나면 자동 종료
+```
+
+Windows에서는 저장소 루트의 `dashboard.bat`를 더블클릭하면 동일한 동작을 수행합니다.
 
 ## sync_poc_github.sh — cron 설정
 

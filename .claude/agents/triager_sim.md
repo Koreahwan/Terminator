@@ -1,7 +1,7 @@
 ---
 name: triager-sim
 description: Use this agent when attacking a draft bug bounty report like a skeptical triager before submission.
-model: claude-opus-4-7
+model: claude-opus-4-6[1m]
 color: magenta
 permissionMode: bypassPermissions
 effort: max
@@ -67,7 +67,7 @@ LIVE_PROOF:  [Path to live evidence exists?] → YES/NO/CONDITIONAL
 VERDICT:     [GO / CONDITIONAL GO / KILL — cite which question failed]
 ```
 
-### Mode 2: `poc-destruction` (Kill Gate 2, model=opus)
+### Mode 2: `poc-destruction` (Kill Gate 2, model=claude-opus-4-6[1m])
 - **Input**: PoC script + evidence output (NO report)
 - **Output**: GO / STRENGTHEN / KILL
 - **Focus**: 3-Section test (evidence quality, triager objections, severity reality)
@@ -111,7 +111,7 @@ SECTION_C_SEVERITY: [Prereq vs impact? Raw CVSS from evidence only?]
 VERDICT:     [GO / STRENGTHEN (cite gap) / KILL (cite 2+ gaps)]
 ```
 
-### Mode 3: `report-review` (Phase 4.5, model=opus) — DEFAULT/EXISTING BEHAVIOR
+### Mode 3: `report-review` (Phase 4.5, model=claude-opus-4-6[1m]) — DEFAULT/EXISTING BEHAVIOR
 - **Input**: Complete report + PoC + evidence
 - **Output**: SUBMIT / STRENGTHEN / KILL
 - **Focus**: Full 7-step methodology (existing behavior below)

@@ -28,12 +28,34 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent  # Terminator/
 DOCS = Path(__file__).resolve().parent
 
+
+def env_int(name: str, default: int) -> int:
+    try:
+        return int(os.environ.get(name, str(default)))
+    except (TypeError, ValueError):
+        return default
+
 EXCLUDE_DIRS = {
     ".git", "node_modules", "__pycache__", ".venvs", ".venv",
     ".playwright-mcp", ".pids", ".omc", ".omx", ".claude/skills/_reference",
     "reports", "evidence", "coordination/sessions",
 }
 EXCLUDE_SUFFIXES = {".pyc", ".log", ".db-shm", ".db-wal", ".tmp"}
+IDLE_TIMEOUT = max(0, env_int("OVERVIEW_IDLE_TIMEOUT", 300))
+_activity_lock = threading.Lock()
+_last_activity_ts = time.time()
+_shutdown_event = threading.Event()
+
+
+def _touch_activity() -> None:
+    global _last_activity_ts
+    with _activity_lock:
+        _last_activity_ts = time.time()
+
+
+def _seconds_since_activity() -> float:
+    with _activity_lock:
+        return max(0.0, time.time() - _last_activity_ts)
 
 
 def sh(*args: str) -> str:
@@ -281,6 +303,27 @@ def _start_watcher() -> threading.Thread:
     return t
 
 
+def _start_idle_shutdown(server: ThreadingHTTPServer) -> threading.Thread | None:
+    if IDLE_TIMEOUT <= 0:
+        return None
+
+    def loop():
+        while not _shutdown_event.wait(5):
+            if _seconds_since_activity() < IDLE_TIMEOUT:
+                continue
+            print(
+                f"idle timeout reached ({IDLE_TIMEOUT}s without requests); shutting down",
+                flush=True,
+            )
+            _shutdown_event.set()
+            server.shutdown()
+            return
+
+    t = threading.Thread(target=loop, daemon=True)
+    t.start()
+    return t
+
+
 # --- HTTP handlers ---
 
 class Handler(BaseHTTPRequestHandler):
@@ -319,17 +362,18 @@ class Handler(BaseHTTPRequestHandler):
         try:
             self.wfile.write(b": connected\n\n")
             self.wfile.flush()
-            last_ping = time.time()
+            _touch_activity()
             while True:
                 try:
                     kind = q.get(timeout=15)
                     self.wfile.write(f"event: {kind}\ndata: {int(time.time()*1000)}\n\n".encode())
                     self.wfile.flush()
+                    _touch_activity()
                 except queue.Empty:
                     # heartbeat (keeps proxies happy + detects disconnects)
                     self.wfile.write(b": ping\n\n")
                     self.wfile.flush()
-                    last_ping = time.time()
+                    _touch_activity()
         except (BrokenPipeError, ConnectionResetError):
             pass
         finally:
@@ -338,6 +382,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self) -> None:
         path = self.path.split("?", 1)[0]
+        _touch_activity()
         if path == "/api/status.json":
             try:
                 self._send_json(build_status())
@@ -367,11 +412,16 @@ class Handler(BaseHTTPRequestHandler):
 def main() -> None:
     port = int(os.environ.get("OVERVIEW_PORT", "8450"))
     host = os.environ.get("OVERVIEW_HOST", "127.0.0.1")
+    server = ThreadingHTTPServer((host, port), Handler)
     _start_watcher()
+    _start_idle_shutdown(server)
     print(f"Terminator Overview on http://{host}:{port}/", flush=True)
     print(f"  api: /api/status.json | events (SSE): /api/events", flush=True)
     print(f"  watcher: self-polling 1.5s on {len(WATCH_TARGETS)} targets", flush=True)
-    ThreadingHTTPServer((host, port), Handler).serve_forever()
+    if IDLE_TIMEOUT > 0:
+        print(f"  idle shutdown: {IDLE_TIMEOUT}s without requests", flush=True)
+    server.serve_forever()
+    server.server_close()
 
 
 if __name__ == "__main__":

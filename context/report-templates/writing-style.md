@@ -76,3 +76,73 @@ due to the fact that
   risk because..." — when finding might be intended behavior
 - Include honest severity expectation: "We expect triager to rate this
   MEDIUM because the attack requires authenticated access"
+
+## Word Count Limit (MANDATORY, v13.9.1)
+
+**Target: 800-1200 words. Soft cap: 1500 words (WARN). Hard cap: 2500 words (auto-reject).**
+
+Human hunters write 500-1000 word reports. Our average was 2000+. This is
+the single biggest AI detection signal — length alone flags triagers.
+
+- 800-1200: ideal range (detailed enough, not suspiciously thorough)
+- 1200-1500: acceptable for complex multi-variant findings
+- 1500+: WARN — ai_detect.py flags it, must be trimmed before submission
+- 2500+: FAIL — auto-reject, rewrite mandatory
+
+**How to stay under 1200:**
+- PoC output goes in evidence files, not inline (reference by filename)
+- Variant matrix goes in a separate `variants.md` (reference it)
+- CVSS table: max 2 rows (baseline + demonstrated), not 4 scenarios
+- Remediation: 1 concrete fix, not Priority 1/2/3 hierarchy
+- Cut "Background" / "How the bug was introduced" — triager doesn't care
+
+## Structural Variation (MANDATORY, v13.9.1)
+
+**NEVER use the same section headers across reports.** Triagers who see
+multiple submissions from one account with identical structure will flag
+as template/AI.
+
+### Headers to vary (rotate names, don't use exact same form every report):
+- "Executive Conclusion" → OK to keep, but vary with "Summary", "TL;DR", "Finding"
+- "What This Report Does NOT Claim" → fold into Impact as caveats, or drop entirely
+- "Conditional CVSS Table" → just "CVSS" or "Severity"
+- "Evidence Files" → "Attachments", "Files", or inline references
+- "Honest Severity Expectation" → weave into impact prose, don't label it
+
+### Structural templates to rotate between:
+
+**Style A — Narrative** (best for auth/logic bugs):
+```
+# [Title]
+[3-sentence opening — what/how/why]
+## Root Cause
+## Reproduction
+## Impact
+## Fix
+```
+
+**Style B — Differential** (best for injection/bypass):
+```
+# [Title]
+[3-sentence opening]
+## Normal Behavior vs Observed Behavior
+## Steps
+## Severity
+```
+
+**Style C — Minimal** (best for clear-cut High+ bugs):
+```
+# [Title]
+[3-sentence opening]
+[Code block with PoC]
+[2-paragraph impact + severity]
+[1-paragraph fix]
+```
+
+**Rule: no two consecutive submissions to the same platform may use the
+same style.** Vary section names, order, and depth each time.
+
+## Em-Dash Usage (v13.9.1)
+
+Replace `—` (em-dash) with `--` or rephrase. Em-dash overuse is a known
+AI writing fingerprint. ai_detect.py flags >5 em-dashes per report.

@@ -2685,6 +2685,28 @@ def kill_gate_2(submission_dir: str) -> int:
     else:
         print(f"  [EVIDENCE {e_tier}] Evidence tier: {e_tier} (submit-ready)")
 
+    # --- Check: Report word count (v13.9.1 — AI detection risk) ---
+    report_path = sdir / "report.md"
+    if report_path.exists():
+        try:
+            report_text = report_path.read_text(errors="replace")
+            report_wc = len(report_text.split())
+            if report_wc > 2500:
+                failures.append(
+                    f"[WORD COUNT] report.md is {report_wc} words (hard cap: 2500). "
+                    f"AI detection risk — triager flagged AI-generated on magiclabs (2026-04-23). "
+                    f"Target 800-1200 words. Move variants/output to evidence files."
+                )
+            elif report_wc > 1500:
+                warnings.append(
+                    f"[WORD COUNT] report.md is {report_wc} words (soft cap: 1500). "
+                    f"Trim to reduce AI suspicion. Target 800-1200 words."
+                )
+            else:
+                print(f"  [WORD COUNT OK] report.md is {report_wc} words (under 1500)")
+        except OSError:
+            pass
+
     # --- Report ---
     scanned = len(poc_files) + len(md_files)
     if failures:

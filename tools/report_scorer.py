@@ -328,16 +328,7 @@ def score_reproducibility(text: str) -> tuple[int, list[Fix]]:
             "medium",
         ))
 
-    # Check 5-minute reproducibility hint
     word_count = len(text.split())
-    if word_count > 5000:
-        score -= 10
-        fixes.append(Fix(
-            "Overall", "reproducibility",
-            f"Report is {word_count} words; likely exceeds 5-minute repro time",
-            "Simplify reproduction steps to be completable in under 5 minutes",
-            "medium",
-        ))
 
     return max(0, score), fixes
 
@@ -485,6 +476,25 @@ def score_ai_slop(text: str) -> tuple[int, list[Fix]]:
             "Throughout report", "ai_slop",
             f"Passive voice ratio: {passive_ratio:.0%} (target: < 30%)",
             "Rewrite passive constructions to active voice",
+            "medium",
+        ))
+
+    # Word count gate (v13.9.1 — AI detection: human hunters write 500-1200 words)
+    word_count = len(text.split())
+    if word_count > 2500:
+        score -= 30
+        fixes.append(Fix(
+            "Overall", "ai_slop",
+            f"Report is {word_count} words (hard cap: 2500). Major AI detection risk",
+            "Move variant tables and PoC output to separate evidence files. Target 800-1200 words",
+            "high",
+        ))
+    elif word_count > 1500:
+        score -= 15
+        fixes.append(Fix(
+            "Overall", "ai_slop",
+            f"Report is {word_count} words (soft cap: 1500). Trim to avoid AI suspicion",
+            "Cut background/history sections, inline only key PoC output, reference evidence files",
             "medium",
         ))
 

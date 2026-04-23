@@ -1,7 +1,7 @@
 ---
 name: submission-review
 description: Final pre-submission review panel with 3 perspectives. Runs at Phase 5.5 before auto-fill.
-model: claude-opus-4-7
+model: claude-opus-4-6[1m]
 color: yellow
 permissionMode: bypassPermissions
 effort: max

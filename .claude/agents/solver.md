@@ -1,7 +1,7 @@
 ---
 name: solver
 description: Use this agent when solving reversing or crypto challenges through formal modeling, symbolic reasoning, or inverse computation.
-model: claude-opus-4-6
+model: claude-opus-4-6[1m]
 color: magenta
 permissionMode: bypassPermissions
 effort: max

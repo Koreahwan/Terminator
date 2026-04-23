@@ -1,6 +1,6 @@
 # Bug Bounty + CVE Submissions — Canonical Tracker
 
-**Last updated**: 2026-04-18 (ProConnect CAND-01 제출)
+**Last updated**: 2026-04-23 (magiclabs N/R close + ProConnect Under Review)
 **Source of truth**: this file (markdown) + `docs/submissions.json` (dashboard feed)
 **Sync command**: `/bounty-status-sync` (updates both)
 
@@ -17,9 +17,8 @@ now keep **lessons/patterns only**; live status lives here.
 | huntr | onnx | sampleSize OOM (dc57e727) | Medium | est $125 (up to $450) | Pending | 2026-04-10 | 2026-04-18 | ⚠ historical-match WARN: 14 same-program rejected (path traversal/RCE duplicate), 8일 pending |
 | huntr | kubeflow | seaweedfs-iam (bbc04031) | High | est $750 | Pending | 2026-04-10 | 2026-04-18 | Cross-repo entry-point strategy |
 | YesWeHack | Qwant | #16-705 SSRF/K8s FQDN leak | Medium | — (awaiting) | **Accepted** | 2026-04-05 | 2026-04-18 | 바운티 금액 미확정, 후속 문의 고려 |
-| YesWeHack | ProConnect Identité | CAND-01 OIDC `claims` scope bypass (#YWH-PGM8338-167) | Medium (CVSS 6.5) | est €500 (Medium grid) | Pending | 2026-04-18 | 2026-04-18 | **제출 완료** YWH-PGM8338-167. Impact=PII Leak. /userinfo leaks phone_number/uid/usual_name + phone_number_verified=false. 4 PNG + x-request-id pairs (5cc26e51/c6f9d849). Kill Gate 1/2, Phase 5.7.5 demo, Phase 5.7.6 20-Q 모두 PASS. |
+| YesWeHack | ProConnect Identité | CAND-01 OIDC `claims` scope bypass (#YWH-PGM8338-167) | Medium (CVSS 6.5) | est €500 (Medium grid) | **Under Review** | 2026-04-18 | 2026-04-23 | 4/18 Under Review 전환 (5일만). Impact=PII Leak. |
 | Intigriti | HRS Group | HRSGROUP-15EA62KR Unauth PCI card capture | Medium | — | Triage | 2026-04-05 | 2026-04-18 | 13일 triage 0 activity, slot 1/3 |
-| Bugcrowd | magiclabs | loginWithPopup postMessage (ed68b74d) | Low | — | Pending | 2026-04-03 | 2026-04-18 | 15일 zero activity, N/R 가능성 높음 |
 | GHSA | Fast-DDS | sampleSize OOM — GHSA-wv5q-wgv8-qh6v | Medium | CVE | Triage | 2026-04-13 | 2026-04-18 | eProsima Fast-DDS |
 | GHSA | Fast-DDS | DynamicData seqlen OOM — GHSA-93m4-rx65-p7rj | Medium | CVE | Triage | 2026-04-13 | 2026-04-18 | eProsima Fast-DDS |
 | HackenProof | Dexalot | auctionPrice=0 LIMIT-IOC bypass (CAND-01) | High | — | Hold | 2026-04-13 | 2026-04-18 | reputation 80/100 부족, 제출 hold |
@@ -35,6 +34,7 @@ now keep **lessons/patterns only**; live status lives here.
 | Intigriti | Port of Antwerp | Info disclosure #1 | Low | — | OOS | 2026-04-13 | 2026-04-14 | verbose-msgs rule → [kill-gate-1 v12.5](../.claude/rules/bb_pipeline_v13.md) |
 | Intigriti | Port of Antwerp | Info disclosure #2 | Low | — | OOS | 2026-04-13 | 2026-04-14 | 동일 verbose-msgs rule |
 | Bugcrowd | Zendesk | AI RAG Poisoning (633829d6) | P2 | — | **Not Applicable** | 2026-04-09 | 2026-04-17 | [project_zendesk](../memory/project_zendesk_submission_2026_04_09.md) — impact 입증 부족 학습 |
+| Bugcrowd | magiclabs | loginWithPopup postMessage (ed68b74d) | Low | — | **Not Reproducible** | 2026-04-03 | 2026-04-23 | [project_magiclabs_nr](../memory/project_magiclabs_nr_2026_04_13.md) — N/R close, Bugcrowd accuracy -1pt 추가 타격 |
 | Bugcrowd | magiclabs | PKCE codeVerifier localStorage (bc91fc04) | P4 | — | N/R (-1pt) | 2026-04-03 | 2026-04-13 | [project_magiclabs_nr](../memory/project_magiclabs_nr_2026_04_13.md) — client-side-only 패턴 |
 | Immunefi | Paradex | #72759 Vault donate() share inflation | Critical | — | Closed (autoban) | 2026-04-09 | 2026-04-09 | [project_paradex_resubmit](../memory/project_paradex_resubmit_2026_04_09.md) — 12분 autoban, appeal 진행 |
 
@@ -48,16 +48,17 @@ now keep **lessons/patterns only**; live status lives here.
 
 ## Statistics
 
-**Active: 13**
-- Pending: 7 (llamaindex, onnx, kubeflow, ProConnect CAND-01, magiclabs-popup, MITRE #2020275, MITRE #2019598)
-- Triage: 3 (Intigriti HRS, Fast-DDS GHSA ×2)
+**Active: 12**
+- Pending: 5 (llamaindex, onnx, kubeflow, MITRE #2020275, MITRE #2019598)
+- Under Review / Triage: 4 (ProConnect CAND-01, Intigriti HRS, Fast-DDS GHSA ×2)
 - Accepted (bounty 미확정): 1 (Qwant)
 - Hold (reputation): 2 (Dexalot ×2)
 
-**Resolved: 6**
+**Resolved: 7**
 - Won't fix: 1 (DINUM)
 - OOS: 2 (Port of Antwerp ×2)
 - Not Applicable: 1 (Zendesk)
+- Not Reproducible: 1 (magiclabs loginWithPopup)
 - N/R: 1 (magiclabs PKCE)
 - Closed (autoban): 1 (Paradex)
 
@@ -67,7 +68,7 @@ now keep **lessons/patterns only**; live status lives here.
 - **YesWeHack / DINUM 프로그램**: 전체 disabled 2026-04-15 ~ 2026-04-30 (program-level)
 - **HackenProof**: reputation 80/100 필요, 신규 제출 자격 미달
 - **Intigriti**: concurrent submission limit 3 slots, 현재 1/3
-- **Bugcrowd**: 두 번째 N/R (-1pt) 시 accuracy 점수 하락 경고
+- **Bugcrowd**: magiclabs 2건 연속 N/R (PKCE -1pt + loginWithPopup Not Reproducible), accuracy 점수 하락 주의. Zendesk N/A 포함 3연속 미수락
 
 ## 사용 규칙
 

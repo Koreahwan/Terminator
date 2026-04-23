@@ -567,15 +567,15 @@ STEP 3: Spawn pipeline agents (Task tool, team_name='terminator-ctf', mode=bypas
 For PWN:
   @reverser (subagent_type=reverser, model=sonnet) → reversal_map.md
   @trigger (subagent_type=trigger, model=sonnet) → trigger_report.md [if crash needed]
-  @chain (subagent_type=chain, model=opus) → solve.py
-  @critic (subagent_type=critic, model=opus) → critic_review.md
+  @chain (subagent_type=chain, model=claude-opus-4-6[1m]) → solve.py
+  @critic (subagent_type=critic, model=claude-opus-4-6[1m]) → critic_review.md
   @verifier (subagent_type=verifier, model=sonnet) → FLAG_FOUND
   @reporter (subagent_type=reporter, model=sonnet) → writeup
 
 For REVERSING/CRYPTO:
   @reverser (subagent_type=reverser, model=sonnet) → reversal_map.md
-  @solver (subagent_type=solver, model=opus) → solve.py
-  @critic (subagent_type=critic, model=opus) → critic_review.md
+  @solver (subagent_type=solver, model=claude-opus-4-6[1m]) → solve.py
+  @critic (subagent_type=critic, model=claude-opus-4-6[1m]) → critic_review.md
   @verifier (subagent_type=verifier, model=sonnet) → FLAG_FOUND
   @reporter (subagent_type=reporter, model=sonnet) → writeup
 

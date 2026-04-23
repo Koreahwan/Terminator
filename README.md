@@ -265,12 +265,13 @@ psql "$DATABASE_URL" -f scripts/migrate_agent_runs_backend.sql
 ### Dashboard
 
 ```bash
-# Standalone (no Docker)
-cd web && pip install -r requirements.txt && uvicorn app:app --port 3000
+# One click on Windows
+dashboard.bat
 
-# Full stack (6 Docker services)
-docker compose up -d
-# Open http://localhost:3000
+# Manual start (current overview dashboard)
+./scripts/start_overview_server.sh
+# Open http://localhost:8450
+# Auto-stops after 5 minutes of inactivity
 ```
 
 ---

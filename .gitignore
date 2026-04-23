@@ -12,6 +12,7 @@
 .terminator.history
 .terminator.log
 .terminator.pid
+.pids/
 nohup.out
 
 # --- Local tool configs (contain hardcoded paths) ---
@@ -180,4 +181,3 @@ knowledge/accepted_reports.db-shm
 qwant_*_snapshot.md
 qwant_report_snapshot.md
 qwant_*.png
-

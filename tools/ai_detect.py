@@ -267,16 +267,70 @@ def heuristic_check(filepath: str) -> int:
         structural_score += penalty
         structural_details.append(f"generic numbered steps x{len(generic_steps)} (+{penalty:.1f})")
 
+    # 5f. Word count gate — human hunters write 500-1200 words, AI writes 2000+
+    if word_count > 2500:
+        penalty = min((word_count - 2000) / 500, 3.0)
+        structural_score += penalty
+        structural_details.append(f"excessive length {word_count} words (+{penalty:.1f})")
+    elif word_count > 1500:
+        penalty = min((word_count - 1500) / 1000, 1.0)
+        structural_score += penalty
+        structural_details.append(f"long report {word_count} words (+{penalty:.1f})")
+
+    # 5g. Known AI-template section headers (document-level fingerprint)
+    # Only check headers that are genuinely optional AI-template patterns.
+    # Do NOT penalize headers that report_scorer.py requires (Executive Conclusion, etc.)
+    template_headers = {
+        r"^#+\s*What\s+This\s+Report\s+Does\s+NOT\s+Claim": 2.0,
+        r"^#+\s*Honest\s+Severity\s+Expectation": 1.5,
+        r"^#+\s*Conditional\s+CVSS\s+Table": 1.0,
+        r"^#+\s*Evidence\s+Files": 0.5,
+        r"^#+\s*Remediation[\s\n]+.*Priority\s+1": 1.0,
+    }
+    header_hits = []
+    header_score = 0
+    header_names = {
+        r"^#+\s*What\s+This\s+Report\s+Does\s+NOT\s+Claim": "Does NOT Claim",
+        r"^#+\s*Honest\s+Severity\s+Expectation": "Honest Severity",
+        r"^#+\s*Conditional\s+CVSS\s+Table": "Conditional CVSS",
+        r"^#+\s*Evidence\s+Files": "Evidence Files",
+        r"^#+\s*Remediation[\s\n]+.*Priority\s+1": "Priority 1-2-3 Remediation",
+    }
+    for pattern, weight in template_headers.items():
+        if re.search(pattern, text, re.MULTILINE | re.IGNORECASE):
+            header_hits.append(header_names.get(pattern, pattern[:30]))
+            header_score += weight
+    if len(header_hits) >= 3:
+        structural_score += header_score
+        structural_details.append(f"template headers x{len(header_hits)} (+{header_score:.1f}): {', '.join(header_hits[:4])}")
+    elif len(header_hits) >= 2:
+        half = header_score * 0.5
+        structural_score += half
+        structural_details.append(f"template headers x{len(header_hits)} (+{half:.1f})")
+
+    # 5h. Em-dash overuse — AI signature (— vs --), exclude code blocks
+    text_no_code = re.sub(r'```[\s\S]*?```', '', text)
+    em_dashes = len(re.findall(r'—', text_no_code))
+    if em_dashes > 5:
+        penalty = min(em_dashes * 0.2, 2.0)
+        structural_score += penalty
+        structural_details.append(f"em-dash x{em_dashes} (+{penalty:.1f})")
+
     if structural_score > 0:
         score += structural_score
         details.append(f"Structural AI signals ({structural_score:.1f}): {', '.join(structural_details)}")
 
-    # 6. Density normalization (per 500 words, capped to prevent short-text inflation)
-    # Bug reports are naturally 100-300 words. Cap amplification at 2x.
-    density_factor = min(500 / max(word_count, 100), 2.0)
+    # 6. Density normalization
+    # Short reports (<500 words): normalize up to prevent under-detection
+    # Long reports (>1000 words): keep raw score — length is ITSELF an AI signal
+    if word_count < 500:
+        density_factor = min(500 / max(word_count, 100), 2.0)
+    else:
+        density_factor = 1.0
     normalized_score = score * density_factor
 
-    # 7. Human signals (deductions)
+    # 7. Human signals (deductions) — capped at 60% of raw score
+    # A report CAN have good evidence AND be AI-generated (that's exactly the problem)
     human_deductions = 0
     human_details = []
     for pattern, deduction, label in HUMAN_SIGNALS:
@@ -285,6 +339,9 @@ def heuristic_check(filepath: str) -> int:
             applied = deduction * min(matches, 3)  # Cap at 3 matches
             human_deductions += applied
             human_details.append(f"{label} x{matches} ({applied:+.1f})")
+    max_deduction = -normalized_score * 0.6
+    if human_deductions < max_deduction:
+        human_deductions = max_deduction
     if human_details:
         details.append(f"Human signals: {', '.join(human_details[:5])}")
 

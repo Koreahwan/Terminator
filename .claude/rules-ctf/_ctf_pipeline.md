@@ -61,17 +61,17 @@ TeamCreate("ctf-<challenge_name>")
 - Minimal repro input, condition pinning, raw primitive identification
 - Artifact: `trigger_report.md` + `trigger_poc.py`
 
-**@ solver** (subagent_type="solver", model=opus, mode=bypassPermissions) [reversing/crypto only]:
+**@ solver** (subagent_type="solver", model=claude-opus-4-6[1m], mode=bypassPermissions) [reversing/crypto only]:
 - Inverse computation, constraint solving, mathematical reasoning
 - Artifact: `solve.py`
 
-**@ chain** (subagent_type="chain", model=opus, mode=bypassPermissions) [pwn only]:
+**@ chain** (subagent_type="chain", model=claude-opus-4-6[1m], mode=bypassPermissions) [pwn only]:
 - Read trigger_report.md, extend primitive
 - leak → overwrite → shell/flag chain assembly
 - Artifact: `chain_report.md` + `solve.py`
 - **Incremental rule**: max 200 lines per phase + local test. No next phase without test.
 
-**@ critic** (subagent_type="critic", model=opus, mode=bypassPermissions):
+**@ critic** (subagent_type="critic", model=claude-opus-4-6[1m], mode=bypassPermissions):
 - Cross-verify solve.py + reversal_map.md + chain_report.md
 - Independent verification of addresses/offsets/constants via GDB/Ghidra MCP
 - APPROVED → **codex cross-review** → verifier | REJECTED → specific fixes back to chain/solver

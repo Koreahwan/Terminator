@@ -1,7 +1,7 @@
 ---
 name: architect
 description: Use this agent when you need architectural review of exploit/report framing, system boundaries, or multi-step pipeline soundness before finalization.
-model: claude-opus-4-7
+model: claude-opus-4-6[1m]
 color: cyan
 permissionMode: bypassPermissions
 effort: max

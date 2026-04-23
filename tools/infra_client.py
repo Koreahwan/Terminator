@@ -785,7 +785,7 @@ def build_parser():
     lr.add_argument("--status", default="RUNNING", help="Run status (default: RUNNING)")
     lr.add_argument("--duration", type=int, dest="duration", help="Duration in seconds")
     lr.add_argument("--tokens", type=int, help="Tokens used")
-    lr.add_argument("--model", help="Model used (e.g. sonnet, opus)")
+    lr.add_argument("--model", help="Model used (e.g. sonnet, claude-opus-4-6[1m])")
     lr.add_argument("--backend", help="Backend used (e.g. claude, codex)")
     lr.add_argument("--parallel-group-id", dest="parallel_group_id", help="Parallel execution group ID")
     lr.add_argument("--summary", help="Output summary text")

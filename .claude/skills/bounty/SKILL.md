@@ -4,7 +4,7 @@ description: Start Bug Bounty target analysis pipeline. Auto-matches "bounty", "
 argument-hint: [target-url-or-name] [scope]
 context: fork
 effort: high
-model: opus
+model: claude-opus-4-6[1m]
 ---
 
 # Bug Bounty Pipeline (v4 — Explore Lane)
@@ -13,7 +13,7 @@ model: opus
 1. **No PoC = No Submission** — reports without exploitation path are 100% Informative
 2. **Quality > Quantity** — 3 deep-dives > 16 skims. Tool-First (Slither/CodeQL before code)
 3. **Orchestrator MUST NOT analyze directly** — delegate to agents. Reading code directly = context waste
-4. **Agent model parameter MANDATORY** — unspecified model inherits opus = 3-5x token waste
+4. **Agent model parameter MANDATORY** — unspecified model inherits claude-opus-4-6[1m] = 3-5x token waste
 
 ## Pre-checks (manual — Orchestrator runs these)
 
@@ -86,7 +86,7 @@ python3 tools/bb_preflight.py fresh-surface-check targets/<target>/
 ```
 
 ### Phase 2: PoC Validation
-- exploiter (model=opus) → only PoC Quality Tier 1-2 pass
+- exploiter (model=claude-opus-4-6[1m]) → only PoC Quality Tier 1-2 pass
 - **`poc-tier` skill for Tier verification** — Tier 3-4 = DROPPED
 - **`threat-model-check` skill for prerequisite validation** — BLOCK = do not send to exploiter
 - exploiter MUST update endpoint_map.md
@@ -109,7 +109,7 @@ python3 tools/bb_preflight.py duplicate-graph-check targets/<target>/ --finding 
 - reporter generates `autofill_payload.json`: `python3 tools/bb_autofill_payload.py targets/<target>/submission/<name>/`
 
 ### Phase 5.5: Submission Review Panel
-- `submission-review` (model=opus) → 3-perspective final check
+- `submission-review` (model=claude-opus-4-6[1m]) → 3-perspective final check
 - Output: `submission_review.json` with verdict GO/HOLD/KILL + rejection_probability
 - GO → Phase 5.8 | HOLD → reporter fix (max 2 rounds) | KILL → archive
 
