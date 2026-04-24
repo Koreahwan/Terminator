@@ -135,6 +135,17 @@ class TestGmailMonitorSync(unittest.TestCase):
         self.assertEqual(self.state["mail_events"]["mail-immunefi-1"]["status"], "account_disabled")
         self.assertNotIn("mail-immunefi-1", self.state["seen_emails"])
 
+    def test_refresh_ops_wiki_reports_subprocess_result(self) -> None:
+        completed = type(
+            "Completed",
+            (),
+            {"returncode": 0, "stdout": '{"action":"fresh"}', "stderr": ""},
+        )()
+        with patch.object(gmail_monitor.subprocess, "run", return_value=completed):
+            result = gmail_monitor.refresh_ops_wiki()
+        self.assertEqual(result["action"], "ok")
+        self.assertEqual(result["detail"]["action"], "fresh")
+
 
 if __name__ == "__main__":
     unittest.main()

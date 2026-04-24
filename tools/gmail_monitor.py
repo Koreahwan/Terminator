@@ -20,7 +20,7 @@ Usage:
   python3 tools/gmail_monitor.py pending-confirmations      # Show submitted but unconfirmed (24h+)
   python3 tools/gmail_monitor.py add-payment <target> <finding> <amount> <currency> <platform>
   python3 tools/gmail_monitor.py payment-summary            # Revenue by platform/month/severity
-  python3 tools/gmail_monitor.py sync-search <json_or_->    # Ingest Gmail search_emails JSON into local state
+  python3 tools/gmail_monitor.py sync-search <json_or_-> [--refresh-ops-wiki]
   python3 tools/gmail_monitor.py label-ids                  # Show stored label IDs
   python3 tools/gmail_monitor.py filter-ids                 # Show stored filter IDs
   python3 tools/gmail_monitor.py queries                    # Show search query templates
@@ -30,6 +30,7 @@ import copy
 import json
 import os
 import re
+import subprocess
 import sys
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -451,6 +452,31 @@ def sync_search_results(state: dict, payload: dict, *, mark_seen_flag: bool = Tr
 
         summary["processed"] += 1
     return summary
+
+
+def refresh_ops_wiki() -> dict:
+    """Best-effort refresh of the compiled ops wiki after Gmail state changes."""
+    ops_wiki = PROJECT_ROOT / "tools" / "ops_wiki.py"
+    if not ops_wiki.exists():
+        return {"action": "skipped", "reason": "ops_wiki_missing"}
+    try:
+        result = subprocess.run(
+            ["python3", str(ops_wiki), "sync"],
+            capture_output=True,
+            text=True,
+            timeout=20,
+        )
+    except (subprocess.TimeoutExpired, FileNotFoundError) as exc:
+        return {"action": "failed", "reason": type(exc).__name__}
+
+    payload_text = result.stdout.strip() or result.stderr.strip()
+    if result.returncode != 0:
+        return {"action": "failed", "reason": f"rc_{result.returncode}", "detail": payload_text[:200]}
+    try:
+        data = json.loads(payload_text)
+        return {"action": "ok", "detail": data}
+    except json.JSONDecodeError:
+        return {"action": "ok", "detail": payload_text[:200]}
 
 
 # --- Core commands ---
@@ -929,6 +955,12 @@ def main():
             mark_seen_flag=not has_flag(sys.argv, "no-mark-seen"),
             force=has_flag(sys.argv, "force"),
         )
+        if has_flag(sys.argv, "refresh-ops-wiki"):
+            summary["ops_wiki"] = (
+                {"action": "skipped", "reason": "dry_run"}
+                if has_flag(sys.argv, "dry-run")
+                else refresh_ops_wiki()
+            )
         print(json.dumps(summary, indent=2))
         if not has_flag(sys.argv, "dry-run"):
             save_state(work_state)
