@@ -3,7 +3,7 @@
 # Uses Claude Code with bypassPermissions for fully autonomous operation
 #
 # Usage:
-#   ./terminator.sh [--json] [--timeout N] [--dry-run] ctf /path/to/challenge.zip
+#   ./terminator.sh [--json] [--timeout N] [--dry-run] [--competition-v2|--competition] ctf /path/to/challenge.zip
 #   ./terminator.sh [--json] [--timeout N] [--dry-run] bounty https://target.com "*.target.com"
 #   ./terminator.sh firmware /path/to/firmware.bin
 #   ./terminator.sh status                         (check running sessions)
@@ -19,8 +19,8 @@ EXIT_MEDIUM=3
 EXIT_ERROR=10
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-TIMESTAMP="$(date +%Y%m%d_%H%M%S)"
-REPORT_DIR="$SCRIPT_DIR/reports/$TIMESTAMP"
+TIMESTAMP="${TERMINATOR_TIMESTAMP:-$(date +%Y%m%d_%H%M%S)}"
+REPORT_DIR=""
 PID_DIR="$SCRIPT_DIR/.pids"
 mkdir -p "$PID_DIR"
 LOG_FILE="$SCRIPT_DIR/.terminator.log"
@@ -38,6 +38,7 @@ TIMEOUT="${TERMINATOR_TIMEOUT:-0}"
 DRY_RUN=false
 WAIT_FOR_COMPLETION=false
 PLATFORM="auto"
+CTF_COMPETITION_V2=false
 
 while [[ "${1:-}" == --* ]]; do
   case "$1" in
@@ -45,6 +46,7 @@ while [[ "${1:-}" == --* ]]; do
     --timeout) TIMEOUT="$2"; shift 2 ;;
     --dry-run) DRY_RUN=true; shift ;;
     --wait) WAIT_FOR_COMPLETION=true; shift ;;
+    --competition|--competition-v2) CTF_COMPETITION_V2=true; shift ;;
     --platform) PLATFORM="$2"; shift 2 ;;
     --backend) REQUESTED_BACKEND="$2"; shift 2 ;;
     --failover-to) REQUESTED_FAILOVER_TO="$2"; shift 2 ;;
@@ -266,6 +268,27 @@ build_session_id() {
   printf '%s\n' "${TIMESTAMP}-$(slugify "$mode")-$(slugify "$target")"
 }
 
+init_report_dir() {
+  if [ -n "${REPORT_DIR:-}" ] && [ -d "$REPORT_DIR" ]; then
+    return 0
+  fi
+
+  local suffix=0
+  local candidate=""
+  while true; do
+    if [ "$suffix" -eq 0 ]; then
+      candidate="$SCRIPT_DIR/reports/$TIMESTAMP"
+    else
+      candidate="$SCRIPT_DIR/reports/${TIMESTAMP}_$suffix"
+    fi
+    if mkdir "$candidate" 2>/dev/null; then
+      REPORT_DIR="$candidate"
+      return 0
+    fi
+    suffix=$((suffix + 1))
+  done
+}
+
 write_pid_meta() {
   local meta_path="$1"
   local pid="$2"
@@ -430,33 +453,62 @@ print(json.dumps(sorted(files)))
     runtime_failover_count="$(python3 -c "import json; d=json.load(open('$report_dir/runtime_result.json')); print(d.get('failover_count',0))" 2>/dev/null || echo "0")"
     runtime_session_id="$(python3 -c "import json; d=json.load(open('$report_dir/runtime_result.json')); print(d.get('session_id',''))" 2>/dev/null || echo "")"
   fi
-
-  python3 -c "
+  REPORT_DIR_ENV="$report_dir" \
+  ISO_TS_ENV="$iso_ts" \
+  MODE_ENV="$mode" \
+  TARGET_ENV="$target" \
+  DURATION_ENV="$duration" \
+  EXIT_CODE_ENV="$exit_code" \
+  FLAGS_JSON_ENV="$flags_json" \
+  FILES_JSON_ENV="$files_json" \
+  STATUS_ENV="$status" \
+  RUNTIME_BACKEND_ENV="$runtime_backend" \
+  RUNTIME_REQUESTED_BACKEND_ENV="$runtime_requested_backend" \
+  RUNTIME_FAILOVER_USED_ENV="$runtime_failover_used" \
+  RUNTIME_FAILOVER_COUNT_ENV="$runtime_failover_count" \
+  RUNTIME_SESSION_ID_ENV="$runtime_session_id" \
+  CNT_CRITICAL_ENV="$cnt_critical" \
+  CNT_HIGH_ENV="$cnt_high" \
+  CNT_MEDIUM_ENV="$cnt_medium" \
+  CNT_LOW_ENV="$cnt_low" \
+  CNT_INFO_ENV="$cnt_info" \
+  python3 - <<'PY' > "$report_dir/summary.json" 2>/dev/null || true
 import json
+import os
+
 summary = {
-    'timestamp': '$iso_ts',
-    'mode': '$mode',
-    'target': '$target',
-    'duration_seconds': $duration,
-    'exit_code': $exit_code,
-    'flags_found': $flags_json,
-    'findings': {
-        'critical': $cnt_critical,
-        'high': $cnt_high,
-        'medium': $cnt_medium,
-        'low': $cnt_low,
-        'info': $cnt_info
+    "timestamp": os.environ["ISO_TS_ENV"],
+    "mode": os.environ["MODE_ENV"],
+    "target": os.environ["TARGET_ENV"],
+    "duration_seconds": int(os.environ["DURATION_ENV"]),
+    "exit_code": int(os.environ["EXIT_CODE_ENV"]),
+    "flags_found": json.loads(os.environ["FLAGS_JSON_ENV"]),
+    "findings": {
+        "critical": int(os.environ["CNT_CRITICAL_ENV"]),
+        "high": int(os.environ["CNT_HIGH_ENV"]),
+        "medium": int(os.environ["CNT_MEDIUM_ENV"]),
+        "low": int(os.environ["CNT_LOW_ENV"]),
+        "info": int(os.environ["CNT_INFO_ENV"]),
     },
-    'files_generated': $files_json,
-    'status': '$status',
-    'backend': '$runtime_backend',
-    'backend_requested': '$runtime_requested_backend',
-    'failover_used': $runtime_failover_used,
-    'failover_count': $runtime_failover_count,
-    'session_id': '$runtime_session_id'
+    "files_generated": json.loads(os.environ["FILES_JSON_ENV"]),
+    "status": os.environ["STATUS_ENV"],
+    "backend": os.environ["RUNTIME_BACKEND_ENV"],
+    "backend_requested": os.environ["RUNTIME_REQUESTED_BACKEND_ENV"],
+    "failover_used": os.environ["RUNTIME_FAILOVER_USED_ENV"].lower() == "true",
+    "failover_count": int(os.environ["RUNTIME_FAILOVER_COUNT_ENV"]),
+    "session_id": os.environ["RUNTIME_SESSION_ID_ENV"],
 }
+
+competition_path = os.path.join(os.environ["REPORT_DIR_ENV"], "competition_plan.json")
+if os.path.exists(competition_path):
+    try:
+        with open(competition_path, "r", encoding="utf-8") as fh:
+            summary["competition"] = json.load(fh)
+    except json.JSONDecodeError:
+        summary["competition_warning"] = "invalid competition_plan.json ignored"
+
 print(json.dumps(summary, indent=2))
-" > "$report_dir/summary.json" 2>/dev/null || true
+PY
 
   # Auto-generate SARIF + PDF reports
   python3 "$SCRIPT_DIR/tools/report_generator.py" \
@@ -537,7 +589,7 @@ case "$MODE" in
 
     CHALLENGE_DIR="$(extract_if_zip "$(realpath "$TARGET")")"
     FILES=$(ls -1 "$CHALLENGE_DIR" 2>/dev/null | head -30)
-    mkdir -p "$REPORT_DIR"
+    init_report_dir
     PRIMARY_BACKEND="$(normalize_backend "$BACKEND")"
     FAILOVER_BACKEND="$(resolve_failover_backend "$PRIMARY_BACKEND" "$FAILOVER_TO")"
     EFFECTIVE_MODEL="$(backend_model "$PRIMARY_BACKEND")"
@@ -545,8 +597,16 @@ case "$MODE" in
     PID_FILE="$PID_DIR/ctf-$(basename "$CHALLENGE_DIR").pid"
     PID_META="$PID_DIR/ctf-$(basename "$CHALLENGE_DIR").json"
     PROMPT_FILE="$REPORT_DIR/prompt.txt"
+    COMPETITION_PLAN_FILE="$REPORT_DIR/competition_plan.json"
 
-    cat > "$PROMPT_FILE" <<PROMPT
+    if [ "$CTF_COMPETITION_V2" = true ]; then
+      python3 "$SCRIPT_DIR/tools/ctf_competition.py" plan \
+        --challenge-dir "$CHALLENGE_DIR" \
+        --report-dir "$REPORT_DIR" \
+        --prompt-out "$PROMPT_FILE" \
+        --plan-out "$COMPETITION_PLAN_FILE" >/dev/null
+    else
+      cat > "$PROMPT_FILE" <<PROMPT
 You are Terminator Team Lead. Use Claude Code Agent Teams to solve this CTF challenge.
 
 Challenge directory: $CHALLENGE_DIR
@@ -590,10 +650,27 @@ STEP 4: Collect results
 
 Flag formats: DH{...}, FLAG{...}, flag{...}, CTF{...}, GoN{...}, CYAI{...}
 PROMPT
+    fi
 
     if [ "$DRY_RUN" = true ]; then
       if [ "$JSON_OUTPUT" = true ]; then
-        python3 -c "
+        if [ "$CTF_COMPETITION_V2" = true ] && [ -f "$COMPETITION_PLAN_FILE" ]; then
+          python3 - <<PY
+import json
+from tools.ctf_competition import build_competition_dry_run_payload
+print(json.dumps(build_competition_dry_run_payload(
+    challenge_dir='$CHALLENGE_DIR',
+    backend='$PRIMARY_BACKEND',
+    failover_to='$FAILOVER_BACKEND',
+    model='$EFFECTIVE_MODEL',
+    report_dir='$REPORT_DIR',
+    timeout=$TIMEOUT,
+    session_id='$SESSION_ID',
+    plan_path='$COMPETITION_PLAN_FILE',
+), indent=2))
+PY
+        else
+          python3 -c "
 import json
 plan = {
     'dry_run': True,
@@ -616,8 +693,27 @@ plan = {
 }
 print(json.dumps(plan, indent=2))
 "
+        fi
       else
-        echo "[DRY-RUN] CTF mode"
+        if [ "$CTF_COMPETITION_V2" = true ] && [ -f "$COMPETITION_PLAN_FILE" ]; then
+          COMPETITION_LANE="$(python3 -c "import json; print(json.load(open('$COMPETITION_PLAN_FILE')).get('lane','unknown'))" 2>/dev/null || echo "unknown")"
+          COMPETITION_ADAPTER="$(python3 -c "import json; print(json.load(open('$COMPETITION_PLAN_FILE')).get('adapter','unknown'))" 2>/dev/null || echo "unknown")"
+          COMPETITION_RETRY="$(python3 -c "import json; print(json.load(open('$COMPETITION_PLAN_FILE')).get('retry_budget',1))" 2>/dev/null || echo "1")"
+          echo "[DRY-RUN] CTF competition-v2 mode"
+          echo "  Challenge: $CHALLENGE_DIR"
+          echo "  Files:     $FILES"
+          echo "  Lane:      $COMPETITION_LANE"
+          echo "  Adapter:   $COMPETITION_ADAPTER"
+          echo "  Retries:   $COMPETITION_RETRY"
+          echo "  Backend:   $PRIMARY_BACKEND"
+          echo "  Spare:     ${FAILOVER_BACKEND:-none} (Claude quota/context/API interruption only)"
+          echo "  Model:     $EFFECTIVE_MODEL"
+          echo "  Session:   $SESSION_ID"
+          echo "  Report:    $REPORT_DIR"
+          echo "  Timeout:   ${TIMEOUT}s (0=none)"
+          echo "  Would run: python3 tools/backend_runner.py run --backend $PRIMARY_BACKEND ..."
+        else
+          echo "[DRY-RUN] CTF mode"
         echo "  Challenge: $CHALLENGE_DIR"
         echo "  Files:     $FILES"
         echo "  Backend:   $PRIMARY_BACKEND"
@@ -627,16 +723,24 @@ print(json.dumps(plan, indent=2))
         echo "  Report:    $REPORT_DIR"
         echo "  Timeout:   ${TIMEOUT}s (0=none)"
         echo "  Would run: python3 tools/backend_runner.py run --backend $PRIMARY_BACKEND ..."
+        fi
       fi
       exit $EXIT_CLEAN
     fi
 
     if [ "$JSON_OUTPUT" = false ]; then
+      COMPETITION_LANE=""
+      if [ "$CTF_COMPETITION_V2" = true ] && [ -f "$COMPETITION_PLAN_FILE" ]; then
+        COMPETITION_LANE="$(python3 -c "import json; print(json.load(open('$COMPETITION_PLAN_FILE')).get('lane','unknown'))" 2>/dev/null || echo "unknown")"
+      fi
       echo "╔══════════════════════════════════════════╗"
       echo "║        TERMINATOR - CTF Mode             ║"
       echo "╠══════════════════════════════════════════╣"
       echo "║ Challenge: $(basename "$CHALLENGE_DIR")"
       echo "║ Files:     $FILES"
+      if [ -n "$COMPETITION_LANE" ]; then
+        echo "║ Profile:   competition-v2/$COMPETITION_LANE"
+      fi
       echo "║ Backend:   $PRIMARY_BACKEND"
       echo "║ Spare:     ${FAILOVER_BACKEND:-none}"
       echo "║ Model:     $EFFECTIVE_MODEL"
@@ -683,8 +787,17 @@ print(json.dumps(plan, indent=2))
       echo \"Timestamp: \$(date)\" >> \"$REPORT_DIR/session.log\"
 
       # Extract flags
-      FLAGS=\$(grep -oE '(DH|FLAG|flag|CTF|GoN|CYAI)\{[^}]+\}' \"$REPORT_DIR/session.log\" 2>/dev/null | sort -u || true)
-      if [ -n \"\$FLAGS\" ]; then
+      FLAGS=\$(python3 - <<PY
+import json
+from pathlib import Path
+from tools.ctf_competition import extract_ctf_flags
+log_path = Path("$REPORT_DIR/session.log")
+text = log_path.read_text(encoding="utf-8", errors="ignore") if log_path.exists() else ""
+flags = extract_ctf_flags(text, challenge_dir="$CHALLENGE_DIR")
+print("\\n".join(flags))
+PY
+)
+      if [ -n \"\${FLAGS:-}\" ]; then
         echo \"FLAGS FOUND:\" >> \"$REPORT_DIR/session.log\"
         echo \"\$FLAGS\" >> \"$REPORT_DIR/session.log\"
         echo \"\$FLAGS\" > \"$REPORT_DIR/flags.txt\"
@@ -744,7 +857,7 @@ print(json.dumps(plan, indent=2))
     fi
 
     SCOPE="${SCOPE:-$TARGET}"
-    mkdir -p "$REPORT_DIR"
+    init_report_dir
     PRIMARY_BACKEND="$(normalize_backend "$BACKEND")"
     FAILOVER_BACKEND="$(resolve_failover_backend "$PRIMARY_BACKEND" "$FAILOVER_TO")"
     EFFECTIVE_MODEL="$(backend_model "$PRIMARY_BACKEND")"
@@ -1109,7 +1222,7 @@ EOF
 )
     fi
 
-    mkdir -p "$REPORT_DIR"
+    init_report_dir
     cat > "$REPORT_DIR/firmware_handoff.json" <<EOF
 {
   "mode": "firmware",
@@ -1463,7 +1576,7 @@ PROMPT
     fi
 
     SCOPE="${SCOPE:-$TARGET}"
-    mkdir -p "$REPORT_DIR"
+    init_report_dir
     PRIMARY_BACKEND="$(normalize_backend "$BACKEND")"
     FAILOVER_BACKEND="$(resolve_failover_backend "$PRIMARY_BACKEND" "$FAILOVER_TO")"
     EFFECTIVE_MODEL="$(backend_model "$PRIMARY_BACKEND")"
@@ -1565,7 +1678,7 @@ PROMPT
     fi
 
     SCOPE="${SCOPE:-$TARGET}"
-    mkdir -p "$REPORT_DIR"
+    init_report_dir
     PRIMARY_BACKEND="$(normalize_backend "$BACKEND")"
     FAILOVER_BACKEND="$(resolve_failover_backend "$PRIMARY_BACKEND" "$FAILOVER_TO")"
     EFFECTIVE_MODEL="$(backend_model "$PRIMARY_BACKEND")"
@@ -1668,7 +1781,7 @@ PROMPT
     fi
 
     SCOPE="${SCOPE:-auto}"
-    mkdir -p "$REPORT_DIR"
+    init_report_dir
     PRIMARY_BACKEND="$(normalize_backend "$BACKEND")"
     FAILOVER_BACKEND="$(resolve_failover_backend "$PRIMARY_BACKEND" "$FAILOVER_TO")"
     EFFECTIVE_MODEL="$(backend_model "$PRIMARY_BACKEND")"
@@ -1773,7 +1886,7 @@ PROMPT
       echo "[!] --parallel-targets requires a JSON file path or inline JSON array"
       exit $EXIT_ERROR
     fi
-    mkdir -p "$REPORT_DIR"
+    init_report_dir
 
     python3 - <<'PY' "$SPEC_SOURCE" > "$REPORT_DIR/parallel_targets.tsv"
 import json
@@ -1944,6 +2057,7 @@ PY
     echo "  --json                  Suppress banner; print summary.json path on completion"
     echo "  --timeout N             Abort session after N seconds (0 = no limit)"
     echo "  --dry-run               Print execution plan without running Claude"
+    echo "  --competition-v2        Enable the isolated competition-focused CTF lane (--competition alias)"
     echo "  --resume-session ID     Reuse an existing coordination session id"
     echo ""
     echo "Environment:"

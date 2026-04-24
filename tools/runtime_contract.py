@@ -91,10 +91,12 @@ def build_summary(
 ) -> dict:
     counts = collect_severity_counts(report_dir / "session.log")
     runtime_result = read_json(report_dir / "runtime_result.json") or {}
+    competition_plan_path = report_dir / "competition_plan.json"
+    competition_plan = read_json(competition_plan_path)
     effective_status = runtime_result.get("status") if isinstance(runtime_result.get("status"), str) else status
     files = sorted(path.name for path in report_dir.iterdir() if path.is_file()) if report_dir.exists() else []
 
-    return {
+    summary = {
         "timestamp": datetime.now(tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "mode": mode,
         "target": target,
@@ -116,6 +118,11 @@ def build_summary(
         "failover_count": runtime_result.get("failover_count", 0),
         "session_id": runtime_result.get("session_id", ""),
     }
+    if isinstance(competition_plan, dict):
+        summary["competition"] = competition_plan
+    elif competition_plan_path.exists():
+        summary["competition_warning"] = "invalid competition_plan.json ignored"
+    return summary
 
 
 def cmd_exit_code(args: argparse.Namespace) -> int:
