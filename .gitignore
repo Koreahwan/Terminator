@@ -55,6 +55,7 @@ tools/wave2_*.txt
 
 # --- Challenge artifacts (temporary, overwritten per challenge) ---
 challenges/
+ctf/
 solve.py
 reversal_map.md
 trigger_report.md
@@ -73,6 +74,7 @@ aiedge_handoff_adapter.py
 .omx/*
 !.omx/hooks/
 !.omx/hooks/**
+.agents/
 
 # --- Shared coordination runtime state ---
 coordination/sessions/
@@ -166,6 +168,7 @@ ghidra_ctx/
 # --- Local-only dashboard data ---
 docs/submissions.json
 .omx/
+dashboard.bat
 
 # Memory symlink to Claude Code project memory (not part of repo)
 memory
@@ -177,6 +180,8 @@ knowledge/accepted_reports.db-wal
 knowledge/accepted_reports.db-shm
 # Ephemeral scheduled-task lock
 .claude/scheduled_tasks.lock
+# Local benchmark run output
+tests/benchmarks/runs/
 # Local submission drafting snapshots (Playwright screenshots + report drafts)
 qwant_*_snapshot.md
 qwant_report_snapshot.md
