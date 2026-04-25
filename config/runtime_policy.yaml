@@ -1,0 +1,454 @@
+schema_version: "2026-04-24.gpt-runtime-v1"
+default_profile: hybrid
+
+profiles:
+  claude-only:
+    defaults:
+      backend: claude
+    roles: {}
+
+  gpt-only:
+    defaults:
+      backend: codex
+      model: gpt-5.4
+    roles:
+      target-discovery:
+        model: gpt-5.5
+      reporter:
+        model: gpt-5.4-mini
+      verifier:
+        model: gpt-5.4-mini
+      scout:
+        model: gpt-5.4-mini
+      recon-scanner:
+        model: gpt-5.4-mini
+
+  hybrid:
+    defaults:
+      backend: claude
+    roles:
+      target-discovery:
+        backend: codex
+        model: gpt-5.5
+      analyst:
+        backend: codex
+        model: gpt-5.4
+      architect:
+        backend: codex
+        model: gpt-5.4
+      chain:
+        backend: codex
+        model: gpt-5.4
+      critic:
+        backend: codex
+        model: gpt-5.4
+      ctf-solver:
+        backend: codex
+        model: gpt-5.4
+      defi-auditor:
+        backend: codex
+        model: gpt-5.4
+      exploiter:
+        backend: codex
+        model: gpt-5.4
+      patch-hunter:
+        backend: codex
+        model: gpt-5.4
+      solver:
+        backend: codex
+        model: gpt-5.4
+      source-auditor:
+        backend: codex
+        model: gpt-5.4
+      submission-review:
+        backend: codex
+        model: gpt-5.4
+      triager-sim:
+        backend: codex
+        model: gpt-5.4
+      workflow-auditor:
+        backend: codex
+        model: gpt-5.4
+
+  scope-first-hybrid:
+    defaults:
+      backend: claude
+    safety:
+      require_scope_contract: true
+      require_safety_wrapper: true
+      require_artifact_scope_hash: true
+      fail_closed_on_scope_unknown: true
+      llm_override_allowed: false
+    roles:
+      target-discovery:
+        backend: codex
+        model: gpt-5.5
+      scout:
+        backend: codex
+        model: gpt-5.4
+      recon-scanner:
+        backend: codex
+        model: gpt-5.4
+      source-auditor:
+        backend: codex
+        model: gpt-5.4
+      analyst:
+        backend: codex
+        model: gpt-5.4
+      scope-auditor:
+        backend: claude
+        model: claude-opus-4-6[1m]
+      reporter:
+        backend: claude
+        model: claude-opus-4-6[1m]
+      submission-review:
+        backend: claude
+        model: claude-opus-4-6[1m]
+      exploiter:
+        backend: codex
+        model: gpt-5.4
+        debate_mode: gpt-propose-claude-object-gpt-respond
+      critic:
+        backend: codex
+        model: gpt-5.4
+        debate_mode: gpt-propose-claude-object-gpt-respond
+      triager-sim:
+        backend: codex
+        model: gpt-5.4
+        debate_mode: gpt-propose-claude-object-gpt-respond
+
+roles:
+  ai-recon:
+    backend: claude
+    model: sonnet
+    phase_class: tool-recon
+    rollback_group: domain
+    shadow_mode: disabled
+    claude_fallback_allowed: true
+    mcp_parity_required: [promptfoo, knowledge-fts]
+    expected_artifacts: [checkpoint.json]
+
+  analyst:
+    backend: claude
+    model: sonnet
+    phase_class: analysis
+    rollback_group: bounty
+    shadow_mode: compare
+    claude_fallback_allowed: true
+    mcp_parity_required: [knowledge-fts]
+    expected_artifacts: [vulnerability_candidates.md, checkpoint.json]
+
+  architect:
+    backend: claude
+    model: opus
+    phase_class: design-review
+    rollback_group: bounty
+    shadow_mode: compare
+    claude_fallback_allowed: true
+    mcp_parity_required: [knowledge-fts]
+    expected_artifacts: [architect_review.md]
+
+  chain:
+    backend: claude
+    model: opus
+    phase_class: exploit-chain
+    rollback_group: ctf
+    shadow_mode: compare
+    claude_fallback_allowed: true
+    mcp_parity_required: [gdb, knowledge-fts]
+    expected_artifacts: [chain_report.md, solve.py]
+
+  critic:
+    backend: claude
+    model: opus
+    phase_class: adversarial-review
+    rollback_group: shared
+    shadow_mode: compare
+    claude_fallback_allowed: true
+    disagreement_policy: block-on-critical
+    mcp_parity_required: [gdb, ghidra, knowledge-fts]
+    expected_artifacts: [critic_review.md]
+
+  ctf-solver:
+    backend: claude
+    model: sonnet
+    phase_class: ctf-fast-path
+    rollback_group: ctf
+    shadow_mode: disabled
+    claude_fallback_allowed: true
+    mcp_parity_required: [gdb, knowledge-fts]
+    expected_artifacts: [solve.py]
+
+  cve-manager:
+    backend: claude
+    model: sonnet
+    phase_class: cve-filing
+    rollback_group: domain
+    shadow_mode: disabled
+    claude_fallback_allowed: true
+    mcp_parity_required: [knowledge-fts]
+    expected_artifacts: [cve_submission.json, checkpoint.json]
+
+  defi-auditor:
+    backend: claude
+    model: opus
+    phase_class: smart-contract-audit
+    rollback_group: bounty
+    shadow_mode: compare
+    claude_fallback_allowed: true
+    mcp_parity_required: [knowledge-fts]
+    expected_artifacts: [audit_report.md, checkpoint.json]
+
+  exploiter:
+    backend: claude
+    model: opus
+    phase_class: poc-development
+    rollback_group: bounty
+    shadow_mode: compare
+    claude_fallback_allowed: true
+    disagreement_policy: block-on-tier-regression
+    mcp_parity_required: [knowledge-fts]
+    expected_artifacts: [checkpoint.json]
+
+  fw-inventory:
+    backend: claude
+    model: sonnet
+    phase_class: firmware-inventory
+    rollback_group: firmware
+    shadow_mode: disabled
+    claude_fallback_allowed: true
+    mcp_parity_required: []
+    expected_artifacts: [checkpoint.json]
+
+  fw-profiler:
+    backend: claude
+    model: sonnet
+    phase_class: firmware-profile
+    rollback_group: firmware
+    shadow_mode: disabled
+    claude_fallback_allowed: true
+    mcp_parity_required: []
+    expected_artifacts: [checkpoint.json]
+
+  fw-surface:
+    backend: claude
+    model: sonnet
+    phase_class: firmware-surface
+    rollback_group: firmware
+    shadow_mode: disabled
+    claude_fallback_allowed: true
+    mcp_parity_required: []
+    expected_artifacts: [checkpoint.json]
+
+  fw-validator:
+    backend: claude
+    model: sonnet
+    phase_class: firmware-validator
+    rollback_group: firmware
+    shadow_mode: disabled
+    claude_fallback_allowed: true
+    mcp_parity_required: []
+    expected_artifacts: [checkpoint.json]
+
+  mobile-analyst:
+    backend: claude
+    model: sonnet
+    phase_class: mobile-analysis
+    rollback_group: domain
+    shadow_mode: disabled
+    claude_fallback_allowed: true
+    mcp_parity_required: [knowledge-fts]
+    expected_artifacts: [checkpoint.json]
+
+  patch-hunter:
+    backend: claude
+    model: sonnet
+    phase_class: patch-diff-analysis
+    rollback_group: bounty
+    shadow_mode: compare
+    claude_fallback_allowed: true
+    mcp_parity_required: [knowledge-fts]
+    expected_artifacts: [patch_analysis.md, checkpoint.json]
+
+  recon-scanner:
+    backend: claude
+    model: sonnet
+    phase_class: recon-scan
+    rollback_group: bounty
+    shadow_mode: disabled
+    claude_fallback_allowed: true
+    mcp_parity_required: [nuclei, knowledge-fts]
+    expected_artifacts: [checkpoint.json]
+
+  reporter:
+    backend: claude
+    model: sonnet
+    phase_class: reporting
+    rollback_group: shared
+    shadow_mode: disabled
+    claude_fallback_allowed: true
+    mcp_parity_required: [knowledge-fts]
+    expected_artifacts: [checkpoint.json]
+
+  scope-auditor:
+    backend: claude
+    model: opus
+    phase_class: scope-audit
+    rollback_group: bounty
+    shadow_mode: compare
+    claude_fallback_allowed: false
+    disagreement_policy: block-on-unknown-or-oos
+    mcp_parity_required: [knowledge-fts]
+    expected_artifacts: [scope_audit.json, scope_audit.md]
+
+  reverser:
+    backend: claude
+    model: sonnet
+    phase_class: binary-analysis
+    rollback_group: ctf
+    shadow_mode: disabled
+    claude_fallback_allowed: true
+    mcp_parity_required: [ghidra, gdb, knowledge-fts]
+    expected_artifacts: [reversal_map.md]
+
+  robo-scanner:
+    backend: claude
+    model: sonnet
+    phase_class: robotics-scan
+    rollback_group: domain
+    shadow_mode: disabled
+    claude_fallback_allowed: true
+    mcp_parity_required: [knowledge-fts]
+    expected_artifacts: [checkpoint.json]
+
+  sc-scanner:
+    backend: claude
+    model: sonnet
+    phase_class: supplychain-scan
+    rollback_group: domain
+    shadow_mode: disabled
+    claude_fallback_allowed: true
+    mcp_parity_required: [knowledge-fts]
+    expected_artifacts: [checkpoint.json]
+
+  scout:
+    backend: claude
+    model: sonnet
+    phase_class: recon
+    rollback_group: bounty
+    shadow_mode: disabled
+    claude_fallback_allowed: true
+    mcp_parity_required: [nuclei, knowledge-fts, graphrag-security]
+    expected_artifacts: [endpoint_map.md, program_context.md, checkpoint.json]
+
+  solver:
+    backend: claude
+    model: opus
+    phase_class: inverse-computation
+    rollback_group: ctf
+    shadow_mode: compare
+    claude_fallback_allowed: true
+    mcp_parity_required: [gdb, knowledge-fts]
+    expected_artifacts: [solve.py]
+
+  source-auditor:
+    backend: claude
+    model: opus
+    phase_class: source-audit
+    rollback_group: bounty
+    shadow_mode: compare
+    claude_fallback_allowed: true
+    mcp_parity_required: [knowledge-fts, semgrep, codeql]
+    expected_artifacts: [audit_report.md, checkpoint.json]
+
+  submission-review:
+    backend: claude
+    model: opus
+    phase_class: submission-review
+    rollback_group: bounty
+    shadow_mode: compare
+    claude_fallback_allowed: true
+    disagreement_policy: block-on-critical
+    mcp_parity_required: [knowledge-fts]
+    expected_artifacts: [submission_review.json]
+
+  target-evaluator:
+    backend: claude
+    model: sonnet
+    phase_class: target-go-nogo
+    rollback_group: bounty
+    shadow_mode: disabled
+    claude_fallback_allowed: true
+    mcp_parity_required: [knowledge-fts]
+    expected_artifacts: [target_assessment.md, checkpoint.json]
+
+  target-discovery:
+    backend: claude
+    model: sonnet
+    phase_class: target-discovery
+    rollback_group: bounty
+    shadow_mode: compare
+    claude_fallback_allowed: true
+    mcp_parity_required: [knowledge-fts]
+    expected_artifacts: [target_candidates.json, target_candidates.md, checkpoint.json]
+
+  threat-modeler:
+    backend: claude
+    model: sonnet
+    phase_class: threat-model
+    rollback_group: bounty
+    shadow_mode: compare
+    claude_fallback_allowed: true
+    mcp_parity_required: [knowledge-fts]
+    expected_artifacts: [trust_boundary_map.md, role_matrix.md, checkpoint.json]
+
+  triager-sim:
+    backend: claude
+    model: opus
+    phase_class: triage-simulation
+    rollback_group: bounty
+    shadow_mode: compare
+    claude_fallback_allowed: true
+    disagreement_policy: block-on-negative-promotion
+    mcp_parity_required: [knowledge-fts]
+    expected_artifacts: [triager_sim_result.json]
+
+  trigger:
+    backend: claude
+    model: sonnet
+    phase_class: crash-trigger
+    rollback_group: ctf
+    shadow_mode: disabled
+    claude_fallback_allowed: true
+    mcp_parity_required: [gdb, knowledge-fts]
+    expected_artifacts: [trigger_report.md]
+
+  verifier:
+    backend: claude
+    model: sonnet
+    phase_class: execution-verification
+    rollback_group: shared
+    shadow_mode: disabled
+    claude_fallback_allowed: true
+    mcp_parity_required: [gdb]
+    expected_artifacts: [verification_report.md, checkpoint.json]
+
+  web-tester:
+    backend: claude
+    model: sonnet
+    phase_class: web-workflow-test
+    rollback_group: bounty
+    shadow_mode: disabled
+    claude_fallback_allowed: true
+    mcp_parity_required: [browser-use, knowledge-fts]
+    expected_artifacts: [web_tester_results.md, checkpoint.json]
+
+  workflow-auditor:
+    backend: claude
+    model: sonnet
+    phase_class: workflow-audit
+    rollback_group: bounty
+    shadow_mode: compare
+    claude_fallback_allowed: true
+    mcp_parity_required: [knowledge-fts]
+    expected_artifacts: [workflow_map.md, checkpoint.json]

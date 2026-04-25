@@ -1,0 +1,52 @@
+{
+  "role": "trigger",
+  "source_file": ".claude/agents/trigger.md",
+  "source_hash": "05afddd4d733eaf0",
+  "source_size_chars": 8511,
+  "contract_size_chars": 6452,
+  "contract_size_bytes": 6566,
+  "budget_bytes": 8000,
+  "within_budget": true,
+  "budget_usage_pct": 82.1,
+  "truncated_to_budget": false,
+  "preserved_sections": [
+    "IRON RULES (NEVER VIOLATE)",
+    "Checkpoint Protocol (MANDATORY)"
+  ],
+  "compressed_sections": [
+    "",
+    "Trigger Agent",
+    "Mission",
+    "Strategy",
+    "Crash Discovery Order",
+    "Coverage Gap Analysis (when standard fuzzing fails)",
+    "1. Set breakpoints on ALL vulnerable candidate functions",
+    "2. Functions NOT hit = coverage gaps",
+    "Ask: \"What input/menu sequence reaches this function?\"",
+    "3. Trace call path: Ghidra MCP xrefs_to(<unreached_func>) → find callers → find required input",
+    "4. Craft input following the SPECIFIC path to unreached code",
+    "Example: menu option 3 → sub-menu 2 → input \"admin\" → NOW vuln_func reached",
+    "Tools (condensed)",
+    "Output Format",
+    "Trigger Report: <challenge_name>",
+    "Crash Summary",
+    "Minimum PoC",
+    "Conditions",
+    "Raw Primitives",
+    "Handoff to Chain Agent",
+    "Self-Verification (CoVe — MANDATORY before reporting)",
+    "Step 1: List Key Claims",
+    "Step 2: Verify independently",
+    "Crash address consistency (run 10 times)",
+    "Register control verification",
+    "Crash type verification (use vs write vs read)",
+    "Step 3: Resolve Conflicts",
+    "ReAct Crash Exploration Loop (MANDATORY during discovery)",
+    "Personality"
+  ],
+  "dropped_sections": [
+    "Structured Reasoning (MANDATORY at every decision point)",
+    "IRON RULES Recap"
+  ],
+  "generated_at": "2026-04-25T14:11:41Z"
+}

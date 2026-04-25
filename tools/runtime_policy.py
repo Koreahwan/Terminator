@@ -26,61 +26,116 @@ DEFAULT_POLICY_PATH = PROJECT_ROOT / "config" / "runtime_policy.yaml"
 
 
 def _load_yaml_fallback(text: str) -> dict:
-    """Minimal YAML subset parser — handles the flat-ish policy file
-    without requiring PyYAML. Supports scalars, lists, and one level
-    of nesting. NOT a general YAML parser."""
-    import re
+    """Minimal YAML subset parser for config/runtime_policy.yaml.
 
-    result: dict = {"roles": {}}
+    This intentionally supports only the shapes used by the policy file:
+    top-level scalars, profile defaults/role overrides, role maps, inline
+    lists, and block lists. It exists so the runtime can work in lean
+    environments where PyYAML is not installed.
+    """
+
+    def parse_scalar(value: str):
+        value = value.strip()
+        if value in ("true", "false"):
+            return value == "true"
+        if value == "{}":
+            return {}
+        if value == "[]":
+            return []
+        if value.startswith("[") and value.endswith("]"):
+            return [
+                item.strip().strip('"').strip("'")
+                for item in value[1:-1].split(",")
+                if item.strip()
+            ]
+        return value.strip('"').strip("'")
+
+    result: dict = {"profiles": {}, "roles": {}}
+    section: str | None = None
+    current_profile: str | None = None
+    current_profile_section: str | None = None
+    current_profile_role: str | None = None
     current_role: str | None = None
     current_key: str | None = None
-    indent_stack: list[int] = []
 
     for line in text.splitlines():
         stripped = line.strip()
         if not stripped or stripped.startswith("#"):
             continue
 
-        # Top-level scalar
-        if line.startswith("schema_version:"):
-            result["schema_version"] = stripped.split(":", 1)[1].strip().strip('"').strip("'")
-            continue
-
-        if line.startswith("roles:"):
-            continue
-
         indent = len(line) - len(line.lstrip())
 
-        # Role name (indent 2)
+        if indent == 0 and ":" in stripped:
+            key, _, val = stripped.partition(":")
+            key = key.strip()
+            val = val.strip()
+            if key in {"profiles", "roles"} and not val:
+                section = key
+                current_profile = None
+                current_profile_section = None
+                current_profile_role = None
+                current_role = None
+                current_key = None
+            else:
+                result[key] = parse_scalar(val)
+            continue
+
+        if section == "profiles":
+            if indent == 2 and stripped.endswith(":"):
+                current_profile = stripped[:-1]
+                result["profiles"][current_profile] = {}
+                current_profile_section = None
+                current_profile_role = None
+                continue
+
+            if indent == 4 and current_profile and ":" in stripped:
+                key, _, val = stripped.partition(":")
+                key = key.strip()
+                val = val.strip()
+                current_profile_section = key
+                current_profile_role = None
+                result["profiles"][current_profile][key] = parse_scalar(val) if val else {}
+                continue
+
+            if indent == 6 and current_profile and current_profile_section == "defaults" and ":" in stripped:
+                key, _, val = stripped.partition(":")
+                result["profiles"][current_profile].setdefault("defaults", {})[key.strip()] = parse_scalar(val)
+                continue
+
+            if indent == 6 and current_profile and current_profile_section == "roles" and stripped.endswith(":"):
+                current_profile_role = stripped[:-1]
+                result["profiles"][current_profile].setdefault("roles", {})[current_profile_role] = {}
+                continue
+
+            if indent == 8 and current_profile and current_profile_role and ":" in stripped:
+                key, _, val = stripped.partition(":")
+                result["profiles"][current_profile].setdefault("roles", {}).setdefault(current_profile_role, {})[
+                    key.strip()
+                ] = parse_scalar(val)
+                continue
+
+        if section != "roles":
+            continue
+
         if indent == 2 and stripped.endswith(":"):
             current_role = stripped[:-1]
             result["roles"][current_role] = {}
             current_key = None
             continue
 
-        # Role field (indent 4)
         if indent == 4 and current_role and ":" in stripped:
             key, _, val = stripped.partition(":")
             key = key.strip()
             val = val.strip()
-            if val == "" or val == "[]":
-                # Empty list or list follows
-                result["roles"][current_role][key] = [] if val == "[]" else []
+            parsed = parse_scalar(val)
+            if val == "":
+                result["roles"][current_role][key] = []
                 current_key = key
-            elif val.startswith("[") and val.endswith("]"):
-                # Inline list
-                items = [x.strip().strip('"').strip("'") for x in val[1:-1].split(",") if x.strip()]
-                result["roles"][current_role][key] = items
-                current_key = None
-            elif val in ("true", "false"):
-                result["roles"][current_role][key] = val == "true"
-                current_key = None
             else:
-                result["roles"][current_role][key] = val.strip('"').strip("'")
+                result["roles"][current_role][key] = parsed
                 current_key = None
             continue
 
-        # List item (indent 6, starts with -)
         if indent == 6 and stripped.startswith("- ") and current_role and current_key:
             item = stripped[2:].strip().strip('"').strip("'")
             result["roles"][current_role][current_key].append(item)
@@ -101,6 +156,41 @@ def load_policy(path: Path | None = None) -> dict:
     if yaml is not None:
         return yaml.safe_load(text)
     return _load_yaml_fallback(text)
+
+
+def resolve_profile_name(policy: dict, explicit: str | None = None) -> str:
+    value = (explicit or "").strip() or ""
+    if value:
+        return value
+    import os
+
+    env_value = os.environ.get("TERMINATOR_RUNTIME_PROFILE", "").strip()
+    if env_value:
+        return env_value
+    return str(policy.get("default_profile") or "hybrid")
+
+
+def apply_profile(policy: dict, profile_name: str | None = None) -> dict:
+    """Return a copy of the policy with profile overrides applied."""
+    import copy
+
+    resolved = resolve_profile_name(policy, profile_name)
+    merged = copy.deepcopy(policy)
+    roles = merged.get("roles", {}) or {}
+    profiles = merged.get("profiles", {}) or {}
+    profile = profiles.get(resolved, {}) or {}
+    defaults = profile.get("defaults", {}) or {}
+    role_overrides = profile.get("roles", {}) or {}
+
+    for name, entry in roles.items():
+        for key, value in defaults.items():
+            entry[key] = value
+        for key, value in (role_overrides.get(name, {}) or {}).items():
+            entry[key] = value
+        entry["runtime_profile"] = resolved
+
+    merged["active_profile"] = resolved
+    return merged
 
 
 def get_role(policy: dict, role_name: str) -> dict | None:
@@ -125,6 +215,7 @@ def build_policy_summary(policy: dict) -> str:
     lines: list[str] = []
     lines.append("# Runtime Policy Summary")
     lines.append(f"# schema_version: {policy.get('schema_version', '?')}")
+    lines.append(f"# active_profile: {policy.get('active_profile', policy.get('default_profile', '?'))}")
     lines.append("")
 
     # Group by backend
@@ -181,6 +272,8 @@ def main() -> int:
     )
     parser.add_argument("--policy-file", type=Path, default=None,
                         help="Override policy YAML path")
+    parser.add_argument("--profile", default=None,
+                        help="Runtime profile: claude-only | gpt-only | hybrid")
     sub = parser.add_subparsers(dest="command", required=True)
 
     get = sub.add_parser("get-role", help="Print full policy entry for a role")
@@ -195,7 +288,7 @@ def main() -> int:
     lg.add_argument("group", help="Group name (A/B/C)")
 
     args = parser.parse_args()
-    policy = load_policy(args.policy_file)
+    policy = apply_profile(load_policy(args.policy_file), args.profile)
 
     if args.command == "get-role":
         entry = get_role(policy, args.role)

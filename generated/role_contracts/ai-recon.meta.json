@@ -1,0 +1,27 @@
+{
+  "role": "ai-recon",
+  "source_file": ".claude/agents/ai-recon.md",
+  "source_hash": "de0b442e9d8815b7",
+  "source_size_chars": 6193,
+  "contract_size_chars": 5512,
+  "contract_size_bytes": 5640,
+  "budget_bytes": 8000,
+  "within_budget": true,
+  "budget_usage_pct": 70.5,
+  "truncated_to_budget": false,
+  "preserved_sections": [
+    "IRON RULES (NEVER VIOLATE)"
+  ],
+  "compressed_sections": [
+    "",
+    "AI Recon — LLM Attack Surface Mapping Agent",
+    "Strategy",
+    "Output Artifacts",
+    "Tools",
+    "Cloudflare / JS-rendered page fetch (MANDATORY)",
+    "Standard Workflow (with promptfoo)",
+    "Handoff Format"
+  ],
+  "dropped_sections": [],
+  "generated_at": "2026-04-25T14:11:37Z"
+}

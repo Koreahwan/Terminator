@@ -20,6 +20,25 @@ PG_CONFIG = {
     "password": "shadowhunter",
 }
 
+DB_LOGGING_MODE = os.getenv("TERMINATOR_AGENT_DB_LOGGING", "auto").strip().lower()
+_DB_UNAVAILABLE_REASON: str | None = None
+_DB_WARNED = False
+
+
+def _db_logging_disabled() -> bool:
+    return DB_LOGGING_MODE in {"0", "false", "off", "none", "disabled"}
+
+
+def _warn_db_once(message: str) -> None:
+    global _DB_WARNED
+    if _DB_WARNED:
+        return
+    if os.getenv("TERMINATOR_AGENT_DB_WARN", "").strip().lower() not in {"1", "true", "yes"}:
+        return
+    print(f"[agent_bridge] Warning: {message}", file=sys.stderr)
+    _DB_WARNED = True
+
+
 # Expected artifacts per agent role
 ROLE_ARTIFACTS = {
     "reverser": ["reversal_map.md"],
@@ -34,11 +53,22 @@ ROLE_ARTIFACTS = {
     "exploiter": ["exploit_results.md"],
     "target_evaluator": ["target_assessment.md"],
     "triager_sim": ["triager_verdict.md"],
+    "scope-auditor": ["scope_audit.json", "scope_audit.md"],
+    "scope_auditor": ["scope_audit.json", "scope_audit.md"],
 }
 
 
 def _get_conn():
-    import psycopg2
+    global _DB_UNAVAILABLE_REASON
+    if _db_logging_disabled():
+        _DB_UNAVAILABLE_REASON = "agent DB logging disabled"
+        return None
+    try:
+        import psycopg2
+    except ImportError:
+        _DB_UNAVAILABLE_REASON = "psycopg2 not installed; agent DB logging disabled"
+        _warn_db_once(_DB_UNAVAILABLE_REASON)
+        return None
     conn = psycopg2.connect(**PG_CONFIG)
     conn.autocommit = True
     return conn
@@ -56,6 +86,8 @@ def log_run_start(
     """Record agent execution start. Returns run_id."""
     try:
         conn = _get_conn()
+        if conn is None:
+            return -1
         cur = conn.cursor()
         if backend is not None or parallel_group_id is not None:
             try:
@@ -82,7 +114,7 @@ def log_run_start(
         conn.close()
         return run_id
     except Exception as e:
-        print(f"[agent_bridge] Warning: failed to log run start: {e}", file=sys.stderr)
+        _warn_db_once(f"failed to log run start: {e}")
         return -1
 
 
@@ -94,6 +126,8 @@ def log_run_complete(run_id: int, status: str = "COMPLETED",
         return
     try:
         conn = _get_conn()
+        if conn is None:
+            return
         cur = conn.cursor()
         cur.execute(
             "UPDATE agent_runs SET status=%s, duration_seconds=%s, output_summary=%s, "
@@ -103,7 +137,7 @@ def log_run_complete(run_id: int, status: str = "COMPLETED",
         cur.close()
         conn.close()
     except Exception as e:
-        print(f"[agent_bridge] Warning: failed to log run complete: {e}", file=sys.stderr)
+        _warn_db_once(f"failed to log run complete: {e}")
 
 
 def check_artifacts(work_dir: str, role: str) -> dict:
@@ -130,6 +164,8 @@ def get_active_runs(session_id: str = None) -> list:
     """Get all currently running agents."""
     try:
         conn = _get_conn()
+        if conn is None:
+            return []
         cur = conn.cursor()
         if session_id:
             cur.execute(
@@ -148,7 +184,7 @@ def get_active_runs(session_id: str = None) -> list:
         conn.close()
         return rows
     except Exception as e:
-        print(f"[agent_bridge] Warning: failed to get active runs: {e}", file=sys.stderr)
+        _warn_db_once(f"failed to get active runs: {e}")
         return []
 
 
@@ -156,6 +192,8 @@ def get_session_summary(session_id: str) -> dict:
     """Get execution summary for a session."""
     try:
         conn = _get_conn()
+        if conn is None:
+            return {"session_id": session_id, "runs": [], "db_logging": "unavailable", "reason": _DB_UNAVAILABLE_REASON}
         cur = conn.cursor()
         cur.execute(
             "SELECT agent_role, status, duration_seconds, model "
@@ -180,7 +218,7 @@ def get_session_summary(session_id: str) -> dict:
             "runs": runs,
         }
     except Exception as e:
-        print(f"[agent_bridge] Warning: failed to get session summary: {e}", file=sys.stderr)
+        _warn_db_once(f"failed to get session summary: {e}")
         return {"session_id": session_id, "error": str(e)}
 
 

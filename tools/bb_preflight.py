@@ -540,6 +540,22 @@ def verbatim_check(
             if normalised in bundle_norm:
                 continue
 
+            # Strategy 1b: YesWeHack exposes non-qualifying vulnerability
+            # classes as a structured JSON array. The fetcher intentionally
+            # prefixes them with "(non-qualifying)" so downstream gates can
+            # treat them as effective OOS classes, but that label is local
+            # provenance rather than source text. Keep the gate strict on the
+            # actual vulnerability class by requiring the stripped line to
+            # exist in the raw bundle.
+            stripped_non_qual = re.sub(
+                r"^\(?non[-\s]?qualifying\)?\s*[:\-]?\s*",
+                "",
+                normalised,
+                flags=re.IGNORECASE,
+            ).strip()
+            if stripped_non_qual != normalised and len(stripped_non_qual) >= 6 and stripped_non_qual in bundle_norm:
+                continue
+
             # Strategy 2: token-level match. Renderer often adds metadata
             # suffix to In-Scope Assets (`- \`www.qwant.com\` (url) — Web app`).
             # Extract backtick-quoted identifiers AND the first url-ish token;

@@ -19,9 +19,43 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 from tools.dag_orchestrator.pipelines import PIPELINES, get_pipeline
 
 
+def scope_first_gate_status(args):
+    profile = os.environ.get("TERMINATOR_RUNTIME_PROFILE", "")
+    if profile != "scope-first-hybrid":
+        return {"enabled": False, "status": "not_applicable"}
+    work_dir = os.path.abspath(getattr(args, "work_dir", "."))
+    contract = os.path.join(work_dir, "scope_contract.json")
+    if not os.path.exists(contract):
+        return {
+            "enabled": True,
+            "status": "would_block" if not getattr(args, "execute", False) else "block",
+            "reason": "scope_contract_missing",
+            "scope_contract": contract,
+        }
+    try:
+        from tools.scope_contract import validate_contract
+        from pathlib import Path
+        rc, payload = validate_contract(Path(contract))
+    except Exception as exc:
+        return {
+            "enabled": True,
+            "status": "block",
+            "reason": f"scope_contract_validation_error:{type(exc).__name__}:{exc}",
+            "scope_contract": contract,
+        }
+    return {
+        "enabled": True,
+        "status": "pass" if rc == 0 else "block",
+        "reason": "" if rc == 0 else "scope_contract_invalid",
+        "scope_contract": contract,
+        "validation": payload,
+    }
+
+
 def cmd_list(args):
     print("Available pipelines:")
     descriptions = {
+        "target_discovery": "Bug bounty target discovery: target_discovery→target_evaluator→critic→reporter",
         "ctf_pwn": "CTF Pwn 6-agent: reverser→trigger→chain→critic→verifier→reporter",
         "ctf_rev": "CTF Reversing/Crypto 4-agent: reverser→solver→critic→verifier→reporter",
         "bounty":  "Bug Bounty v3 8-agent: target_evaluator→scout+analyst→exploiter→reporter→...",
@@ -43,6 +77,7 @@ def cmd_run(args):
 
     target = args.target or "target"
     dag = get_pipeline(args.pipeline, target)
+    os.environ["TERMINATOR_ACTIVE_PIPELINE"] = args.pipeline
 
     # Attach backend handler if --execute mode
     if getattr(args, 'execute', False):
@@ -78,7 +113,9 @@ def cmd_run(args):
     print(dag.visualize())
     print()
 
+    gate_status = scope_first_gate_status(args)
     summary = dag.run()
+    summary["scope_first_gate"] = gate_status
 
     print("\n" + "=" * 50)
     print(f"Pipeline: {summary['pipeline']}")
@@ -121,7 +158,7 @@ def main():
     parser.add_argument("--session-id", "-s", default=None,
                         help="Session ID for DB tracking")
     parser.add_argument("--backend", default="claude",
-                        help="Execution backend: claude | codex")
+                        help="Execution backend: claude | codex | hybrid")
 
     args = parser.parse_args()
 
