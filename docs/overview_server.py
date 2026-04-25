@@ -205,6 +205,7 @@ def build_status() -> dict:
 
 _subscribers: set[queue.Queue] = set()
 _subs_lock = threading.Lock()
+_MAX_SUBSCRIBERS = 32
 _last_event_ts = 0.0
 _debounce_timer: threading.Timer | None = None
 _debounce_lock = threading.Lock()
@@ -327,8 +328,8 @@ def _start_idle_shutdown(server: ThreadingHTTPServer) -> threading.Thread | None
 # --- HTTP handlers ---
 
 class Handler(BaseHTTPRequestHandler):
-    def log_message(self, fmt, *args):  # quiet
-        return
+    def log_message(self, fmt, *args):
+        sys.stderr.write("%s - - [%s] %s\n" % (self.address_string(), self.log_date_time_string(), fmt % args))
 
     def _send_json(self, payload: dict, status: int = 200) -> None:
         body = json.dumps(payload, ensure_ascii=False, indent=2).encode("utf-8")
@@ -336,7 +337,7 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Cache-Control", "no-store")
-        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Origin", "http://127.0.0.1:8450")
         self.end_headers()
         self.wfile.write(body)
 
@@ -354,10 +355,14 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", "text/event-stream")
         self.send_header("Cache-Control", "no-store")
         self.send_header("Connection", "keep-alive")
-        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Origin", "http://127.0.0.1:8450")
         self.end_headers()
         q: queue.Queue = queue.Queue(maxsize=64)
         with _subs_lock:
+            if len(_subscribers) >= _MAX_SUBSCRIBERS:
+                self.send_response(503)
+                self.end_headers()
+                return
             _subscribers.add(q)
         try:
             self.wfile.write(b": connected\n\n")

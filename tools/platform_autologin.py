@@ -11,6 +11,7 @@ Usage:
 """
 
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -110,11 +111,17 @@ def get_creds(platform: str):
     if not isinstance(info, dict):
         print(json.dumps({"error": f"Invalid credentials format for {platform}"}))
         sys.exit(1)
-    print(json.dumps({
+    import tempfile, stat
+    cred_data = json.dumps({
         "platform": platform,
         "email": info.get("email", ""),
         "password": info.get("password", ""),
-    }))
+    })
+    fd, cred_path = tempfile.mkstemp(prefix=f"cred_{platform}_", suffix=".json")
+    os.write(fd, cred_data.encode())
+    os.close(fd)
+    os.chmod(cred_path, stat.S_IRUSR)
+    print(json.dumps({"credential_file": cred_path}))
 
 
 def login_steps(platform: str):

@@ -1,0 +1,25 @@
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Terminator project allowlist"
+
+paths = [
+  '''targets/''',
+  '''coordination/''',
+  '''reports/''',
+  '''evidence/''',
+  '''knowledge/''',
+  '''\.secall/''',
+  '''\.playwright-mcp/''',
+  '''\.venv/''',
+  '''_archive/''',
+  '''external/''',
+  '''node_modules/''',
+  '''tools/graphrag-security/input/''',
+]
+
+stopwords = [
+  "USER_B_TOKEN",
+  "sk-prod-abc123",
+]
