@@ -19,6 +19,8 @@ nohup.out
 .mcp.json
 .gemini/
 .playwright-mcp/
+.codex
+.codex/
 .secall/
 
 # --- Virtual environment ---

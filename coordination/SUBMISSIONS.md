@@ -1,6 +1,6 @@
 # Bug Bounty + CVE Submissions — Canonical Tracker
 
-**Last updated**: 2026-04-23 (magiclabs N/R close + ProConnect Under Review)
+**Last updated**: 2026-04-25 (Intigriti HRS passed pre-triage -> full reproduction)
 **Source of truth**: this file (markdown) + `docs/submissions.json` (dashboard feed)
 **Sync command**: `/bounty-status-sync` (updates both)
 
@@ -18,7 +18,7 @@ now keep **lessons/patterns only**; live status lives here.
 | huntr | kubeflow | seaweedfs-iam (bbc04031) | High | est $750 | Pending | 2026-04-10 | 2026-04-18 | Cross-repo entry-point strategy |
 | YesWeHack | Qwant | #16-705 SSRF/K8s FQDN leak | Medium | — (awaiting) | **Accepted** | 2026-04-05 | 2026-04-18 | 바운티 금액 미확정, 후속 문의 고려 |
 | YesWeHack | ProConnect Identité | CAND-01 OIDC `claims` scope bypass (#YWH-PGM8338-167) | Medium (CVSS 6.5) | est €500 (Medium grid) | **Under Review** | 2026-04-18 | 2026-04-23 | 4/18 Under Review 전환 (5일만). Impact=PII Leak. |
-| Intigriti | HRS Group | HRSGROUP-15EA62KR Unauth PCI card capture | Medium | — | Triage | 2026-04-05 | 2026-04-18 | 13일 triage 0 activity, slot 1/3 |
+| Intigriti | HRS Group | HRSGROUP-15EA62KR Unauth PCI card capture | Medium | — | Triage | 2026-04-05 | 2026-04-25 | 04-25 mobley: passed pre-triage, moving to full reproduction; transient OOS -> Triage |
 | GHSA | Fast-DDS | sampleSize OOM — GHSA-wv5q-wgv8-qh6v | Medium | CVE | Triage | 2026-04-13 | 2026-04-18 | eProsima Fast-DDS |
 | GHSA | Fast-DDS | DynamicData seqlen OOM — GHSA-93m4-rx65-p7rj | Medium | CVE | Triage | 2026-04-13 | 2026-04-18 | eProsima Fast-DDS |
 | HackenProof | Dexalot | auctionPrice=0 LIMIT-IOC bypass (CAND-01) | High | — | Hold | 2026-04-13 | 2026-04-18 | reputation 80/100 부족, 제출 hold |
