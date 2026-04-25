@@ -1,0 +1,327 @@
+from __future__ import annotations
+
+from pathlib import Path
+import sys
+
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from tools.backend_runner import build_command, detect_failure_kind, launcher_backend, runtime_profile_for_backend
+from tools.backend_runner import inject_policy_summary
+from tools.backend_smoke import parse_agent_messages
+from tools.implementation_intent_audit import Context, run_audit
+from tools.runtime_policy import apply_profile, load_policy
+from tools.runtime_hallucination_audit import Audit, validate_backend_smoke
+from tools.submission_candidate_replay import extract_first_json, validate_candidate_payload
+from tools.submission_candidate_replay import collect_existing_results
+from tools.submission_fixture_index import build_manifest, default_source_root, has_baseline_packages
+from tools.submission_quality_compare import score_report
+
+
+DEEP_HYBRID_ROLES = {
+    "analyst",
+    "architect",
+    "chain",
+    "critic",
+    "ctf-solver",
+    "defi-auditor",
+    "exploiter",
+    "patch-hunter",
+    "solver",
+    "source-auditor",
+    "submission-review",
+    "triager-sim",
+    "workflow-auditor",
+    "target-discovery",
+}
+SCOPE_FIRST_GPT_ROLES = {"target-discovery", "scout", "recon-scanner", "source-auditor", "analyst"}
+SCOPE_FIRST_CLAUDE_ROLES = {"scope-auditor", "reporter", "submission-review"}
+SCOPE_FIRST_DEBATE_ROLES = {"exploiter", "critic", "triager-sim"}
+
+
+def test_profile_defaults_for_requested_backend(monkeypatch) -> None:
+    monkeypatch.delenv("TERMINATOR_RUNTIME_PROFILE", raising=False)
+    assert runtime_profile_for_backend("claude") == "claude-only"
+    assert runtime_profile_for_backend("codex") == "gpt-only"
+    assert runtime_profile_for_backend("hybrid") == "hybrid"
+    assert launcher_backend("hybrid") == "claude"
+
+
+def test_gpt_only_routes_every_role_to_codex() -> None:
+    policy = apply_profile(load_policy(), "gpt-only")
+    roles = policy["roles"]
+    assert roles
+    assert {entry["backend"] for entry in roles.values()} == {"codex"}
+
+
+def test_hybrid_routes_deep_roles_to_codex() -> None:
+    policy = apply_profile(load_policy(), "hybrid")
+    roles = policy["roles"]
+    missing = DEEP_HYBRID_ROLES - set(roles)
+    assert not missing
+    for role in DEEP_HYBRID_ROLES:
+        assert roles[role]["backend"] == "codex"
+
+
+def test_scope_first_hybrid_policy_is_adjustable_but_guarded() -> None:
+    policy = apply_profile(load_policy(), "scope-first-hybrid")
+    roles = policy["roles"]
+    for role in SCOPE_FIRST_GPT_ROLES:
+        assert roles[role]["backend"] == "codex"
+    for role in SCOPE_FIRST_CLAUDE_ROLES:
+        assert roles[role]["backend"] == "claude"
+    for role in SCOPE_FIRST_DEBATE_ROLES:
+        assert roles[role]["debate_mode"] == "gpt-propose-claude-object-gpt-respond"
+    assert roles["scope-auditor"]["disagreement_policy"] == "block-on-unknown-or-oos"
+
+
+def test_codex_command_coerces_claude_alias_model() -> None:
+    cmd, stdin_text = build_command("codex", work_dir=str(PROJECT_ROOT), model="sonnet", prompt="hi")
+    assert stdin_text == "hi"
+    assert "omx" in cmd[0]
+    assert "-m" in cmd
+    assert cmd[cmd.index("-m") + 1].startswith("gpt-")
+    assert "sonnet" not in cmd
+
+
+def test_hybrid_command_uses_launcher_backend(monkeypatch) -> None:
+    monkeypatch.delenv("TERMINATOR_HYBRID_LAUNCHER_BACKEND", raising=False)
+
+    cmd, stdin_text = build_command("hybrid", work_dir=str(PROJECT_ROOT), model="sonnet", prompt="hi")
+
+    assert stdin_text is None
+    assert cmd[0] == "claude"
+    assert "--model" in cmd
+    assert cmd[cmd.index("--model") + 1] == "sonnet"
+
+
+def test_successful_codex_warning_stream_is_completed() -> None:
+    output = "\n".join(
+        [
+            "2026-04-24T10:26:48.950251Z WARN codex_state::runtime: state db unavailable",
+            '{"type":"item.completed","item":{"type":"agent_message","text":"OK"}}',
+            '{"type":"turn.completed","usage":{"input_tokens":10,"output_tokens":1}}',
+        ]
+    )
+
+    assert detect_failure_kind(output, returncode=0, timed_out=False) == "completed"
+
+
+def test_nonzero_backend_error_is_classified_for_failover() -> None:
+    assert detect_failure_kind("HTTP 503 Service Unavailable", returncode=1, timed_out=False) == "service_unavailable"
+
+
+def test_policy_injection_can_be_disabled_for_replay_smoke(monkeypatch) -> None:
+    monkeypatch.setenv("TERMINATOR_SKIP_POLICY_INJECTION", "1")
+
+    assert inject_policy_summary("prompt", requested_backend="codex", launcher="codex", profile="gpt-only") == "prompt"
+
+
+def test_backend_idle_timeout_env_is_documented() -> None:
+    runner = (PROJECT_ROOT / "tools" / "backend_runner.py").read_text(encoding="utf-8")
+
+    assert "TERMINATOR_BACKEND_IDLE_TIMEOUT" in runner
+
+
+def test_backend_smoke_parses_codex_agent_messages() -> None:
+    output = "\n".join(
+        [
+            "2026-04-24T10:26:48Z WARN local warning",
+            '{"type":"item.completed","item":{"id":"item_0","type":"agent_message","text":"OK"}}',
+            '{"type":"turn.completed","usage":{"input_tokens":10,"output_tokens":1}}',
+        ]
+    )
+
+    assert parse_agent_messages(output) == ["OK"]
+
+
+def test_submission_candidate_replay_extracts_json_from_message() -> None:
+    message = 'short preface\\n```json\\n{"report_md":"r","poc_filename":"poc_replay.py","poc_body":"print(1)","evidence_summary_md":"e","triager_sim_result":{"decision":"NOT_SUBMIT"}}\\n```'
+
+    payload = extract_first_json(message)
+
+    assert payload["poc_filename"] == "poc_replay.py"
+    assert validate_candidate_payload(payload) == []
+
+
+def test_submission_candidate_replay_extracts_json_from_claude_stdout() -> None:
+    output = '=== BACKEND ATTEMPT 1: claude ===\n{"report_md":"r","poc_filename":"poc_replay.py","poc_body":"print(1)","evidence_summary_md":"e","triager_sim_result":{"decision":"SUBMIT"}}\n=== BACKEND COMPLETE: claude ==='
+
+    payload = extract_first_json(output)
+
+    assert payload["triager_sim_result"]["decision"] == "SUBMIT"
+
+
+def test_submission_candidate_replay_rejects_unsafe_filename() -> None:
+    errors = validate_candidate_payload(
+        {
+            "report_md": "r",
+            "poc_filename": "../poc.py",
+            "poc_body": "print(1)",
+            "evidence_summary_md": "e",
+            "triager_sim_result": {},
+        }
+    )
+
+    assert errors
+
+
+def test_submission_candidate_replay_manifest_merges_existing_results(tmp_path) -> None:
+    old_dir = tmp_path / "gpt-only" / "old"
+    old_dir.mkdir(parents=True)
+    (old_dir / "candidate_result.json").write_text(
+        '{"profile":"gpt-only","name":"old","status":"pass"}\n',
+        encoding="utf-8",
+    )
+
+    results = collect_existing_results(
+        tmp_path,
+        [{"profile": "gpt-only", "name": "new", "status": "pass"}],
+    )
+
+    assert [(item["profile"], item["name"]) for item in results] == [
+        ("gpt-only", "new"),
+        ("gpt-only", "old"),
+    ]
+
+
+def test_submission_candidate_replay_keeps_hybrid_claude_model_separate() -> None:
+    source = (PROJECT_ROOT / "tools" / "submission_candidate_replay.py").read_text(encoding="utf-8")
+
+    assert "--claude-model" in source
+    assert 'profile in {"claude-only", "hybrid"}' in source
+    assert "It must be self-contained" in source
+    assert "Avoid negative assertions" in source
+    assert "CRITICAL OUTPUT CONTRACT" in source
+    assert "Executive Conclusion" in source
+    assert "Honest Severity Expectation" in source
+
+
+def test_quality_compare_uses_report_scorer_json_even_when_below_threshold(tmp_path) -> None:
+    report = tmp_path / "report.md"
+    report.write_text("# Thin report\n\nNo useful evidence yet.\n", encoding="utf-8")
+
+    result = score_report(report, poc_dir=tmp_path)
+
+    assert result["external_score"] is not None
+    assert result["score"] == int(result["external_score"])
+
+
+def test_hallucination_audit_validates_backend_smoke(tmp_path) -> None:
+    smoke = tmp_path / "backend_smoke.json"
+    smoke.write_text(
+        """
+{
+  "status": "pass",
+  "backend": "codex",
+  "runtime_profile": "gpt-only",
+  "expected_text_observed": true,
+  "failover_count": 0,
+  "backend_runner_result": {"status": "completed"},
+  "attempts": [{"failure_kind": "completed", "returncode": 0}]
+}
+""".strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    audit = Audit()
+
+    validate_backend_smoke(audit, smoke)
+
+    assert {item["status"] for item in audit.checks} == {"pass"}
+
+
+def test_implementation_intent_audit_flags_missing_candidate_packages(tmp_path, monkeypatch) -> None:
+    eval_dir = tmp_path / "eval"
+    eval_dir.mkdir()
+    (eval_dir / "submission_fixtures.json").write_text(
+        """
+{
+  "packages": {
+    "positive": [
+      {"name": "proconnect-identite"}, {"name": "qwant"}, {"name": "llama_index"},
+      {"name": "onnx"}, {"name": "kubeflow"}, {"name": "hrsgroup"}
+    ],
+    "negative": [
+      {"name": "portofantwerp"}, {"name": "magiclabs-mbb-og"},
+      {"name": "paradex"}, {"name": "zendesk"}
+    ],
+    "gold": [{"name": "rhinofi_prove"}]
+  }
+}
+""".strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    (eval_dir / "quality_delta.json").write_text(
+        """
+{
+  "baseline": [
+    {"name": "proconnect-identite"}, {"name": "qwant"}, {"name": "llama_index"},
+    {"name": "onnx"}, {"name": "kubeflow"}, {"name": "hrsgroup"},
+    {"name": "portofantwerp"}, {"name": "magiclabs-mbb-og"},
+    {"name": "paradex"}, {"name": "zendesk"}, {"name": "rhinofi_prove"}
+  ],
+  "candidate": []
+}
+""".strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    (eval_dir / "quality_delta.md").write_text(
+        "baseline-only fixture calibration\n", encoding="utf-8"
+    )
+    monkeypatch.setattr(
+        "tools.implementation_intent_audit.REQUIREMENTS",
+        [
+            req
+            for req in __import__(
+                "tools.implementation_intent_audit", fromlist=["REQUIREMENTS"]
+            ).REQUIREMENTS
+            if req.id == "submission-comparison"
+        ],
+    )
+
+    payload = run_audit(Context(eval_dir))
+
+    assert payload["status"] == "incomplete"
+    requirement = payload["requirements"][0]
+    assert requirement["status"] == "fail"
+    assert any(
+        check["status"] == "fail"
+        and "candidate quality scores" in check["detail"]
+        for check in requirement["checks"]
+    )
+
+
+def test_all_policy_codex_roles_have_compact_contracts() -> None:
+    policy = apply_profile(load_policy(), "gpt-only")
+    for role in policy["roles"]:
+        contract = PROJECT_ROOT / "generated" / "role_contracts" / f"{role}.txt"
+        assert contract.exists(), f"missing compact contract for {role}"
+        assert contract.stat().st_size <= 8000
+
+
+def test_submission_source_root_env_override(monkeypatch, tmp_path) -> None:
+    monkeypatch.setenv("TERMINATOR_SUBMISSION_SOURCE_ROOT", str(tmp_path))
+
+    assert default_source_root() == tmp_path
+
+
+def test_submission_fixture_manifest_indexes_baseline_packages(tmp_path) -> None:
+    root = tmp_path / "repo"
+    submission = root / "targets" / "proconnect-identite" / "submission"
+    submission.mkdir(parents=True)
+    (submission / "report.md").write_text("# Report\n\nImpact and PoC evidence.\n", encoding="utf-8")
+    (submission / "poc.py").write_text("print('poc output')\n", encoding="utf-8")
+    (submission / "evidence_summary.md").write_text("poc_output: ok\n", encoding="utf-8")
+
+    assert has_baseline_packages(root)
+    manifest = build_manifest(root)
+    positives = manifest["packages"]["positive"]
+
+    assert [item["name"] for item in positives] == ["proconnect-identite"]
+    assert positives[0]["files"]["reports"] == ["targets/proconnect-identite/submission/report.md"]
+    assert positives[0]["files"]["pocs"] == ["targets/proconnect-identite/submission/poc.py"]

@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""Claude-primary runner with Codex spare failover for Terminator."""
+"""Backend runner for Terminator launcher sessions.
+
+Supports Claude-only, GPT/Codex-only, and hybrid runtime profiles.  The
+launcher backend is still a CLI process (`claude` or `omx`); per-role routing
+for hybrid runs is injected through the runtime policy summary.
+"""
 
 from __future__ import annotations
 
@@ -140,8 +145,11 @@ def _cleanup_orphan_dispatches() -> None:
     DISPATCH_KEEPALIVE_FILE.unlink(missing_ok=True)
 
 
+CODEX_SKIP_MODELS = {"sonnet", "opus", "haiku"}
+
+
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Run Terminator with Claude primary execution and optional Codex spare failover.")
+    parser = argparse.ArgumentParser(description="Run Terminator with Claude, Codex, or hybrid runtime profiles.")
     sub = parser.add_subparsers(dest="command", required=True)
 
     run = sub.add_parser("run")
@@ -151,6 +159,7 @@ def parse_args() -> argparse.Namespace:
     run.add_argument("--work-dir", required=True)
     run.add_argument("--report-dir", required=True)
     run.add_argument("--model")
+    run.add_argument("--runtime-profile")
     run.add_argument("--mode", default="unknown")
     run.add_argument("--target", default="")
     run.add_argument("--scope", default="")
@@ -165,19 +174,48 @@ def read_prompt(path: str) -> str:
     return Path(path).read_text(encoding="utf-8")
 
 
+def runtime_profile_for_backend(requested_backend: str, explicit: str | None = None) -> str:
+    if explicit:
+        return explicit.strip().lower()
+    env_profile = os.environ.get("TERMINATOR_RUNTIME_PROFILE", "").strip().lower()
+    if env_profile:
+        return env_profile
+    if requested_backend == "codex":
+        return "gpt-only"
+    if requested_backend == "hybrid":
+        return "hybrid"
+    return "claude-only"
+
+
+def launcher_backend(requested_backend: str) -> str:
+    if requested_backend == "hybrid":
+        return os.environ.get("TERMINATOR_HYBRID_LAUNCHER_BACKEND", "claude").strip().lower() or "claude"
+    return requested_backend
+
+
 def default_model(backend: str, explicit: str | None) -> str:
     if explicit:
-        return explicit
+        return model_for_backend(backend, explicit)
     if backend == "codex":
         return os.environ.get("TERMINATOR_CODEX_MODEL") or os.environ.get("TERMINATOR_MODEL") or "gpt-5.4"
     return os.environ.get("TERMINATOR_CLAUDE_MODEL") or os.environ.get("TERMINATOR_MODEL") or "sonnet"
+
+
+def model_for_backend(backend: str, value: str | None) -> str:
+    """Coerce accidental Claude aliases away from Codex commands."""
+    if backend != "codex":
+        return value or default_model(backend, None)
+    lowered = (value or "").strip().lower()
+    if not lowered or lowered in CODEX_SKIP_MODELS or lowered.startswith("claude"):
+        return os.environ.get("TERMINATOR_CODEX_MODEL") or "gpt-5.4"
+    return value or os.environ.get("TERMINATOR_CODEX_MODEL") or "gpt-5.4"
 
 
 def normalize_backend(value: str) -> str:
     lowered = (value or "claude").strip().lower()
     if lowered == "auto":
         return os.environ.get("TERMINATOR_PRIMARY_BACKEND", "claude").strip().lower() or "claude"
-    if lowered in {"claude", "codex"}:
+    if lowered in {"claude", "codex", "hybrid"}:
         return lowered
     raise ValueError(f"Unsupported backend: {value}")
 
@@ -187,7 +225,7 @@ def resolve_failover_backend(primary: str, requested: str) -> str | None:
     if lowered in {"", "none"}:
         return None
     if lowered == "auto":
-        return "codex" if primary == "claude" else "claude"
+        return "codex" if primary in {"claude", "hybrid"} else "claude"
     if lowered == primary:
         return None
     if lowered in {"claude", "codex"}:
@@ -202,6 +240,7 @@ def build_command(backend: str, *, work_dir: str, model: str, prompt: str) -> tu
     without using a shell pipeline. The temp file path is stored on the
     returned list object so the caller can clean it up.
     """
+    backend = launcher_backend(normalize_backend(backend))
     if backend == "claude":
         # Write prompt to temp file; stream_process will open it for stdin.
         fd, tmp_path = tempfile.mkstemp(prefix="terminator_prompt_", suffix=".txt")
@@ -212,13 +251,14 @@ def build_command(backend: str, *, work_dir: str, model: str, prompt: str) -> tu
                 "claude",
                 "-p",
                 "-",
-            "--permission-mode", "bypassPermissions",
-            "--model", model,
+                "--permission-mode", "bypassPermissions",
+                "--model", model,
             ],
             tmp_path,
         )
         return cmd, None  # stdin_text=None; prompt goes via file pipe
 
+    codex_model = model_for_backend("codex", model)
     return [
         "omx",
         "exec",
@@ -226,7 +266,8 @@ def build_command(backend: str, *, work_dir: str, model: str, prompt: str) -> tu
         "-C",
         work_dir,
         "-m",
-        model,
+        codex_model,
+        "--json",
         "-",
     ], prompt
 
@@ -242,16 +283,16 @@ def detect_failure_kind(text: str, returncode: int, timed_out: bool) -> str:
     lowered = (text or "").lower()
     if timed_out:
         return "timeout"
+    if returncode == 0:
+        return "completed"
     for label, patterns in FAILOVER_PATTERNS.items():
         if any(pattern in lowered for pattern in patterns):
             return label
-    if returncode == 0:
-        return "completed"
     return "runtime_failed"
 
 
 def should_failover(primary: str, fallback: str | None, failure_kind: str, output_text: str) -> bool:
-    if primary != "claude" or fallback != "codex":
+    if fallback is None or primary == fallback:
         return False
 
     if failure_kind in {"quota_exhausted", "context_exhausted", "network_blocked", "service_unavailable"}:
@@ -362,7 +403,13 @@ def _load_policy_summary() -> str | None:
         return None
     try:
         result = subprocess.run(
-            [sys.executable, str(RUNTIME_POLICY_TOOL), "get-policy-summary"],
+            [
+                sys.executable,
+                str(RUNTIME_POLICY_TOOL),
+                "--profile",
+                os.environ.get("TERMINATOR_RUNTIME_PROFILE", ""),
+                "get-policy-summary",
+            ],
             capture_output=True, text=True, cwd=str(PROJECT_ROOT), timeout=10,
         )
         if result.returncode == 0 and result.stdout.strip():
@@ -372,16 +419,31 @@ def _load_policy_summary() -> str | None:
     return None
 
 
-def inject_policy_summary(prompt: str) -> str:
+def inject_policy_summary(prompt: str, *, requested_backend: str, launcher: str, profile: str) -> str:
     """Prepend runtime policy summary to the orchestrator prompt.
 
     Per spec v3.4 §2.1: the production launcher pre-injects a compact
     runtime policy summary into the Claude orchestrator prompt.
     """
-    summary = _load_policy_summary()
-    if not summary:
+    if os.environ.get("TERMINATOR_SKIP_POLICY_INJECTION", "").strip().lower() in {"1", "true", "yes"}:
         return prompt
-    return f"[RUNTIME POLICY]\n{summary}\n\n{prompt}"
+    summary = _load_policy_summary()
+    runtime_block = f"""[RUNTIME MODE]
+Requested backend: {requested_backend}
+Launcher backend: {launcher}
+Runtime profile: {profile}
+
+If the launcher is Codex/OMX, do not use Claude Agent Teams or Task-tool-only
+syntax. Execute role work directly from the compact contracts in
+generated/role_contracts/ and the artifacts named in the pipeline prompt.
+
+If the runtime profile is hybrid, use tools/runtime_policy.py get-role <role>
+and tools/runtime_dispatch.py run-role <role> for offloaded roles when the
+orchestrator needs a separate worker. Keep all handoffs in coordination/.
+"""
+    if not summary:
+        return runtime_block.strip() + "\n\n" + prompt
+    return f"{runtime_block.strip()}\n\n[RUNTIME POLICY]\n{summary}\n\n{prompt}"
 
 
 def augment_prompt(
@@ -461,7 +523,10 @@ def stream_process(
         chunks: list[str] = []
         timed_out = False
         # Dispatch-aware idle timeout: extend when async dispatches are active
-        idle_timeout = IDLE_TIMEOUT_DEFAULT
+        try:
+            idle_timeout = int(os.environ.get("TERMINATOR_BACKEND_IDLE_TIMEOUT", str(IDLE_TIMEOUT_DEFAULT)))
+        except ValueError:
+            idle_timeout = IDLE_TIMEOUT_DEFAULT
 
         while True:
             if timeout and (time.monotonic() - started) > timeout:
@@ -523,13 +588,18 @@ def main() -> int:
     if args.command != "run":
         return 1
 
-    primary = normalize_backend(args.backend)
+    requested_primary = normalize_backend(args.backend)
+    profile = runtime_profile_for_backend(requested_primary, args.runtime_profile)
+    os.environ["TERMINATOR_RUNTIME_PROFILE"] = profile
+    primary = launcher_backend(requested_primary)
+    if primary not in {"claude", "codex"}:
+        raise ValueError(f"Unsupported launcher backend for {requested_primary}: {primary}")
     fallback = resolve_failover_backend(primary, args.failover_to)
     prompt = read_prompt(args.prompt_file)
     report_dir = Path(args.report_dir).resolve()
     report_dir.mkdir(parents=True, exist_ok=True)
     work_dir = str(Path(args.work_dir).resolve())
-    session_id = args.resume_session or args.session_id or f"{int(time.time())}-{primary}"
+    session_id = args.resume_session or args.session_id or f"{int(time.time())}-{requested_primary}"
 
     attempts: list[dict[str, object]] = []
     backend_chain = [primary]
@@ -547,6 +617,8 @@ def main() -> int:
             backend=backend,
             metadata={
                 "backend": backend,
+                "backend_requested": requested_primary,
+                "runtime_profile": profile,
                 "target": args.target,
                 "scope": args.scope,
                 "mode": args.mode,
@@ -566,9 +638,12 @@ def main() -> int:
             report_dir=report_dir,
         )
 
-        # Inject runtime policy summary for orchestrator awareness (spec §2.1)
-        if backend == "claude":
-            active_prompt = inject_policy_summary(active_prompt)
+        active_prompt = inject_policy_summary(
+            active_prompt,
+            requested_backend=requested_primary,
+            launcher=backend,
+            profile=profile,
+        )
 
         print(f"=== BACKEND ATTEMPT {index}: {backend} (model={model}) ===")
         cmd, stdin_text = build_command(backend, work_dir=work_dir, model=model, prompt=active_prompt)
@@ -592,8 +667,9 @@ def main() -> int:
             result = {
                 "status": "completed",
                 "session_id": session_id,
-                "backend_requested": primary,
+                "backend_requested": requested_primary,
                 "backend_used": backend,
+                "runtime_profile": profile,
                 "failover_used": backend != primary,
                 "failover_count": max(len(attempts) - 1, 0),
                 "attempts": attempts,
@@ -620,8 +696,9 @@ def main() -> int:
     result = {
         "status": attempts[-1]["failure_kind"] if attempts else "runtime_failed",
         "session_id": session_id,
-        "backend_requested": primary,
+        "backend_requested": requested_primary,
         "backend_used": attempts[-1]["backend"] if attempts else primary,
+        "runtime_profile": profile,
         "failover_used": len(attempts) > 1,
         "failover_count": max(len(attempts) - 1, 0),
         "attempts": attempts,

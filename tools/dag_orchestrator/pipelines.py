@@ -91,6 +91,9 @@ def bounty_pipeline(target_name: str = "target") -> AgentDAG:
     # Phase 0
     dag.add_node(_make_node("target_evaluator", "target_evaluator", "sonnet",
                              "GO/NO-GO gate: ROI, competition, tech stack match, novelty score"))
+    dag.add_node(_make_node("scope_auditor", "scope-auditor", "opus",
+                             "Audit scope_contract.json and block unsafe/OOS active paths",
+                             effort="high", max_turns=20))
 
     # Phase 1 (parallel) — Explore Lane
     dag.add_node(_make_node("scout", "scout", "sonnet",
@@ -132,11 +135,12 @@ def bounty_pipeline(target_name: str = "target") -> AgentDAG:
     dag.add_node(_make_node("reporter_final", "reporter", "sonnet",
                              "Final report + ZIP packaging"))
 
-    # Edges — Phase 0 → Phase 1 (all 4 parallel)
-    dag.add_edge("target_evaluator", "scout")
-    dag.add_edge("target_evaluator", "analyst")
-    dag.add_edge("target_evaluator", "threat_modeler")
-    dag.add_edge("target_evaluator", "patch_hunter")
+    # Edges — Phase 0 → scope audit → Phase 1 (all 4 parallel)
+    dag.add_edge("target_evaluator", "scope_auditor")
+    dag.add_edge("scope_auditor", "scout")
+    dag.add_edge("scope_auditor", "analyst")
+    dag.add_edge("scope_auditor", "threat_modeler")
+    dag.add_edge("scope_auditor", "patch_hunter")
 
     # Phase 1 → Phase 1.5
     # workflow_auditor depends on scout+analyst+threat_modeler+patch_hunter
@@ -164,6 +168,31 @@ def bounty_pipeline(target_name: str = "target") -> AgentDAG:
     dag.add_edge("triager_sim", "reporter_final")
     # Feedback: triager_sim → reporter_draft for STRENGTHEN
     dag.add_edge("triager_sim", "reporter_draft", feedback=True)
+
+    return dag
+
+
+def target_discovery_pipeline(target_name: str = "bug-bounty-programs") -> AgentDAG:
+    """
+    Passive target discovery pipeline:
+      target_discovery → target_evaluator → critic → reporter
+    """
+    dag = AgentDAG(name=f"target_discovery_{target_name}", max_workers=1)
+
+    dag.add_node(_make_node("target_discovery", "target-discovery", "sonnet",
+                             "Collect and rank public bug bounty programs using passive official metadata"))
+    dag.add_node(_make_node("target_evaluator", "target_evaluator", "sonnet",
+                             "Validate selected candidate scope, bounty status, OOS risk, and ROI"))
+    dag.add_node(_make_node("critic", "critic", "opus",
+                             "Challenge target choice for scope violations, duplicate risk, and weak ROI",
+                             effort="high", max_turns=20))
+    dag.add_node(_make_node("reporter", "reporter", "sonnet",
+                             "Write target shortlist, selected target, and safe pipeline plan"))
+
+    dag.add_edge("target_discovery", "target_evaluator")
+    dag.add_edge("target_evaluator", "critic")
+    dag.add_edge("critic", "reporter")
+    dag.add_edge("critic", "target_evaluator", feedback=True)
 
     return dag
 
@@ -408,6 +437,7 @@ def supplychain_pipeline(target_name: str = "target", bounty_mode: bool = True) 
 
 # Registry of all pipelines
 PIPELINES = {
+    "target_discovery": target_discovery_pipeline,
     "ctf_pwn": ctf_pwn_pipeline,
     "ctf_rev": ctf_rev_pipeline,
     "bounty": bounty_pipeline,

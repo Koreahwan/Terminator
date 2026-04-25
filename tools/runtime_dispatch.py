@@ -35,9 +35,18 @@ KEEPALIVE_FILE = PROJECT_ROOT / ".dispatch_active"
 
 def _load_policy_entry(role: str) -> dict:
     """Load a role's policy entry via runtime_policy.py."""
+    profile_args: list[str] = []
+    profile = os.environ.get("TERMINATOR_RUNTIME_PROFILE", "").strip()
+    if profile:
+        profile_args = ["--profile", profile]
     result = subprocess.run(
-        [sys.executable, str(PROJECT_ROOT / "tools" / "runtime_policy.py"),
-         "get-role", role],
+        [
+            sys.executable,
+            str(PROJECT_ROOT / "tools" / "runtime_policy.py"),
+            *profile_args,
+            "get-role",
+            role,
+        ],
         capture_output=True, text=True, cwd=str(PROJECT_ROOT),
     )
     if result.returncode != 0:
@@ -50,6 +59,27 @@ def _load_compact_contract(role: str) -> str | None:
     contract_path = GENERATED_CONTRACTS / f"{role}.txt"
     if contract_path.exists():
         return contract_path.read_text(encoding="utf-8")
+    return None
+
+
+def _agent_file_for_role(role: str) -> Path | None:
+    for path in sorted((PROJECT_ROOT / ".claude" / "agents").glob("*.md")):
+        try:
+            text = path.read_text(encoding="utf-8")
+        except OSError:
+            continue
+        name = path.stem
+        if text.startswith("---"):
+            try:
+                fm = text.split("---\n", 2)[1]
+                for line in fm.splitlines():
+                    if line.startswith("name:"):
+                        name = line.split(":", 1)[1].strip()
+                        break
+            except IndexError:
+                pass
+        if role in {name, path.stem}:
+            return path
     return None
 
 
@@ -66,9 +96,9 @@ def _build_dispatch_prompt(role: str, policy: dict, *,
         parts.append(contract)
     else:
         # Fallback: reference the agent definition file
-        agent_path = PROJECT_ROOT / ".claude" / "agents" / f"{role}.md"
-        if agent_path.exists():
-            parts.append(f"Follow your agent definition in .claude/agents/{role}.md")
+        agent_path = _agent_file_for_role(role)
+        if agent_path is not None and agent_path.exists():
+            parts.append(f"Follow your agent definition in {agent_path.relative_to(PROJECT_ROOT)}")
 
     # 2. Context refs
     if context_file:
@@ -332,6 +362,8 @@ def cmd_run_role(args: argparse.Namespace) -> int:
     """Execute run-role (sync or async)."""
     role = args.role
     is_async = args.async_mode
+    if args.profile:
+        os.environ["TERMINATOR_RUNTIME_PROFILE"] = args.profile
 
     # Load policy
     try:
@@ -695,6 +727,7 @@ def main() -> int:
     run.add_argument("--context-file", help="Path to context refs file")
     run.add_argument("--work-dir", help="Working directory for the backend")
     run.add_argument("--target", help="Target identifier")
+    run.add_argument("--profile", help="Runtime profile override")
 
     # check-status
     cs = sub.add_parser("check-status", help="Check async dispatch status")

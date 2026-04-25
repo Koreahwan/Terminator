@@ -1,6 +1,6 @@
 #!/bin/bash
 # Terminator - Autonomous Security Agent Launcher
-# Uses Claude Code with bypassPermissions for fully autonomous operation
+# Uses Claude Code, Codex/OMX, or hybrid runtime routing with bypassPermissions
 #
 # Usage:
 #   ./terminator.sh [--json] [--timeout N] [--dry-run] [--competition-v2|--competition] ctf /path/to/challenge.zip
@@ -27,6 +27,7 @@ LOG_FILE="$SCRIPT_DIR/.terminator.log"
 
 REQUESTED_BACKEND=""
 REQUESTED_FAILOVER_TO=""
+REQUESTED_RUNTIME_PROFILE=""
 RESUME_SESSION=""
 PARALLEL_GROUP_ID="${TERMINATOR_PARALLEL_GROUP_ID:-}"
 MODEL="${TERMINATOR_MODEL:-}"
@@ -50,6 +51,7 @@ while [[ "${1:-}" == --* ]]; do
     --platform) PLATFORM="$2"; shift 2 ;;
     --backend) REQUESTED_BACKEND="$2"; shift 2 ;;
     --failover-to) REQUESTED_FAILOVER_TO="$2"; shift 2 ;;
+    --runtime-profile) REQUESTED_RUNTIME_PROFILE="$2"; shift 2 ;;
     --resume-session) RESUME_SESSION="$2"; shift 2 ;;
     --parallel-targets)
       echo "[!] --parallel-targets is no longer supported. Terminator now runs Claude first and only uses Codex as spare on Claude token/context exhaustion or provider/API failure." >&2
@@ -67,21 +69,22 @@ MODE="${1:-help}"
 TARGET="${2:-}"
 SCOPE="${3:-}"
 
-if [ -n "$REQUESTED_BACKEND" ] && [ "$REQUESTED_BACKEND" != "claude" ] && [ "$REQUESTED_BACKEND" != "auto" ]; then
-  echo "[!] Codex is no longer a primary launcher backend. Terminator always starts with Claude and only uses Codex as spare when Claude hits token/context limits or provider/API instability." >&2
+if [ -n "$REQUESTED_BACKEND" ] && ! printf '%s' "$REQUESTED_BACKEND" | grep -Eq '^(auto|claude|codex|hybrid)$'; then
+  echo "[!] Unsupported --backend value: $REQUESTED_BACKEND (expected auto|claude|codex|hybrid)" >&2
   exit $EXIT_ERROR
 fi
 
-if [ -n "$REQUESTED_FAILOVER_TO" ] && [ "$REQUESTED_FAILOVER_TO" != "codex" ] && [ "$REQUESTED_FAILOVER_TO" != "auto" ] && [ "$REQUESTED_FAILOVER_TO" != "none" ]; then
-  echo "[!] Unsupported --failover-to value: $REQUESTED_FAILOVER_TO" >&2
+if [ -n "$REQUESTED_FAILOVER_TO" ] && [ "$REQUESTED_FAILOVER_TO" != "claude" ] && [ "$REQUESTED_FAILOVER_TO" != "codex" ] && [ "$REQUESTED_FAILOVER_TO" != "auto" ] && [ "$REQUESTED_FAILOVER_TO" != "none" ]; then
+  echo "[!] Unsupported --failover-to value: $REQUESTED_FAILOVER_TO (expected claude|codex|auto|none)" >&2
   exit $EXIT_ERROR
 fi
 
-BACKEND="claude"
+BACKEND="${REQUESTED_BACKEND:-${TERMINATOR_PRIMARY_BACKEND:-claude}}"
 FAILOVER_TO="${TERMINATOR_FAILOVER_TO:-codex}"
 if [ -n "$REQUESTED_FAILOVER_TO" ]; then
   FAILOVER_TO="$REQUESTED_FAILOVER_TO"
 fi
+RUNTIME_PROFILE="${REQUESTED_RUNTIME_PROFILE:-${TERMINATOR_RUNTIME_PROFILE:-}}"
 
 # Auto-detect platform from URL
 detect_platform() {
@@ -203,7 +206,7 @@ normalize_backend() {
     auto)
       printf '%s\n' "${TERMINATOR_PRIMARY_BACKEND:-claude}"
       ;;
-    claude|codex)
+    claude|codex|hybrid)
       printf '%s\n' "$backend"
       ;;
     *)
@@ -222,7 +225,7 @@ resolve_failover_backend() {
       printf '%s\n' ""
       ;;
     auto)
-      if [ "$primary" = "claude" ]; then
+      if [ "$primary" = "claude" ] || [ "$primary" = "hybrid" ]; then
         printf '%s\n' "codex"
       else
         printf '%s\n' "claude"
@@ -250,7 +253,21 @@ backend_model() {
   fi
   case "$backend" in
     codex) printf '%s\n' "${TERMINATOR_CODEX_MODEL:-gpt-5.4}" ;;
+    hybrid) printf '%s\n' "${TERMINATOR_HYBRID_MODEL:-${TERMINATOR_CLAUDE_MODEL:-sonnet}}" ;;
     *) printf '%s\n' "${TERMINATOR_CLAUDE_MODEL:-sonnet}" ;;
+  esac
+}
+
+runtime_profile_for_backend() {
+  local backend="$1"
+  if [ -n "$RUNTIME_PROFILE" ]; then
+    printf '%s\n' "$RUNTIME_PROFILE"
+    return
+  fi
+  case "$backend" in
+    codex) printf '%s\n' "gpt-only" ;;
+    hybrid) printf '%s\n' "hybrid" ;;
+    *) printf '%s\n' "claude-only" ;;
   esac
 }
 
@@ -446,12 +463,14 @@ print(json.dumps(sorted(files)))
   local runtime_failover_used="false"
   local runtime_failover_count="0"
   local runtime_session_id=""
+  local runtime_profile="${RUNTIME_PROFILE:-}"
   if [ -f "$report_dir/runtime_result.json" ]; then
     runtime_backend="$(python3 -c "import json; d=json.load(open('$report_dir/runtime_result.json')); print(d.get('backend_used','unknown'))" 2>/dev/null || echo "unknown")"
     runtime_requested_backend="$(python3 -c "import json; d=json.load(open('$report_dir/runtime_result.json')); print(d.get('backend_requested','unknown'))" 2>/dev/null || echo "unknown")"
     runtime_failover_used="$(python3 -c "import json; d=json.load(open('$report_dir/runtime_result.json')); print(str(bool(d.get('failover_used', False))).lower())" 2>/dev/null || echo "false")"
     runtime_failover_count="$(python3 -c "import json; d=json.load(open('$report_dir/runtime_result.json')); print(d.get('failover_count',0))" 2>/dev/null || echo "0")"
     runtime_session_id="$(python3 -c "import json; d=json.load(open('$report_dir/runtime_result.json')); print(d.get('session_id',''))" 2>/dev/null || echo "")"
+    runtime_profile="$(python3 -c "import json; d=json.load(open('$report_dir/runtime_result.json')); print(d.get('runtime_profile',''))" 2>/dev/null || echo "$runtime_profile")"
   fi
   REPORT_DIR_ENV="$report_dir" \
   ISO_TS_ENV="$iso_ts" \
@@ -467,6 +486,7 @@ print(json.dumps(sorted(files)))
   RUNTIME_FAILOVER_USED_ENV="$runtime_failover_used" \
   RUNTIME_FAILOVER_COUNT_ENV="$runtime_failover_count" \
   RUNTIME_SESSION_ID_ENV="$runtime_session_id" \
+  RUNTIME_PROFILE_ENV="$runtime_profile" \
   CNT_CRITICAL_ENV="$cnt_critical" \
   CNT_HIGH_ENV="$cnt_high" \
   CNT_MEDIUM_ENV="$cnt_medium" \
@@ -494,6 +514,7 @@ summary = {
     "status": os.environ["STATUS_ENV"],
     "backend": os.environ["RUNTIME_BACKEND_ENV"],
     "backend_requested": os.environ["RUNTIME_REQUESTED_BACKEND_ENV"],
+    "runtime_profile": os.environ["RUNTIME_PROFILE_ENV"],
     "failover_used": os.environ["RUNTIME_FAILOVER_USED_ENV"].lower() == "true",
     "failover_count": int(os.environ["RUNTIME_FAILOVER_COUNT_ENV"]),
     "session_id": os.environ["RUNTIME_SESSION_ID_ENV"],
@@ -593,6 +614,7 @@ case "$MODE" in
     PRIMARY_BACKEND="$(normalize_backend "$BACKEND")"
     FAILOVER_BACKEND="$(resolve_failover_backend "$PRIMARY_BACKEND" "$FAILOVER_TO")"
     EFFECTIVE_MODEL="$(backend_model "$PRIMARY_BACKEND")"
+    EFFECTIVE_PROFILE="$(runtime_profile_for_backend "$PRIMARY_BACKEND")"
     SESSION_ID="$(build_session_id "ctf" "$CHALLENGE_DIR")"
     PID_FILE="$PID_DIR/ctf-$(basename "$CHALLENGE_DIR").pid"
     PID_META="$PID_DIR/ctf-$(basename "$CHALLENGE_DIR").json"
@@ -678,6 +700,7 @@ plan = {
     'target': '$CHALLENGE_DIR',
     'backend': '$PRIMARY_BACKEND',
     'failover_to': '$FAILOVER_BACKEND',
+    'runtime_profile': '$EFFECTIVE_PROFILE',
     'model': '$EFFECTIVE_MODEL',
     'report_dir': '$REPORT_DIR',
     'timeout': $TIMEOUT,
@@ -706,6 +729,7 @@ print(json.dumps(plan, indent=2))
           echo "  Adapter:   $COMPETITION_ADAPTER"
           echo "  Retries:   $COMPETITION_RETRY"
           echo "  Backend:   $PRIMARY_BACKEND"
+          echo "  Runtime:   $EFFECTIVE_PROFILE"
           echo "  Spare:     ${FAILOVER_BACKEND:-none} (Claude quota/context/API interruption only)"
           echo "  Model:     $EFFECTIVE_MODEL"
           echo "  Session:   $SESSION_ID"
@@ -717,6 +741,7 @@ print(json.dumps(plan, indent=2))
         echo "  Challenge: $CHALLENGE_DIR"
         echo "  Files:     $FILES"
         echo "  Backend:   $PRIMARY_BACKEND"
+        echo "  Runtime:   $EFFECTIVE_PROFILE"
         echo "  Spare:     ${FAILOVER_BACKEND:-none} (Claude quota/context/API interruption only)"
         echo "  Model:     $EFFECTIVE_MODEL"
         echo "  Session:   $SESSION_ID"
@@ -742,6 +767,7 @@ print(json.dumps(plan, indent=2))
         echo "║ Profile:   competition-v2/$COMPETITION_LANE"
       fi
       echo "║ Backend:   $PRIMARY_BACKEND"
+      echo "║ Runtime:   $EFFECTIVE_PROFILE"
       echo "║ Spare:     ${FAILOVER_BACKEND:-none}"
       echo "║ Model:     $EFFECTIVE_MODEL"
       echo "║ Report:    $REPORT_DIR"
@@ -770,6 +796,7 @@ print(json.dumps(plan, indent=2))
       python3 -u \"$SCRIPT_DIR/tools/backend_runner.py\" run \
         --backend \"$PRIMARY_BACKEND\" \
         --failover-to \"${FAILOVER_BACKEND:-none}\" \
+        --runtime-profile \"$EFFECTIVE_PROFILE\" \
         --prompt-file \"$PROMPT_FILE\" \
         --work-dir \"$SCRIPT_DIR\" \
         --report-dir \"$REPORT_DIR\" \
@@ -861,6 +888,7 @@ PY
     PRIMARY_BACKEND="$(normalize_backend "$BACKEND")"
     FAILOVER_BACKEND="$(resolve_failover_backend "$PRIMARY_BACKEND" "$FAILOVER_TO")"
     EFFECTIVE_MODEL="$(backend_model "$PRIMARY_BACKEND")"
+    EFFECTIVE_PROFILE="$(runtime_profile_for_backend "$PRIMARY_BACKEND")"
     SESSION_ID="$(build_session_id "bounty" "$TARGET")"
 
     # Phase -1: verify-target gate (v12.3 — LiteLLM/Composio/ONNX $0 incidents)
@@ -920,6 +948,10 @@ PY
 
     if [ "$DRY_RUN" = true ]; then
       if [ "$JSON_OUTPUT" = true ]; then
+        _SCOPE_FIRST_ENABLED=False
+        if [ "$EFFECTIVE_PROFILE" = "scope-first-hybrid" ]; then
+          _SCOPE_FIRST_ENABLED=True
+        fi
         python3 -c "
 import json
 plan = {
@@ -929,12 +961,23 @@ plan = {
     'scope': '$SCOPE',
     'backend': '$PRIMARY_BACKEND',
     'failover_to': '$FAILOVER_BACKEND',
+    'runtime_profile': '$EFFECTIVE_PROFILE',
     'model': '$EFFECTIVE_MODEL',
     'report_dir': '$REPORT_DIR',
     'timeout': $TIMEOUT,
     'session_id': '$SESSION_ID',
+    'scope_first_gate': {
+        'enabled': $_SCOPE_FIRST_ENABLED,
+        'scope_contract_required_before_phase_1': $_SCOPE_FIRST_ENABLED,
+        'safety_wrapper_required_for_live_actions': $_SCOPE_FIRST_ENABLED,
+        'artifact_scope_hash_required': $_SCOPE_FIRST_ENABLED,
+        'dry_run_gate_status': 'would_require_scope_contract' if $_SCOPE_FIRST_ENABLED else 'not_applicable'
+    },
     'steps': [
         'phase_0_target_evaluator',
+        'phase_0_scope_contract_create',
+        'phase_0_scope_auditor',
+        'phase_0_safety_wrapper_config',
         'phase_0_2_bb_preflight_rules',
         'phase_0_5_automated_tool_scan',
         'phase_1_scout_analyst_threat_modeler_patch_hunter',
@@ -957,11 +1000,15 @@ print(json.dumps(plan, indent=2))
         echo "  Target:  $TARGET"
         echo "  Scope:   $SCOPE"
         echo "  Backend: $PRIMARY_BACKEND"
+        echo "  Runtime: $EFFECTIVE_PROFILE"
         echo "  Spare:   ${FAILOVER_BACKEND:-none} (Claude quota/context/API interruption only)"
         echo "  Model:   $EFFECTIVE_MODEL"
         echo "  Session: $SESSION_ID"
         echo "  Report:  $REPORT_DIR"
         echo "  Timeout: ${TIMEOUT}s (0=none)"
+        if [ "$EFFECTIVE_PROFILE" = "scope-first-hybrid" ]; then
+          echo "  Scope gate: scope_contract required before Phase 1; safety_wrapper required for live actions"
+        fi
         echo "  Would run: python3 tools/backend_runner.py run --backend $PRIMARY_BACKEND ..."
       fi
       exit $EXIT_CLEAN
@@ -987,6 +1034,7 @@ print(json.dumps(plan, indent=2))
       echo "║ Target:  $TARGET"
       echo "║ Scope:   $SCOPE"
       echo "║ Backend: $PRIMARY_BACKEND"
+      echo "║ Runtime: $EFFECTIVE_PROFILE"
       echo "║ Spare:   ${FAILOVER_BACKEND:-none}"
       echo "║ Model:   $EFFECTIVE_MODEL"
       echo "║ Report:  $REPORT_DIR"
@@ -1006,6 +1054,14 @@ print(json.dumps(plan, indent=2))
     TARGET_DIR="$SCRIPT_DIR/targets/$TARGET_NAME"
     PID_FILE="$PID_DIR/${TARGET_NAME}.pid"
     PID_META="$PID_DIR/${TARGET_NAME}.json"
+
+    if [ "$EFFECTIVE_PROFILE" = "scope-first-hybrid" ]; then
+      echo "[*] Scope-first Phase 0: passive program fetch + scope contract"
+      python3 "$SCRIPT_DIR/tools/bb_preflight.py" init "$TARGET_DIR" >/dev/null
+      python3 "$SCRIPT_DIR/tools/bb_preflight.py" fetch-program "$TARGET_DIR" "$TARGET" --hold-ok
+      python3 "$SCRIPT_DIR/tools/scope_contract.py" create "$TARGET_DIR" --allow-hold
+      echo "[*] Scope-first Phase 0: scope_contract.json ready"
+    fi
 
     # Write prompt to file to avoid heredoc escaping issues
     PROMPT_FILE="$REPORT_DIR/prompt.txt"
@@ -1098,6 +1154,7 @@ if p:
       python3 -u \"$SCRIPT_DIR/tools/backend_runner.py\" run \
         --backend \"$PRIMARY_BACKEND\" \
         --failover-to \"${FAILOVER_BACKEND:-none}\" \
+        --runtime-profile \"$EFFECTIVE_PROFILE\" \
         --prompt-file \"$PROMPT_FILE\" \
         --work-dir \"$SCRIPT_DIR\" \
         --report-dir \"$REPORT_DIR\" \
@@ -1181,15 +1238,30 @@ if p:
     PRIMARY_BACKEND="$(normalize_backend "$BACKEND")"
     FAILOVER_BACKEND="$(resolve_failover_backend "$PRIMARY_BACKEND" "$FAILOVER_TO")"
     EFFECTIVE_MODEL="$(backend_model "$PRIMARY_BACKEND")"
+    EFFECTIVE_PROFILE="$(runtime_profile_for_backend "$PRIMARY_BACKEND")"
     SESSION_ID="$(build_session_id "firmware" "$TARGET_PATH")"
-
-    if [ "${TERMINATOR_ACK_AUTHORIZATION:-}" != "1" ]; then
-      echo "[!] Firmware mode blocked: set TERMINATOR_ACK_AUTHORIZATION=1 to confirm explicit authorization."
-      exit 1
-    fi
 
     if [ "$FIRMWARE_PROFILE" != "analysis" ] && [ "$FIRMWARE_PROFILE" != "exploit" ]; then
       echo "[!] Invalid TERMINATOR_FIRMWARE_PROFILE='$FIRMWARE_PROFILE'. Allowed values: analysis, exploit."
+      exit 1
+    fi
+
+    if [ "$DRY_RUN" = true ]; then
+      echo "[DRY-RUN] Firmware mode"
+      echo "  Firmware: $TARGET_PATH"
+      echo "  Profile:  $FIRMWARE_PROFILE"
+      echo "  Backend:  $PRIMARY_BACKEND"
+      echo "  Runtime:  $EFFECTIVE_PROFILE"
+      echo "  Spare:    ${FAILOVER_BACKEND:-none}"
+      echo "  Model:    $EFFECTIVE_MODEL"
+      echo "  Pipeline: firmware (profiler → inventory → surface → validator)"
+      echo "  Safety:   no AIEdge execution; authorization gate not consumed"
+      echo "  Would run: AIEdge initial subset, then backend_runner with --backend $PRIMARY_BACKEND"
+      exit 0
+    fi
+
+    if [ "${TERMINATOR_ACK_AUTHORIZATION:-}" != "1" ]; then
+      echo "[!] Firmware mode blocked: set TERMINATOR_ACK_AUTHORIZATION=1 to confirm explicit authorization."
       exit 1
     fi
 
@@ -1396,6 +1468,7 @@ PY
     echo "║ Firmware: $TARGET_PATH"
     echo "║ Profile:  $FIRMWARE_PROFILE"
     echo "║ Backend:  $PRIMARY_BACKEND"
+    echo "║ Runtime:  $EFFECTIVE_PROFILE"
     echo "║ Spare:    ${FAILOVER_BACKEND:-none}"
     echo "║ Model:    $EFFECTIVE_MODEL"
     echo "║ Report:   $REPORT_DIR"
@@ -1525,6 +1598,7 @@ PROMPT
       python3 -u \"$SCRIPT_DIR/tools/backend_runner.py\" run \
         --backend \"$PRIMARY_BACKEND\" \
         --failover-to \"${FAILOVER_BACKEND:-none}\" \
+        --runtime-profile \"$EFFECTIVE_PROFILE\" \
         --prompt-file \"$REPORT_DIR/firmware_prompt.txt\" \
         --work-dir \"$SCRIPT_DIR\" \
         --report-dir \"$REPORT_DIR\" \
@@ -1580,6 +1654,7 @@ PROMPT
     PRIMARY_BACKEND="$(normalize_backend "$BACKEND")"
     FAILOVER_BACKEND="$(resolve_failover_backend "$PRIMARY_BACKEND" "$FAILOVER_TO")"
     EFFECTIVE_MODEL="$(backend_model "$PRIMARY_BACKEND")"
+    EFFECTIVE_PROFILE="$(runtime_profile_for_backend "$PRIMARY_BACKEND")"
     SESSION_ID="$(build_session_id "ai-security" "$TARGET")"
     _TMP_NAME="$(echo "$TARGET" | sed 's|https\?://||;s|/$||' | awk -F/ '{print $NF}' | sed 's|\.|-|g')"
     [ -z "$_TMP_NAME" ] && _TMP_NAME="$(echo "$TARGET" | sed 's|https\?://||;s|/.*||;s|\.|-|g')"
@@ -1592,6 +1667,7 @@ PROMPT
       echo "  Target:  $TARGET"
       echo "  Model:   $SCOPE"
       echo "  Backend: $PRIMARY_BACKEND"
+      echo "  Runtime: $EFFECTIVE_PROFILE"
       echo "  Pipeline: ai_security (bounty track: Gate 1/2 + triager-sim)"
       echo "  Steps: target_evaluator → ai_recon+analyst → Gate 1 → exploiter → Gate 2 → reporter → critic → triager → final"
       echo "  Time-box: ~6.5hr"
@@ -1626,6 +1702,7 @@ PROMPT
       echo "║ Target:  $TARGET"
       echo "║ Model:   $SCOPE"
       echo "║ Backend: $PRIMARY_BACKEND"
+      echo "║ Runtime: $EFFECTIVE_PROFILE"
       echo "║ Report:  $REPORT_DIR"
       echo "╚══════════════════════════════════════════╝"
     fi
@@ -1635,6 +1712,7 @@ PROMPT
       python3 -u \"$SCRIPT_DIR/tools/backend_runner.py\" run \
         --backend \"$PRIMARY_BACKEND\" \
         --failover-to \"${FAILOVER_BACKEND:-none}\" \
+        --runtime-profile \"$EFFECTIVE_PROFILE\" \
         --prompt-file \"$PROMPT_FILE\" \
         --work-dir \"$SCRIPT_DIR\" \
         --report-dir \"$REPORT_DIR\" \
@@ -1682,6 +1760,7 @@ PROMPT
     PRIMARY_BACKEND="$(normalize_backend "$BACKEND")"
     FAILOVER_BACKEND="$(resolve_failover_backend "$PRIMARY_BACKEND" "$FAILOVER_TO")"
     EFFECTIVE_MODEL="$(backend_model "$PRIMARY_BACKEND")"
+    EFFECTIVE_PROFILE="$(runtime_profile_for_backend "$PRIMARY_BACKEND")"
     SESSION_ID="$(build_session_id "robotics" "$TARGET")"
     _TMP_NAME="$(echo "$TARGET" | sed 's|:|-|g;s|\.|-|g;s|/|-|g')"
     TARGET_DIR="$SCRIPT_DIR/targets/robo-${_TMP_NAME}"
@@ -1693,6 +1772,7 @@ PROMPT
       echo "  Target:  $TARGET"
       echo "  Robot:   $SCOPE"
       echo "  Backend: $PRIMARY_BACKEND"
+      echo "  Runtime: $EFFECTIVE_PROFILE"
       echo "  Pipeline: robotics (CVE track: no bounty gates)"
       echo "  Steps: target_evaluator → robo_scanner+analyst → exploiter → reporter(CVE) → critic → cve_manager"
       echo "  Time-box: ~6.5hr"
@@ -1728,6 +1808,7 @@ PROMPT
       echo "║ Target:  $TARGET"
       echo "║ Robot:   $SCOPE"
       echo "║ Backend: $PRIMARY_BACKEND"
+      echo "║ Runtime: $EFFECTIVE_PROFILE"
       echo "║ Track:   CVE (GHSA/MITRE)"
       echo "║ Report:  $REPORT_DIR"
       echo "╚══════════════════════════════════════════╝"
@@ -1738,6 +1819,7 @@ PROMPT
       python3 -u \"$SCRIPT_DIR/tools/backend_runner.py\" run \
         --backend \"$PRIMARY_BACKEND\" \
         --failover-to \"${FAILOVER_BACKEND:-none}\" \
+        --runtime-profile \"$EFFECTIVE_PROFILE\" \
         --prompt-file \"$PROMPT_FILE\" \
         --work-dir \"$SCRIPT_DIR\" \
         --report-dir \"$REPORT_DIR\" \
@@ -1785,6 +1867,7 @@ PROMPT
     PRIMARY_BACKEND="$(normalize_backend "$BACKEND")"
     FAILOVER_BACKEND="$(resolve_failover_backend "$PRIMARY_BACKEND" "$FAILOVER_TO")"
     EFFECTIVE_MODEL="$(backend_model "$PRIMARY_BACKEND")"
+    EFFECTIVE_PROFILE="$(runtime_profile_for_backend "$PRIMARY_BACKEND")"
     SESSION_ID="$(build_session_id "supplychain" "$TARGET")"
     _TMP_NAME="$(echo "$TARGET" | sed 's|https\?://github.com/||;s|/|-|g;s|\.|-|g')"
     [ -z "$_TMP_NAME" ] && _TMP_NAME="sc-target"
@@ -1797,6 +1880,7 @@ PROMPT
       echo "  Target:  $TARGET"
       echo "  PkgMgr:  $SCOPE"
       echo "  Backend: $PRIMARY_BACKEND"
+      echo "  Runtime: $EFFECTIVE_PROFILE"
       echo "  Pipeline: supplychain (bounty/CVE auto-detect)"
       echo "  Steps: target_evaluator → sc_scanner+analyst → [Gate 1 if bounty] → exploiter → [Gate 2 if bounty] → reporter → critic → [triager/cve_manager]"
       echo "  Time-box: ~4.5hr"
@@ -1833,6 +1917,7 @@ PROMPT
       echo "║ Target:  $TARGET"
       echo "║ PkgMgr:  $SCOPE"
       echo "║ Backend: $PRIMARY_BACKEND"
+      echo "║ Runtime: $EFFECTIVE_PROFILE"
       echo "║ Track:   auto-detect (bounty/CVE)"
       echo "║ Report:  $REPORT_DIR"
       echo "╚══════════════════════════════════════════╝"
@@ -1843,6 +1928,7 @@ PROMPT
       python3 -u \"$SCRIPT_DIR/tools/backend_runner.py\" run \
         --backend \"$PRIMARY_BACKEND\" \
         --failover-to \"${FAILOVER_BACKEND:-none}\" \
+        --runtime-profile \"$EFFECTIVE_PROFILE\" \
         --prompt-file \"$PROMPT_FILE\" \
         --work-dir \"$SCRIPT_DIR\" \
         --report-dir \"$REPORT_DIR\" \
@@ -2047,29 +2133,33 @@ PY
     echo "Terminator - Autonomous Security Agent"
     echo ""
     echo "Usage:"
-    echo "  ./terminator.sh [OPTIONS] ctf /path/to/challenge[.zip]    Solve a CTF challenge with Claude primary"
-    echo "  ./terminator.sh [OPTIONS] bounty <url> [scope]             Bug bounty assessment with Claude primary"
-    echo "  ./terminator.sh [OPTIONS] firmware /path/to/firmware.bin   Firmware pipeline with Claude primary"
+    echo "  ./terminator.sh [OPTIONS] ctf /path/to/challenge[.zip]    Solve a CTF challenge"
+    echo "  ./terminator.sh [OPTIONS] bounty <url> [scope]             Bug bounty assessment"
+    echo "  ./terminator.sh [OPTIONS] firmware /path/to/firmware.bin   Firmware pipeline"
     echo "  ./terminator.sh status                                      Check running session"
     echo "  ./terminator.sh logs                                        Tail latest session log"
     echo ""
     echo "Options:"
     echo "  --json                  Suppress banner; print summary.json path on completion"
     echo "  --timeout N             Abort session after N seconds (0 = no limit)"
-    echo "  --dry-run               Print execution plan without running Claude"
+    echo "  --dry-run               Print execution plan without running a backend"
     echo "  --competition-v2        Enable the isolated competition-focused CTF lane (--competition alias)"
     echo "  --resume-session ID     Reuse an existing coordination session id"
+    echo "  --backend NAME          Runtime launcher: claude|codex|hybrid|auto"
+    echo "  --runtime-profile NAME  Runtime profile: claude-only|gpt-only|hybrid"
     echo ""
     echo "Environment:"
     echo "  TERMINATOR_MODEL         Shared default model override"
     echo "  TERMINATOR_CLAUDE_MODEL  Claude model override (default: sonnet)"
-    echo "  TERMINATOR_CODEX_MODEL   Codex spare model override (default: gpt-5.4)"
-    echo "  TERMINATOR_FAILOVER_TO   Internal spare override (codex|none, default: codex)"
+    echo "  TERMINATOR_CODEX_MODEL   Codex model override (default: gpt-5.4)"
+    echo "  TERMINATOR_PRIMARY_BACKEND  claude|codex|hybrid (default: claude)"
+    echo "  TERMINATOR_RUNTIME_PROFILE  claude-only|gpt-only|hybrid"
+    echo "  TERMINATOR_FAILOVER_TO   Spare override (claude|codex|none, default: codex)"
     echo ""
     echo "Behavior:"
-    echo "  Terminator always starts with Claude."
-    echo "  Codex is only used as a spare when Claude stops due to token/context exhaustion"
-    echo "  or provider/API instability after Claude's own retry loop is exhausted."
+    echo "  claude-only uses Claude as launcher and role backend."
+    echo "  gpt-only uses Codex/OMX as launcher and role backend."
+    echo "  hybrid uses runtime_policy.yaml to route selected roles to Codex."
     echo ""
     echo "Exit Codes:"
     echo "  0   Clean (no findings or CTF solved)"
