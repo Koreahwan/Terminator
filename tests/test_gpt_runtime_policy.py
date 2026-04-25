@@ -20,22 +20,6 @@ from tools.submission_fixture_index import build_manifest, default_source_root, 
 from tools.submission_quality_compare import score_report
 
 
-DEEP_HYBRID_ROLES = {
-    "analyst",
-    "architect",
-    "chain",
-    "critic",
-    "ctf-solver",
-    "defi-auditor",
-    "exploiter",
-    "patch-hunter",
-    "solver",
-    "source-auditor",
-    "submission-review",
-    "triager-sim",
-    "workflow-auditor",
-    "target-discovery",
-}
 SCOPE_FIRST_GPT_ROLES = {"target-discovery", "scout", "recon-scanner", "source-auditor", "analyst"}
 SCOPE_FIRST_CLAUDE_ROLES = {"scope-auditor", "reporter", "submission-review"}
 SCOPE_FIRST_DEBATE_ROLES = {"exploiter", "critic", "triager-sim"}
@@ -45,7 +29,7 @@ def test_profile_defaults_for_requested_backend(monkeypatch) -> None:
     monkeypatch.delenv("TERMINATOR_RUNTIME_PROFILE", raising=False)
     assert runtime_profile_for_backend("claude") == "claude-only"
     assert runtime_profile_for_backend("codex") == "gpt-only"
-    assert runtime_profile_for_backend("hybrid") == "hybrid"
+    assert runtime_profile_for_backend("hybrid") == "scope-first-hybrid"
     assert launcher_backend("hybrid") == "claude"
 
 
@@ -56,13 +40,12 @@ def test_gpt_only_routes_every_role_to_codex() -> None:
     assert {entry["backend"] for entry in roles.values()} == {"codex"}
 
 
-def test_hybrid_routes_deep_roles_to_codex() -> None:
-    policy = apply_profile(load_policy(), "hybrid")
-    roles = policy["roles"]
-    missing = DEEP_HYBRID_ROLES - set(roles)
-    assert not missing
-    for role in DEEP_HYBRID_ROLES:
-        assert roles[role]["backend"] == "codex"
+def test_plain_hybrid_profile_removed_and_aliased_to_scope_first() -> None:
+    policy = load_policy()
+    assert policy["default_profile"] == "scope-first-hybrid"
+    assert "hybrid" not in policy["profiles"]
+    resolved = apply_profile(policy, "hybrid")
+    assert resolved["active_profile"] == "scope-first-hybrid"
 
 
 def test_scope_first_hybrid_policy_is_adjustable_but_guarded() -> None:
@@ -191,7 +174,7 @@ def test_submission_candidate_replay_keeps_hybrid_claude_model_separate() -> Non
     source = (PROJECT_ROOT / "tools" / "submission_candidate_replay.py").read_text(encoding="utf-8")
 
     assert "--claude-model" in source
-    assert 'profile in {"claude-only", "hybrid"}' in source
+    assert 'profile in {"claude-only", "scope-first-hybrid"}' in source
     assert "It must be self-contained" in source
     assert "Avoid negative assertions" in source
     assert "CRITICAL OUTPUT CONTRACT" in source

@@ -20,13 +20,13 @@ from tools.submission_quality_compare import score_slop
 
 PIPELINES_DAG = ["ctf_pwn", "ctf_rev", "bounty", "firmware", "ai_security", "robotics", "supplychain"]
 PIPELINES_TERMINATOR = ["ctf", "bounty", "firmware", "ai-security", "robotics", "supplychain"]
-PROFILES = ["claude-only", "gpt-only", "hybrid"]
+PROFILES = ["claude-only", "gpt-only", "scope-first-hybrid"]
 
 OVERCLAIM_PATTERNS = [
     re.compile(r"\bfull\s+live\s+(pipeline|matrix|verification)\b", re.I),
     re.compile(r"\bsubmit-ready\b", re.I),
     re.compile(r"\baccepted\s+by\s+(triage|platform|program)\b", re.I),
-    re.compile(r"\b(candidate|gpt|hybrid).*\bmatched\s+or\s+beat\b", re.I),
+    re.compile(r"\b(candidate|gpt|scope-first-hybrid).*\bmatched\s+or\s+beat\b", re.I),
     re.compile(r"\bno\s+hallucination(s)?\b", re.I),
 ]
 

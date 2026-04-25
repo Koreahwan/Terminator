@@ -23,6 +23,9 @@ except ImportError:
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_POLICY_PATH = PROJECT_ROOT / "config" / "runtime_policy.yaml"
+LEGACY_PROFILE_ALIASES = {
+    "hybrid": "scope-first-hybrid",
+}
 
 
 def _load_yaml_fallback(text: str) -> dict:
@@ -161,13 +164,14 @@ def load_policy(path: Path | None = None) -> dict:
 def resolve_profile_name(policy: dict, explicit: str | None = None) -> str:
     value = (explicit or "").strip() or ""
     if value:
-        return value
+        return LEGACY_PROFILE_ALIASES.get(value, value)
     import os
 
     env_value = os.environ.get("TERMINATOR_RUNTIME_PROFILE", "").strip()
     if env_value:
-        return env_value
-    return str(policy.get("default_profile") or "hybrid")
+        return LEGACY_PROFILE_ALIASES.get(env_value, env_value)
+    default = str(policy.get("default_profile") or "scope-first-hybrid")
+    return LEGACY_PROFILE_ALIASES.get(default, default)
 
 
 def apply_profile(policy: dict, profile_name: str | None = None) -> dict:
@@ -178,6 +182,8 @@ def apply_profile(policy: dict, profile_name: str | None = None) -> dict:
     merged = copy.deepcopy(policy)
     roles = merged.get("roles", {}) or {}
     profiles = merged.get("profiles", {}) or {}
+    if resolved not in profiles:
+        raise ValueError(f"Unknown runtime profile: {resolved}")
     profile = profiles.get(resolved, {}) or {}
     defaults = profile.get("defaults", {}) or {}
     role_overrides = profile.get("roles", {}) or {}
@@ -273,7 +279,7 @@ def main() -> int:
     parser.add_argument("--policy-file", type=Path, default=None,
                         help="Override policy YAML path")
     parser.add_argument("--profile", default=None,
-                        help="Runtime profile: claude-only | gpt-only | hybrid")
+                        help="Runtime profile: claude-only | gpt-only | scope-first-hybrid")
     sub = parser.add_subparsers(dest="command", required=True)
 
     get = sub.add_parser("get-role", help="Print full policy entry for a role")

@@ -13,8 +13,8 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_OUT_ROOT = PROJECT_ROOT / "reports" / "runtime-eval"
 PIPELINES = ["target_discovery", "ctf_pwn", "ctf_rev", "bounty", "firmware", "ai_security", "robotics", "supplychain"]
-PROFILES = ["claude-only", "gpt-only", "hybrid"]
-PROFILE_BACKEND = {"claude-only": "claude", "gpt-only": "codex", "hybrid": "hybrid", "scope-first-hybrid": "hybrid"}
+PROFILES = ["claude-only", "gpt-only", "scope-first-hybrid"]
+PROFILE_BACKEND = {"claude-only": "claude", "gpt-only": "codex", "scope-first-hybrid": "hybrid"}
 DEEP_HYBRID_ROLES = {
     "analyst",
     "architect",
@@ -121,8 +121,6 @@ def smoke_pipeline(pipeline: str, profile: str, out_dir: Path) -> dict:
             model = entry.get("model", "")
             if profile == "gpt-only" and backend != "codex":
                 failures.append(f"gpt-only role {role} routed to {backend}")
-            if profile == "hybrid" and role in DEEP_HYBRID_ROLES and backend != "codex":
-                failures.append(f"hybrid deep role {role} routed to {backend}")
             if profile == "scope-first-hybrid":
                 if role in SCOPE_FIRST_GPT_ROLES and backend != "codex":
                     failures.append(f"scope-first GPT role {role} routed to {backend}")

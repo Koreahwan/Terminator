@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate safe GPT/hybrid replay candidate submission packages.
+"""Generate safe GPT/scope-first replay candidate submission packages.
 
 The generator uses existing submission artifacts as read-only replay fixtures.
 It does not probe live targets or submit anything. The selected backend receives
@@ -33,12 +33,12 @@ BACKEND_RUNNER = PROJECT_ROOT / "tools" / "backend_runner.py"
 PROFILE_BACKEND = {
     "claude-only": "claude",
     "gpt-only": "codex",
-    "hybrid": "hybrid",
+    "scope-first-hybrid": "hybrid",
 }
 PROFILE_FAILOVER = {
     "claude-only": "none",
     "gpt-only": "none",
-    "hybrid": "none",
+    "scope-first-hybrid": "none",
 }
 TEXT_SUFFIXES = {
     ".md", ".txt", ".json", ".py", ".sh", ".js", ".mjs", ".ts", ".tsx",
@@ -273,7 +273,7 @@ def run_backend(
             str(result_file),
         ]
         env = os.environ.copy()
-        if profile != "hybrid":
+        if profile != "scope-first-hybrid":
             env["TERMINATOR_SKIP_POLICY_INJECTION"] = "1"
         env["TERMINATOR_BACKEND_IDLE_TIMEOUT"] = str(timeout)
         proc = subprocess.run(
@@ -321,7 +321,7 @@ def generate_one(
 
     session_id = f"candidate-replay-{profile}-{name}"
     started = time.monotonic()
-    backend_model = claude_model if profile in {"claude-only", "hybrid"} else model
+    backend_model = claude_model if profile in {"claude-only", "scope-first-hybrid"} else model
     runtime_result, output, messages, returncode = run_backend(
         prompt=prompt,
         profile=profile,

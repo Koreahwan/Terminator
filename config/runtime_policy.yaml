@@ -1,5 +1,5 @@
 schema_version: "2026-04-24.gpt-runtime-v1"
-default_profile: hybrid
+default_profile: scope-first-hybrid
 
 profiles:
   claude-only:
@@ -22,53 +22,6 @@ profiles:
         model: gpt-5.4-mini
       recon-scanner:
         model: gpt-5.4-mini
-
-  hybrid:
-    defaults:
-      backend: claude
-    roles:
-      target-discovery:
-        backend: codex
-        model: gpt-5.5
-      analyst:
-        backend: codex
-        model: gpt-5.4
-      architect:
-        backend: codex
-        model: gpt-5.4
-      chain:
-        backend: codex
-        model: gpt-5.4
-      critic:
-        backend: codex
-        model: gpt-5.4
-      ctf-solver:
-        backend: codex
-        model: gpt-5.4
-      defi-auditor:
-        backend: codex
-        model: gpt-5.4
-      exploiter:
-        backend: codex
-        model: gpt-5.4
-      patch-hunter:
-        backend: codex
-        model: gpt-5.4
-      solver:
-        backend: codex
-        model: gpt-5.4
-      source-auditor:
-        backend: codex
-        model: gpt-5.4
-      submission-review:
-        backend: codex
-        model: gpt-5.4
-      triager-sim:
-        backend: codex
-        model: gpt-5.4
-      workflow-auditor:
-        backend: codex
-        model: gpt-5.4
 
   scope-first-hybrid:
     defaults:

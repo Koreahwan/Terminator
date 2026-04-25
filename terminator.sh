@@ -85,6 +85,9 @@ if [ -n "$REQUESTED_FAILOVER_TO" ]; then
   FAILOVER_TO="$REQUESTED_FAILOVER_TO"
 fi
 RUNTIME_PROFILE="${REQUESTED_RUNTIME_PROFILE:-${TERMINATOR_RUNTIME_PROFILE:-}}"
+if [ "$RUNTIME_PROFILE" = "hybrid" ]; then
+  RUNTIME_PROFILE="scope-first-hybrid"
+fi
 
 # Auto-detect platform from URL
 detect_platform() {
@@ -266,7 +269,7 @@ runtime_profile_for_backend() {
   fi
   case "$backend" in
     codex) printf '%s\n' "gpt-only" ;;
-    hybrid) printf '%s\n' "hybrid" ;;
+    hybrid) printf '%s\n' "scope-first-hybrid" ;;
     *) printf '%s\n' "claude-only" ;;
   esac
 }
@@ -2146,20 +2149,20 @@ PY
     echo "  --competition-v2        Enable the isolated competition-focused CTF lane (--competition alias)"
     echo "  --resume-session ID     Reuse an existing coordination session id"
     echo "  --backend NAME          Runtime launcher: claude|codex|hybrid|auto"
-    echo "  --runtime-profile NAME  Runtime profile: claude-only|gpt-only|hybrid"
+    echo "  --runtime-profile NAME  Runtime profile: claude-only|gpt-only|scope-first-hybrid"
     echo ""
     echo "Environment:"
     echo "  TERMINATOR_MODEL         Shared default model override"
     echo "  TERMINATOR_CLAUDE_MODEL  Claude model override (default: sonnet)"
     echo "  TERMINATOR_CODEX_MODEL   Codex model override (default: gpt-5.4)"
     echo "  TERMINATOR_PRIMARY_BACKEND  claude|codex|hybrid (default: claude)"
-    echo "  TERMINATOR_RUNTIME_PROFILE  claude-only|gpt-only|hybrid"
+    echo "  TERMINATOR_RUNTIME_PROFILE  claude-only|gpt-only|scope-first-hybrid"
     echo "  TERMINATOR_FAILOVER_TO   Spare override (claude|codex|none, default: codex)"
     echo ""
     echo "Behavior:"
     echo "  claude-only uses Claude as launcher and role backend."
     echo "  gpt-only uses Codex/OMX as launcher and role backend."
-    echo "  hybrid uses runtime_policy.yaml to route selected roles to Codex."
+    echo "  scope-first-hybrid routes selected roles to Codex and enforces scope/safety gates."
     echo ""
     echo "Exit Codes:"
     echo "  0   Clean (no findings or CTF solved)"

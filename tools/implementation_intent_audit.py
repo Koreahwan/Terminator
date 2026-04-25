@@ -21,7 +21,7 @@ from typing import Any, Callable
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 ORIGINAL_ROOT = PROJECT_ROOT.parent / "Terminator"
-PROFILES = {"claude-only", "gpt-only", "hybrid"}
+PROFILES = {"claude-only", "gpt-only", "scope-first-hybrid"}
 DAG_PIPELINES = {"ctf_pwn", "ctf_rev", "bounty", "firmware", "ai_security", "robotics", "supplychain"}
 TERMINATOR_PIPELINES = {"ctf", "bounty", "firmware", "ai-security", "robotics", "supplychain"}
 BASELINE_PACKAGES = {
@@ -141,12 +141,12 @@ def check_runtime_policy(_: Context) -> list[dict[str, Any]]:
     checks = [result("pass" if policy_path.exists() else "fail", "config/runtime_policy.yaml exists")]
     policy = load_policy()
     gpt = apply_profile(policy, "gpt-only")
-    hybrid = apply_profile(policy, "hybrid")
+    scope_first = apply_profile(policy, "scope-first-hybrid")
     gpt_backends = {entry.get("backend") for entry in gpt["roles"].values()}
-    deep_roles = {"critic", "triager-sim", "exploiter", "source-auditor", "patch-hunter"}
-    hybrid_missing = sorted(role for role in deep_roles if hybrid["roles"].get(role, {}).get("backend") != "codex")
+    deep_roles = {"critic", "triager-sim", "exploiter", "source-auditor"}
+    scope_first_missing = sorted(role for role in deep_roles if scope_first["roles"].get(role, {}).get("backend") != "codex")
     checks.append(result("pass" if gpt_backends == {"codex"} else "fail", "gpt-only routes every role to Codex/OMX", backends=sorted(gpt_backends)))
-    checks.append(result("pass" if not hybrid_missing else "fail", "hybrid routes deep/security-critical roles to Codex", missing=hybrid_missing))
+    checks.append(result("pass" if not scope_first_missing else "fail", "scope-first-hybrid routes security-critical roles to Codex", missing=scope_first_missing))
     return checks
 
 
@@ -256,7 +256,7 @@ def check_submission_comparison(ctx: Context) -> list[dict[str, Any]]:
 def check_end_to_end_candidate_generation(ctx: Context) -> list[dict[str, Any]]:
     candidate_base = ctx.eval_dir / "candidate_replay"
     coverage: dict[str, list[str]] = {}
-    for profile in ["gpt-only", "hybrid"]:
+    for profile in ["gpt-only", "scope-first-hybrid"]:
         profile_dir = candidate_base / profile
         names = [
             path.parent.name
@@ -275,7 +275,7 @@ def check_end_to_end_candidate_generation(ctx: Context) -> list[dict[str, Any]]:
     return [
         result(
             "pass" if not missing else "fail",
-            "gpt-only and hybrid real-model replay candidate packages cover every baseline submission",
+            "gpt-only and scope-first-hybrid real-model replay candidate packages cover every baseline submission",
             coverage=coverage,
             missing=missing,
         )
@@ -313,13 +313,13 @@ def check_secall_concurrent_work(_: Context) -> list[dict[str, Any]]:
 REQUIREMENTS = [
     Requirement("worktree-isolation", "Use the dedicated GPT runtime worktree/branch while keeping seCall work separate.", check_worktree_isolation),
     Requirement("runtime-entrypoints", "Make claude/codex/hybrid backend and failover controls real in the launcher.", check_runtime_entrypoints),
-    Requirement("runtime-policy", "Provide role-level gpt-only and hybrid policy routing.", check_runtime_policy),
+    Requirement("runtime-policy", "Provide role-level gpt-only and scope-first-hybrid policy routing.", check_runtime_policy),
     Requirement("role-contracts", "Generate compact Codex-readable contracts for Claude agent roles.", check_role_contracts),
     Requirement("required-tools", "Add matrix, fixture, quality, backend-smoke, and hallucination audit tools.", check_required_tools),
     Requirement("verification-matrices", "Directly exercise every pipeline/profile combination in safe verification modes.", check_verification_matrices),
     Requirement("backend-smoke", "Prove Codex/OMX backend execution works through backend_runner.", check_backend_smoke),
     Requirement("submission-comparison", "Index and rescore existing submissions, and disclose whether candidate comparison exists.", check_submission_comparison),
-    Requirement("end-to-end-candidates", "Generate GPT/hybrid candidate submission packages for direct quality comparison.", check_end_to_end_candidate_generation),
+    Requirement("end-to-end-candidates", "Generate GPT/scope-first-hybrid candidate submission packages for direct quality comparison.", check_end_to_end_candidate_generation),
     Requirement("hallucination-guard", "Run a report-level anti-hallucination audit over generated evidence.", check_hallucination_guard),
     Requirement("secall-concurrent-work", "Keep the original seCall integration coherent while GPT runtime work proceeds.", check_secall_concurrent_work),
 ]

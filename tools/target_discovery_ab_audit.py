@@ -20,7 +20,7 @@ from tools.dag_orchestrator.pipelines import PIPELINES
 from tools.runtime_policy import apply_profile, load_policy
 
 DISCOVERY_PROFILES = {"claude-only", "gpt-only", "hybrid-a", "hybrid-b"}
-RUNTIME_PROFILES = {"claude-only", "gpt-only", "hybrid"}
+RUNTIME_PROFILES = {"claude-only", "gpt-only", "scope-first-hybrid"}
 AB_PROFILES = {"hybrid-a", "hybrid-b"}
 SAFE_HOST_RE = re.compile(
     r"^https://(yeswehack\.com|hackerone\.com|bugcrowd\.com|immunefi\.com|app\.intigriti\.com|huntr\.com|hackenproof\.com)/",
@@ -53,7 +53,7 @@ def validate_code_wiring(audit: Audit) -> None:
     policy = load_policy()
     claude = apply_profile(policy, "claude-only")["roles"].get("target-discovery", {})
     gpt = apply_profile(policy, "gpt-only")["roles"].get("target-discovery", {})
-    hybrid = apply_profile(policy, "hybrid")["roles"].get("target-discovery", {})
+    scope_first = apply_profile(policy, "scope-first-hybrid")["roles"].get("target-discovery", {})
     audit.require("pipeline:registered", "target_discovery" in PIPELINES, "target_discovery pipeline is registered", "target_discovery pipeline missing")
     audit.require(
         "role:agent-definition",
@@ -75,10 +75,10 @@ def validate_code_wiring(audit: Audit) -> None:
         f"gpt-only route={gpt}",
     )
     audit.require(
-        "policy:hybrid",
-        hybrid.get("backend") == "codex" and hybrid.get("model") == "gpt-5.5",
-        "hybrid routes target-discovery to Codex/gpt-5.5",
-        f"hybrid route={hybrid}",
+        "policy:scope-first-hybrid",
+        scope_first.get("backend") == "codex" and scope_first.get("model") == "gpt-5.5",
+        "scope-first-hybrid routes target-discovery to Codex/gpt-5.5",
+        f"scope-first-hybrid route={scope_first}",
     )
 
 
@@ -115,7 +115,7 @@ def validate_matrix(audit: Audit, matrix_json: Path) -> None:
     results = payload.get("results", [])
     pairs = {(item.get("profile"), item.get("pipeline")) for item in results if isinstance(item, dict)}
     expected = {(profile, "target_discovery") for profile in RUNTIME_PROFILES}
-    audit.require("matrix:coverage", pairs == expected, "target_discovery matrix covers claude/gpt/hybrid", f"matrix pairs mismatch: {sorted(pairs)}")
+    audit.require("matrix:coverage", pairs == expected, "target_discovery matrix covers claude/gpt/scope-first", f"matrix pairs mismatch: {sorted(pairs)}")
     audit.require("matrix:status", payload.get("status") == "pass" and all(item.get("status") == "pass" for item in results), "target_discovery matrix passes", "target_discovery matrix has failures")
 
 

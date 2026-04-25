@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Backend runner for Terminator launcher sessions.
 
-Supports Claude-only, GPT/Codex-only, and hybrid runtime profiles.  The
+Supports Claude-only, GPT/Codex-only, and scope-first hybrid runtime profiles. The
 launcher backend is still a CLI process (`claude` or `omx`); per-role routing
-for hybrid runs is injected through the runtime policy summary.
+for scope-first hybrid runs is injected through the runtime policy summary.
 """
 
 from __future__ import annotations
@@ -149,7 +149,7 @@ CODEX_SKIP_MODELS = {"sonnet", "opus", "haiku"}
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Run Terminator with Claude, Codex, or hybrid runtime profiles.")
+    parser = argparse.ArgumentParser(description="Run Terminator with Claude, Codex, or scope-first hybrid runtime profiles.")
     sub = parser.add_subparsers(dest="command", required=True)
 
     run = sub.add_parser("run")
@@ -176,14 +176,15 @@ def read_prompt(path: str) -> str:
 
 def runtime_profile_for_backend(requested_backend: str, explicit: str | None = None) -> str:
     if explicit:
-        return explicit.strip().lower()
+        value = explicit.strip().lower()
+        return "scope-first-hybrid" if value == "hybrid" else value
     env_profile = os.environ.get("TERMINATOR_RUNTIME_PROFILE", "").strip().lower()
     if env_profile:
-        return env_profile
+        return "scope-first-hybrid" if env_profile == "hybrid" else env_profile
     if requested_backend == "codex":
         return "gpt-only"
     if requested_backend == "hybrid":
-        return "hybrid"
+        return "scope-first-hybrid"
     return "claude-only"
 
 
@@ -437,9 +438,10 @@ If the launcher is Codex/OMX, do not use Claude Agent Teams or Task-tool-only
 syntax. Execute role work directly from the compact contracts in
 generated/role_contracts/ and the artifacts named in the pipeline prompt.
 
-If the runtime profile is hybrid, use tools/runtime_policy.py get-role <role>
-and tools/runtime_dispatch.py run-role <role> for offloaded roles when the
-orchestrator needs a separate worker. Keep all handoffs in coordination/.
+If the runtime profile is scope-first-hybrid, enforce scope contract and safety
+wrapper gates before any live action. Use tools/runtime_policy.py get-role
+<role> and tools/runtime_dispatch.py run-role <role> for offloaded roles when
+the orchestrator needs a separate worker. Keep all handoffs in coordination/.
 """
     if not summary:
         return runtime_block.strip() + "\n\n" + prompt
