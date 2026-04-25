@@ -69,6 +69,97 @@ profiles:
         backend: codex
         model: gpt-5.4
         debate_mode: gpt-propose-claude-object-gpt-respond
+    pipeline_roles:
+      ctf_pwn:
+        reverser:
+          backend: codex
+          model: gpt-5.4
+        trigger:
+          backend: codex
+          model: gpt-5.4
+        chain:
+          backend: codex
+          model: gpt-5.4
+          debate_mode: gpt-propose-claude-object-gpt-respond
+          evidence_gate: machine-style-real-tool-output
+        verifier:
+          backend: codex
+          model: gpt-5.4
+          debate_mode: gpt-propose-claude-object-gpt-respond
+          evidence_gate: machine-style-3x-local-then-remote
+        reporter:
+          backend: claude
+          model: claude-opus-4-6[1m]
+      ctf_rev:
+        reverser:
+          backend: codex
+          model: gpt-5.4
+          evidence_gate: machine-style-real-tool-output
+        solver:
+          backend: codex
+          model: gpt-5.4
+          debate_mode: gpt-propose-claude-object-gpt-respond
+        verifier:
+          backend: codex
+          model: gpt-5.4
+          debate_mode: gpt-propose-claude-object-gpt-respond
+          evidence_gate: machine-style-3x-local-then-remote
+        reporter:
+          backend: claude
+          model: claude-opus-4-6[1m]
+      firmware:
+        reverser:
+          backend: claude
+          model: claude-opus-4-6[1m]
+        exploiter:
+          backend: codex
+          model: gpt-5.4
+          debate_mode: gpt-propose-claude-object-gpt-respond
+        reporter:
+          backend: claude
+          model: claude-opus-4-6[1m]
+      ai_security:
+        ai-recon:
+          backend: codex
+          model: gpt-5.4
+        analyst:
+          backend: codex
+          model: gpt-5.4
+        triager-sim:
+          backend: codex
+          model: gpt-5.4
+          debate_mode: gpt-propose-claude-object-gpt-respond
+        reporter:
+          backend: claude
+          model: claude-opus-4-6[1m]
+      robotics:
+        robo-scanner:
+          backend: codex
+          model: gpt-5.4
+          transport_policy: mock-or-replay-required
+        analyst:
+          backend: codex
+          model: gpt-5.4
+        reporter:
+          backend: claude
+          model: claude-opus-4-6[1m]
+        cve-manager:
+          backend: claude
+          model: claude-opus-4-6[1m]
+      supplychain:
+        sc-scanner:
+          backend: codex
+          model: gpt-5.4
+        analyst:
+          backend: codex
+          model: gpt-5.4
+        triager-sim:
+          backend: codex
+          model: gpt-5.4
+          debate_mode: gpt-propose-claude-object-gpt-respond
+        reporter:
+          backend: claude
+          model: claude-opus-4-6[1m]
 
 roles:
   ai-recon:

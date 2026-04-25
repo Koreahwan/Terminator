@@ -58,6 +58,8 @@ def _load_yaml_fallback(text: str) -> dict:
     current_profile: str | None = None
     current_profile_section: str | None = None
     current_profile_role: str | None = None
+    current_pipeline: str | None = None
+    current_pipeline_role: str | None = None
     current_role: str | None = None
     current_key: str | None = None
 
@@ -97,6 +99,8 @@ def _load_yaml_fallback(text: str) -> dict:
                 val = val.strip()
                 current_profile_section = key
                 current_profile_role = None
+                current_pipeline = None
+                current_pipeline_role = None
                 result["profiles"][current_profile][key] = parse_scalar(val) if val else {}
                 continue
 
@@ -115,6 +119,26 @@ def _load_yaml_fallback(text: str) -> dict:
                 result["profiles"][current_profile].setdefault("roles", {}).setdefault(current_profile_role, {})[
                     key.strip()
                 ] = parse_scalar(val)
+                continue
+
+            if indent == 6 and current_profile and current_profile_section == "pipeline_roles" and stripped.endswith(":"):
+                current_pipeline = stripped[:-1]
+                current_pipeline_role = None
+                result["profiles"][current_profile].setdefault("pipeline_roles", {})[current_pipeline] = {}
+                continue
+
+            if indent == 8 and current_profile and current_pipeline and current_profile_section == "pipeline_roles" and stripped.endswith(":"):
+                current_pipeline_role = stripped[:-1]
+                result["profiles"][current_profile].setdefault("pipeline_roles", {}).setdefault(current_pipeline, {})[
+                    current_pipeline_role
+                ] = {}
+                continue
+
+            if indent == 10 and current_profile and current_pipeline and current_pipeline_role and ":" in stripped:
+                key, _, val = stripped.partition(":")
+                result["profiles"][current_profile].setdefault("pipeline_roles", {}).setdefault(current_pipeline, {}).setdefault(
+                    current_pipeline_role, {}
+                )[key.strip()] = parse_scalar(val)
                 continue
 
         if section != "roles":
@@ -174,11 +198,21 @@ def resolve_profile_name(policy: dict, explicit: str | None = None) -> str:
     return LEGACY_PROFILE_ALIASES.get(default, default)
 
 
-def apply_profile(policy: dict, profile_name: str | None = None) -> dict:
+def resolve_pipeline_name(explicit: str | None = None) -> str:
+    value = (explicit or "").strip()
+    if value:
+        return value
+    import os
+
+    return os.environ.get("TERMINATOR_ACTIVE_PIPELINE", "").strip()
+
+
+def apply_profile(policy: dict, profile_name: str | None = None, pipeline_name: str | None = None) -> dict:
     """Return a copy of the policy with profile overrides applied."""
     import copy
 
     resolved = resolve_profile_name(policy, profile_name)
+    pipeline = resolve_pipeline_name(pipeline_name)
     merged = copy.deepcopy(policy)
     roles = merged.get("roles", {}) or {}
     profiles = merged.get("profiles", {}) or {}
@@ -187,15 +221,22 @@ def apply_profile(policy: dict, profile_name: str | None = None) -> dict:
     profile = profiles.get(resolved, {}) or {}
     defaults = profile.get("defaults", {}) or {}
     role_overrides = profile.get("roles", {}) or {}
+    pipeline_overrides = (profile.get("pipeline_roles", {}) or {}).get(pipeline, {}) if pipeline else {}
 
     for name, entry in roles.items():
         for key, value in defaults.items():
             entry[key] = value
         for key, value in (role_overrides.get(name, {}) or {}).items():
             entry[key] = value
+        for key, value in (pipeline_overrides.get(name, {}) or {}).items():
+            entry[key] = value
         entry["runtime_profile"] = resolved
+        if pipeline:
+            entry["runtime_pipeline"] = pipeline
 
     merged["active_profile"] = resolved
+    if pipeline:
+        merged["active_pipeline"] = pipeline
     return merged
 
 
@@ -222,6 +263,8 @@ def build_policy_summary(policy: dict) -> str:
     lines.append("# Runtime Policy Summary")
     lines.append(f"# schema_version: {policy.get('schema_version', '?')}")
     lines.append(f"# active_profile: {policy.get('active_profile', policy.get('default_profile', '?'))}")
+    if policy.get("active_pipeline"):
+        lines.append(f"# active_pipeline: {policy.get('active_pipeline')}")
     lines.append("")
 
     # Group by backend
@@ -250,6 +293,12 @@ def build_policy_summary(policy: dict) -> str:
                 flags.append(fallback)
             if disagree != "disabled":
                 flags.append(f"disagree={disagree}")
+            if entry.get("debate_mode"):
+                flags.append(f"debate={entry['debate_mode']}")
+            if entry.get("evidence_gate"):
+                flags.append(f"evidence={entry['evidence_gate']}")
+            if entry.get("transport_policy"):
+                flags.append(f"transport={entry['transport_policy']}")
             if group != "none":
                 flags.append(f"group={group}")
 
@@ -280,6 +329,8 @@ def main() -> int:
                         help="Override policy YAML path")
     parser.add_argument("--profile", default=None,
                         help="Runtime profile: claude-only | gpt-only | scope-first-hybrid")
+    parser.add_argument("--pipeline", default=None,
+                        help="Apply pipeline-specific role overrides")
     sub = parser.add_subparsers(dest="command", required=True)
 
     get = sub.add_parser("get-role", help="Print full policy entry for a role")
@@ -294,7 +345,7 @@ def main() -> int:
     lg.add_argument("group", help="Group name (A/B/C)")
 
     args = parser.parse_args()
-    policy = apply_profile(load_policy(args.policy_file), args.profile)
+    policy = apply_profile(load_policy(args.policy_file), args.profile, args.pipeline)
 
     if args.command == "get-role":
         entry = get_role(policy, args.role)

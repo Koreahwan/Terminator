@@ -24,6 +24,8 @@ from tools.submission_quality_compare import score_report
 SCOPE_FIRST_GPT_ROLES = {"target-discovery", "scout", "recon-scanner", "source-auditor", "analyst"}
 SCOPE_FIRST_CLAUDE_ROLES = {"scope-auditor", "reporter", "submission-review"}
 SCOPE_FIRST_DEBATE_ROLES = {"exploiter", "critic", "triager-sim"}
+CTF_PWN_CODEX_ROLES = {"reverser", "trigger", "chain", "critic", "verifier"}
+CTF_REV_CODEX_ROLES = {"reverser", "solver", "critic", "verifier"}
 
 
 def test_profile_defaults_for_requested_backend(monkeypatch) -> None:
@@ -100,6 +102,39 @@ def test_scope_first_hybrid_policy_is_adjustable_but_guarded() -> None:
     for role in SCOPE_FIRST_DEBATE_ROLES:
         assert roles[role]["debate_mode"] == "gpt-propose-claude-object-gpt-respond"
     assert roles["scope-auditor"]["disagreement_policy"] == "block-on-unknown-or-oos"
+
+
+def test_scope_first_hybrid_has_ctf_machine_style_overrides() -> None:
+    pwn = apply_profile(load_policy(), "scope-first-hybrid", "ctf_pwn")["roles"]
+    rev = apply_profile(load_policy(), "scope-first-hybrid", "ctf_rev")["roles"]
+
+    for role in CTF_PWN_CODEX_ROLES:
+        assert pwn[role]["backend"] == "codex"
+    for role in CTF_REV_CODEX_ROLES:
+        assert rev[role]["backend"] == "codex"
+    assert pwn["chain"]["debate_mode"] == "gpt-propose-claude-object-gpt-respond"
+    assert pwn["verifier"]["evidence_gate"] == "machine-style-3x-local-then-remote"
+    assert rev["solver"]["debate_mode"] == "gpt-propose-claude-object-gpt-respond"
+    assert rev["verifier"]["evidence_gate"] == "machine-style-3x-local-then-remote"
+    assert pwn["reporter"]["backend"] == "claude"
+    assert rev["reporter"]["backend"] == "claude"
+
+
+def test_scope_first_hybrid_has_domain_specific_overrides() -> None:
+    firmware = apply_profile(load_policy(), "scope-first-hybrid", "firmware")["roles"]
+    ai = apply_profile(load_policy(), "scope-first-hybrid", "ai_security")["roles"]
+    robotics = apply_profile(load_policy(), "scope-first-hybrid", "robotics")["roles"]
+    supplychain = apply_profile(load_policy(), "scope-first-hybrid", "supplychain")["roles"]
+
+    assert firmware["reverser"]["backend"] == "claude"
+    assert firmware["exploiter"]["backend"] == "codex"
+    assert firmware["exploiter"]["debate_mode"] == "gpt-propose-claude-object-gpt-respond"
+    assert ai["ai-recon"]["backend"] == "codex"
+    assert robotics["robo-scanner"]["backend"] == "codex"
+    assert robotics["robo-scanner"]["transport_policy"] == "mock-or-replay-required"
+    assert supplychain["sc-scanner"]["backend"] == "codex"
+    for roles in (ai, robotics, supplychain):
+        assert roles["reporter"]["backend"] == "claude"
 
 
 def test_codex_command_coerces_claude_alias_model() -> None:

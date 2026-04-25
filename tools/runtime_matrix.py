@@ -50,9 +50,13 @@ SCOPE_FIRST_DEBATE_ROLES = {
 }
 
 
-def load_policy(profile: str) -> dict:
+def load_policy(profile: str, pipeline: str = "") -> dict:
+    cmd = ["python3", str(PROJECT_ROOT / "tools" / "runtime_policy.py"), "--profile", profile]
+    if pipeline:
+        cmd.extend(["--pipeline", pipeline])
+    cmd.append("get-policy-summary")
     result = subprocess.run(
-        ["python3", str(PROJECT_ROOT / "tools" / "runtime_policy.py"), "--profile", profile, "get-policy-summary"],
+        cmd,
         cwd=str(PROJECT_ROOT),
         capture_output=True,
         text=True,
@@ -66,7 +70,7 @@ def load_policy(profile: str) -> dict:
         sys.path.insert(0, str(PROJECT_ROOT))
     from tools.runtime_policy import apply_profile, load_policy as _load_policy
 
-    return apply_profile(_load_policy(), profile)
+    return apply_profile(_load_policy(), profile, pipeline)
 
 
 def compile_contracts() -> None:
@@ -105,7 +109,7 @@ def pipeline_dag(name: str, target: str):
 
 def smoke_pipeline(pipeline: str, profile: str, out_dir: Path) -> dict:
     started = time.monotonic()
-    policy = load_policy(profile)
+    policy = load_policy(profile, pipeline)
     dag = pipeline_dag(pipeline, f"matrix-{pipeline}")
     roles = []
     failures: list[str] = []

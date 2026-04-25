@@ -70,9 +70,12 @@ class BackendAgentHandler:
 
     def _policy_for_role(self, role: str) -> dict:
         profile = os.environ.get("TERMINATOR_RUNTIME_PROFILE", "")
+        pipeline = os.environ.get("TERMINATOR_ACTIVE_PIPELINE", "")
         cmd = ["python3", str(PROJECT_ROOT / "tools" / "runtime_policy.py")]
         if profile:
             cmd.extend(["--profile", profile])
+        if pipeline:
+            cmd.extend(["--pipeline", pipeline])
         cmd.extend(["get-role", self._canonical_role(role)])
         result = subprocess.run(cmd, cwd=str(PROJECT_ROOT), capture_output=True, text=True)
         if result.returncode != 0:
@@ -183,6 +186,24 @@ class BackendAgentHandler:
             if contract_path.exists()
             else f"- Follow all rules from your agent definition (.claude/agents/{role}.md)\n"
         )
+        runtime_policy = self._policy_for_role(role) if self.backend == "hybrid" else {}
+        runtime_policy_hint = ""
+        if runtime_policy:
+            policy_lines = [
+                "\n## Runtime Policy",
+                f"- backend: {runtime_policy.get('backend', '')}",
+                f"- model: {runtime_policy.get('model', '')}",
+                f"- runtime_profile: {runtime_policy.get('runtime_profile', '')}",
+            ]
+            if runtime_policy.get("runtime_pipeline"):
+                policy_lines.append(f"- runtime_pipeline: {runtime_policy.get('runtime_pipeline')}")
+            if runtime_policy.get("debate_mode"):
+                policy_lines.append(f"- debate_mode: {runtime_policy.get('debate_mode')}")
+            if runtime_policy.get("evidence_gate"):
+                policy_lines.append(f"- evidence_gate: {runtime_policy.get('evidence_gate')}")
+            if runtime_policy.get("transport_policy"):
+                policy_lines.append(f"- transport_policy: {runtime_policy.get('transport_policy')}")
+            runtime_policy_hint = "\n".join(policy_lines) + "\n"
         scope_contract_path = self._scope_contract_path()
         scope_contract_hint = ""
         if scope_contract_path.exists():
@@ -212,6 +233,7 @@ Working directory: {self.work_dir}
 - Expected outputs: {', '.join(ROLE_ARTIFACTS.get(role, ['(none)']))}
 - When done, output a summary of your findings.
 {contract_hint.rstrip()}
+{runtime_policy_hint.rstrip()}
 {scope_contract_hint.rstrip()}
 """
 
