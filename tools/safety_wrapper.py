@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import ipaddress
 import json
+import os
 import re
 import sys
 from pathlib import Path
@@ -141,7 +142,11 @@ def forbidden_by_text(action: dict[str, Any], contract: dict[str, Any]) -> list[
     return sorted(set(hits))
 
 
-def verdict(action: dict[str, Any], *, contract_path: Path | None = None) -> dict[str, Any]:
+def verdict(action: dict[str, Any], *, contract_path: Path | None = None,
+            approval_mode: str = "") -> dict[str, Any]:
+    if not approval_mode:
+        approval_mode = os.environ.get("TERMINATOR_APPROVAL_MODE", "open")
+
     reasons: list[str] = []
     action_type = str(action.get("action_type") or "").strip().lower()
     url_or_asset = str(action.get("url_or_asset") or "").strip()
@@ -153,10 +158,20 @@ def verdict(action: dict[str, Any], *, contract_path: Path | None = None) -> dic
     if not action_type:
         return {"verdict": "BLOCK", "reasons": ["missing_action_type"], "llm_override_allowed": False}
 
+    if approval_mode == "closed" and action_type not in ALLOW_ACTIONS_WITHOUT_CONTRACT:
+        return {"verdict": "PENDING", "reasons": [f"closed_mode_requires_approval:{action_type}"],
+                "approval_mode": "closed", "llm_override_allowed": False}
+
     if action_type in BLOCK_ACTION_TYPES:
+        if approval_mode == "filtered":
+            return {"verdict": "PENDING", "reasons": [f"filtered_mode_approval_needed:{action_type}"],
+                    "approval_mode": "filtered", "llm_override_allowed": False}
         return {"verdict": "BLOCK", "reasons": [f"blocked_action_type:{action_type}"], "llm_override_allowed": False}
 
     if payload_class in SENSITIVE_PAYLOAD_CLASSES:
+        if approval_mode == "filtered":
+            return {"verdict": "PENDING", "reasons": [f"filtered_mode_sensitive_payload:{payload_class}"],
+                    "approval_mode": "filtered", "llm_override_allowed": False}
         return {"verdict": "BLOCK", "reasons": [f"blocked_payload_class:{payload_class}"], "llm_override_allowed": False}
 
     if action_type == "public_program_fetch":

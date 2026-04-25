@@ -604,6 +604,17 @@ ensure_docker() {
 
 ensure_docker
 
+# --- Tool preflight check (katoolin-inspired) ---
+preflight_tools() {
+  case "${1:-}" in
+    help|status|logs|_summary|_exit_code) return 0 ;;
+  esac
+  python3 "$SCRIPT_DIR/tools/tool_lifecycle.py" check --pipeline "$1" --json >/dev/null 2>&1 || {
+    log_warn "Some tools for '$1' pipeline are missing. Run: python3 tools/tool_lifecycle.py install --pipeline $1"
+  }
+}
+preflight_tools "$MODE"
+
 case "$MODE" in
   ctf)
     if [ -z "$TARGET" ]; then

@@ -3,11 +3,11 @@ services:
     image: pgvector/pgvector:pg16
     container_name: terminator-db
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-shadowhunter}
+      POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB required}
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-shadowhunter}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD required}
     ports:
-      - "5433:5432"
+      - "127.0.0.1:5433:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./rag_system/init.sql:/docker-entrypoint-initdb.d/init.sql
@@ -25,7 +25,7 @@ services:
     image: ollama/ollama:latest
     container_name: terminator-ollama
     ports:
-      - "11434:11434"
+      - "127.0.0.1:11434:11434"
     volumes:
       - ollama_data:/root/.ollama
     healthcheck:
@@ -44,15 +44,15 @@ services:
       dockerfile: rag_system/Dockerfile
     container_name: terminator-rag-api
     ports:
-      - "8100:8100"
+      - "127.0.0.1:8100:8100"
     environment:
       - OLLAMA_HOST=ollama
       - OLLAMA_PORT=11434
       - DB_HOST=db
       - DB_PORT=5432
-      - DB_NAME=${POSTGRES_DB:-shadowhunter}
+      - DB_NAME=${POSTGRES_DB:?POSTGRES_DB required}
       - DB_USER=${POSTGRES_USER:-postgres}
-      - DB_PASSWORD=${POSTGRES_PASSWORD:-shadowhunter}
+      - DB_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD required}
     depends_on:
       db:
         condition: service_healthy
@@ -67,17 +67,17 @@ services:
     image: neo4j:5-community
     container_name: terminator-neo4j
     ports:
-      - "7474:7474"
-      - "7687:7687"
+      - "127.0.0.1:7474:7474"
+      - "127.0.0.1:7687:7687"
     environment:
-      - NEO4J_AUTH=${NEO4J_USER:-neo4j}/${NEO4J_PASSWORD:-terminator}
+      - NEO4J_AUTH=${NEO4J_USER:-neo4j}/${NEO4J_PASSWORD:?NEO4J_PASSWORD required}
       - NEO4J_PLUGINS=["apoc"]
-      - NEO4J_dbms_security_procedures_unrestricted=apoc.*
+      - NEO4J_dbms_security_procedures_unrestricted=apoc.meta.*,apoc.help,apoc.coll.*,apoc.map.*,apoc.convert.*
     volumes:
       - neo4j_data:/data
       - neo4j_logs:/logs
     healthcheck:
-      test: ["CMD-SHELL", "cypher-shell -u $${NEO4J_USER:-neo4j} -p $${NEO4J_PASSWORD:-terminator} 'RETURN 1'"]
+      test: ["CMD-SHELL", "cypher-shell -u $${NEO4J_USER:-neo4j} -p $${NEO4J_PASSWORD} 'RETURN 1'"]
       interval: 10s
       timeout: 10s
       retries: 10
@@ -90,21 +90,21 @@ services:
     image: ghcr.io/berriai/litellm:main-latest
     container_name: terminator-litellm
     ports:
-      - "4000:4000"
+      - "127.0.0.1:4000:4000"
     volumes:
       - ./tools/litellm_config.yaml:/app/config.yaml
     environment:
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - GEMINI_API_KEY=${GEMINI_API_KEY}
       - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
-      - LITELLM_MASTER_KEY=${LITELLM_MASTER_KEY:-sk-terminator-local}
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-shadowhunter}@db:5432/${POSTGRES_DB:-shadowhunter}
+      - LITELLM_MASTER_KEY=${LITELLM_MASTER_KEY:?LITELLM_MASTER_KEY required}
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD required}@db:5432/${POSTGRES_DB:?POSTGRES_DB required}
     command: ["--config", "/app/config.yaml", "--port", "4000", "--host", "0.0.0.0"]
     depends_on:
       db:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "curl -sf -H 'Authorization: Bearer $${LITELLM_MASTER_KEY:-sk-terminator-local}' http://localhost:4000/health"]
+      test: ["CMD-SHELL", "curl -sf -H 'Authorization: Bearer $${LITELLM_MASTER_KEY}' http://localhost:4000/health"]
       interval: 15s
       timeout: 10s
       retries: 5
@@ -119,7 +119,7 @@ services:
       dockerfile: web/Dockerfile
     container_name: terminator-web-ui
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     environment:
       - SERVICE_DISCOVERY=docker
       - RAG_API_URL=http://rag-api:8100
@@ -127,7 +127,7 @@ services:
       - PG_PORT=5432
       - NEO4J_URI=bolt://neo4j:7687
       - NEO4J_USER=${NEO4J_USER:-neo4j}
-      - NEO4J_PASSWORD=${NEO4J_PASSWORD:-terminator}
+      - NEO4J_PASSWORD=${NEO4J_PASSWORD:?NEO4J_PASSWORD required}
     volumes:
       - ./reports:/app/reports:ro
       - ./targets:/app/targets:ro
@@ -139,6 +139,44 @@ services:
       resources:
         limits:
           memory: 256M
+
+  sandbox:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.sandbox
+    container_name: terminator-sandbox
+    volumes:
+      - ./targets:/workspace/targets
+      - ./evidence:/workspace/evidence
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_RAW
+      - NET_ADMIN
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+    profiles:
+      - sandbox
+
+  docker-proxy:
+    image: tecnativa/docker-socket-proxy:latest
+    container_name: terminator-docker-proxy
+    environment:
+      CONTAINERS: 1
+      EXEC: 1
+      POST: 0
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+    profiles:
+      - sandbox
 
 volumes:
   pgdata:
