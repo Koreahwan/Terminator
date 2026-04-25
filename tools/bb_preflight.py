@@ -192,6 +192,9 @@ def init(target_dir: str, domain: str = "bounty") -> int:
     tdir = Path(target_dir)
     tdir.mkdir(parents=True, exist_ok=True)
 
+    for subdir in ["recon", "exploits", "evidence", "credentials", "submission", "program_raw"]:
+        (tdir / subdir).mkdir(parents=True, exist_ok=True)
+
     rules_name = cfg["rules_file"]
     map_name = cfg["endpoint_map"]
 

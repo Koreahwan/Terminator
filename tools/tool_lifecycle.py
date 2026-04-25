@@ -25,7 +25,7 @@ from tools.toolspec.registry import ToolRegistry, ToolSpec  # noqa: E402
 TOOLS_YAML = PROJECT_ROOT / "tools" / "toolspec" / "tools_full.yaml"
 KALI_LIST = Path("/etc/apt/sources.list.d/kali.list")
 KALI_KEY_URL = "https://archive.kali.org/archive-key.asc"
-KALI_REPO_LINE = "deb http://http.kali.org/kali kali-rolling main non-free non-free-firmware"
+KALI_REPO_LINE = "deb [signed-by=/etc/apt/keyrings/kali-archive-keyring.gpg] http://http.kali.org/kali kali-rolling main non-free non-free-firmware"
 
 PIPELINE_CATEGORIES = {
     "bounty": ["recon", "web", "scanning", "password", "sniffing", "exploit",
@@ -197,33 +197,33 @@ def cmd_install(args):
 
         pkgs = " ".join(t.install_cmd for t in apt_tools)
         print(f"\n[apt] Installing: {pkgs}")
-        os.system(f"sudo apt-get update -qq && sudo apt-get install -y -qq {pkgs}")
+        subprocess.run(f"sudo apt-get update -qq && sudo apt-get install -y -qq {pkgs}", shell=True, check=False)
 
     for t in by_method.get("pip", []):
         print(f"\n[pip] Installing: {t.install_cmd}")
-        os.system(f"pip install --user --quiet {t.install_cmd}")
+        subprocess.run(f"pip install --user --quiet {t.install_cmd}", shell=True, check=False)
 
     for t in by_method.get("go_install", []):
         print(f"\n[go] Installing: {t.install_cmd}")
-        os.system(f"go install {t.install_cmd}")
+        subprocess.run(f"go install {t.install_cmd}", shell=True, check=False)
 
     for t in by_method.get("cargo", []):
         print(f"\n[cargo] Installing: {t.install_cmd}")
-        os.system(f"cargo install {t.install_cmd}")
+        subprocess.run(f"cargo install {t.install_cmd}", shell=True, check=False)
 
     for t in by_method.get("npm", []):
         print(f"\n[npm] Installing: {t.install_cmd}")
-        os.system(f"npm install -g {t.install_cmd}")
+        subprocess.run(f"npm install -g {t.install_cmd}", shell=True, check=False)
 
     for t in by_method.get("gem", []):
         print(f"\n[gem] Installing: {t.install_cmd}")
-        os.system(f"gem install {t.install_cmd}")
+        subprocess.run(f"gem install {t.install_cmd}", shell=True, check=False)
 
     for t in by_method.get("git", []):
         dest = _expand_home(t.binary_path)
         if not os.path.exists(dest):
             print(f"\n[git] Cloning: {t.install_cmd} → {dest}")
-            os.system(f"git clone --depth 1 {t.install_cmd} {dest}")
+            subprocess.run(f"git clone --depth 1 {t.install_cmd} {dest}", shell=True, check=False)
 
     for t in by_method.get("manual", []):
         print(f"\n[manual] {t.tool_id}: {t.install_cmd}")
@@ -283,7 +283,7 @@ def cmd_audit(args):
     print("Running integration audit + toolspec cross-reference...\n")
     audit_script = PROJECT_ROOT / "tools" / "integration_audit.py"
     if audit_script.exists():
-        os.system(f"python3 {audit_script}")
+        subprocess.run(f"python3 {audit_script}", shell=True, check=False)
     else:
         print("  integration_audit.py not found, skipping.\n")
 
@@ -318,17 +318,18 @@ def cmd_repo(args):
             print("Kali repo already configured.")
             return
         print("Adding Kali Linux repository...")
-        os.system(f"wget -q -O - {KALI_KEY_URL} | sudo apt-key add -")
-        os.system(f'echo "{KALI_REPO_LINE}" | sudo tee {KALI_LIST}')
-        os.system("sudo apt-get update -qq")
+        subprocess.run(["sudo", "mkdir", "-p", "/etc/apt/keyrings"], check=False)
+        subprocess.run(f"wget -q -O - {KALI_KEY_URL} | sudo tee /etc/apt/keyrings/kali-archive-keyring.gpg > /dev/null", shell=True, check=False)
+        subprocess.run(f'echo "{KALI_REPO_LINE}" | sudo tee {KALI_LIST}', shell=True, check=False)
+        subprocess.run("sudo apt-get update -qq", shell=True, check=False)
         print("Kali repo added. WARNING: Remove before system updates (repo remove-kali).")
 
     elif action == "remove-kali":
         if not _kali_repo_exists():
             print("Kali repo not configured.")
             return
-        os.system(f"sudo rm -f {KALI_LIST}")
-        os.system("sudo apt-get update -qq")
+        subprocess.run(f"sudo rm -f {KALI_LIST}", shell=True, check=False)
+        subprocess.run("sudo apt-get update -qq", shell=True, check=False)
         print("Kali repo removed. Safe to run system updates.")
 
 

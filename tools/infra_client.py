@@ -669,6 +669,165 @@ def cmd_db_cost_summary(args):
         err(f"cost-summary failed: {e}")
 
 
+# ── Assessment Commands (AIDA-inspired) ─────────────────────────────────────
+
+def cmd_assessment_create(args):
+    try:
+        conn = get_pg_conn()
+        cur = conn.cursor()
+        cur.execute(
+            """INSERT INTO assessments (target, pipeline, session_id, template, metadata)
+               VALUES (%s, %s, %s, %s, %s) RETURNING id""",
+            (args.target, args.pipeline, getattr(args, 'session_id', None),
+             getattr(args, 'template', None), '{}'),
+        )
+        aid = cur.fetchone()[0]
+        conn.commit()
+        cur.close()
+        conn.close()
+        output({"id": aid, "status": "created", "target": args.target, "pipeline": args.pipeline}, args)
+    except Exception as e:
+        err(f"assessment create failed: {e}")
+
+
+def cmd_assessment_update(args):
+    try:
+        conn = get_pg_conn()
+        cur = conn.cursor()
+        sets, vals = [], []
+        for field in ("phase", "status"):
+            v = getattr(args, field, None)
+            if v:
+                sets.append(f"{field} = %s")
+                vals.append(v)
+        if not sets:
+            err("No fields to update (use --phase or --status)")
+            return
+        sets.append("updated_at = NOW()")
+        vals.append(args.id)
+        cur.execute(f"UPDATE assessments SET {', '.join(sets)} WHERE id = %s RETURNING id", vals)
+        row = cur.fetchone()
+        conn.commit()
+        cur.close()
+        conn.close()
+        output({"id": args.id, "updated": bool(row)}, args)
+    except Exception as e:
+        err(f"assessment update failed: {e}")
+
+
+def cmd_assessment_get(args):
+    try:
+        conn = get_pg_conn()
+        cur = conn.cursor()
+        cur.execute(
+            """SELECT id, target, pipeline, session_id, status, phase, template, metadata, created_at, updated_at
+               FROM assessments WHERE id = %s""", (args.id,))
+        row = cur.fetchone()
+        cur.close()
+        conn.close()
+        if not row:
+            err(f"Assessment #{args.id} not found")
+            return
+        cols = ["id", "target", "pipeline", "session_id", "status", "phase", "template", "metadata", "created_at", "updated_at"]
+        d = dict(zip(cols, row))
+        for k in ("created_at", "updated_at"):
+            if d[k]:
+                d[k] = d[k].isoformat()
+        output(d, args)
+    except Exception as e:
+        err(f"assessment get failed: {e}")
+
+
+def cmd_assessment_list(args):
+    try:
+        conn = get_pg_conn()
+        cur = conn.cursor()
+        q = "SELECT id, target, pipeline, status, phase, template, created_at FROM assessments WHERE 1=1"
+        params = []
+        if getattr(args, 'target', None):
+            q += " AND target ILIKE %s"
+            params.append(f"%{args.target}%")
+        if getattr(args, 'status', None):
+            q += " AND status = %s"
+            params.append(args.status)
+        q += " ORDER BY created_at DESC LIMIT 50"
+        cur.execute(q, params)
+        rows = cur.fetchall()
+        cur.close()
+        conn.close()
+        cols = ["id", "target", "pipeline", "status", "phase", "template", "created_at"]
+        output({"assessments": [
+            {c: (r[i].isoformat() if c == "created_at" and r[i] else r[i]) for i, c in enumerate(cols)}
+            for r in rows
+        ]}, args)
+    except Exception as e:
+        err(f"assessment list failed: {e}")
+
+
+def cmd_assessment_log_cmd(args):
+    try:
+        conn = get_pg_conn()
+        cur = conn.cursor()
+        cur.execute(
+            """INSERT INTO command_log (assessment_id, agent_role, command, command_type, phase)
+               VALUES (%s, %s, %s, %s, %s) RETURNING id""",
+            (args.assessment_id, args.agent, args.command, getattr(args, 'type', 'shell'),
+             getattr(args, 'phase', None)),
+        )
+        cid = cur.fetchone()[0]
+        conn.commit()
+        cur.close()
+        conn.close()
+        output({"id": cid, "status": "logged"}, args)
+    except Exception as e:
+        err(f"assessment log-cmd failed: {e}")
+
+
+def cmd_assessment_timeline(args):
+    try:
+        conn = get_pg_conn()
+        cur = conn.cursor()
+        cur.execute(
+            """SELECT id, phase, event_type, severity, title, agent_role, created_at
+               FROM timeline_events WHERE assessment_id = %s ORDER BY created_at""",
+            (args.assessment_id,),
+        )
+        rows = cur.fetchall()
+        cur.close()
+        conn.close()
+        cols = ["id", "phase", "event_type", "severity", "title", "agent_role", "created_at"]
+        output({"events": [
+            {c: (r[i].isoformat() if c == "created_at" and r[i] else r[i]) for i, c in enumerate(cols)}
+            for r in rows
+        ]}, args)
+    except Exception as e:
+        err(f"assessment timeline failed: {e}")
+
+
+def cmd_assessment_search(args):
+    try:
+        conn = get_pg_conn()
+        cur = conn.cursor()
+        q_text = f"%{args.query}%"
+        cur.execute(
+            """(SELECT 'finding' as type, id, title as text, severity, created_at FROM findings WHERE title ILIKE %s OR description ILIKE %s LIMIT 20)
+               UNION ALL
+               (SELECT 'command' as type, id, command as text, NULL, created_at FROM command_log WHERE command ILIKE %s LIMIT 20)
+               ORDER BY created_at DESC LIMIT %s""",
+            (q_text, q_text, q_text, getattr(args, 'limit', 50)),
+        )
+        rows = cur.fetchall()
+        cur.close()
+        conn.close()
+        output({"results": [
+            {"type": r[0], "id": r[1], "text": r[2][:100], "severity": r[3],
+             "created_at": r[4].isoformat() if r[4] else ""}
+            for r in rows
+        ]}, args)
+    except Exception as e:
+        err(f"assessment search failed: {e}")
+
+
 # ── Argument Parsing ─────────────────────────────────────────────────────────
 
 def build_parser():
@@ -802,6 +961,49 @@ def build_parser():
     cs.add_argument("--target", help="Filter by target (omit for all targets)")
     cs.set_defaults(func=cmd_db_cost_summary)
 
+    # ── Assessment (AIDA-inspired) ─────────────────────────────────────
+    assess = subparsers.add_parser("assessment", help="Assessment persistence commands")
+    assess_sub = assess.add_subparsers(dest="action")
+
+    ac = assess_sub.add_parser("create", help="Create new assessment")
+    ac.add_argument("--target", required=True)
+    ac.add_argument("--pipeline", required=True)
+    ac.add_argument("--session-id", default=None)
+    ac.add_argument("--template", default=None)
+    ac.set_defaults(func=cmd_assessment_create)
+
+    au = assess_sub.add_parser("update", help="Update assessment phase/status")
+    au.add_argument("--id", type=int, required=True)
+    au.add_argument("--phase", default=None)
+    au.add_argument("--status", default=None)
+    au.set_defaults(func=cmd_assessment_update)
+
+    ag = assess_sub.add_parser("get", help="Get assessment details")
+    ag.add_argument("--id", type=int, required=True)
+    ag.set_defaults(func=cmd_assessment_get)
+
+    al = assess_sub.add_parser("list", help="List assessments")
+    al.add_argument("--target", default=None)
+    al.add_argument("--status", default=None)
+    al.set_defaults(func=cmd_assessment_list)
+
+    alc = assess_sub.add_parser("log-cmd", help="Log command execution")
+    alc.add_argument("--assessment-id", type=int, required=True)
+    alc.add_argument("--agent", required=True)
+    alc.add_argument("--command", required=True)
+    alc.add_argument("--type", default="shell")
+    alc.add_argument("--phase", default=None)
+    alc.set_defaults(func=cmd_assessment_log_cmd)
+
+    at = assess_sub.add_parser("timeline", help="Show assessment timeline")
+    at.add_argument("--assessment-id", type=int, required=True)
+    at.set_defaults(func=cmd_assessment_timeline)
+
+    asrch = assess_sub.add_parser("search", help="Search across findings and commands")
+    asrch.add_argument("--query", required=True)
+    asrch.add_argument("--limit", type=int, default=50)
+    asrch.set_defaults(func=cmd_assessment_search)
+
     return parser
 
 
@@ -823,6 +1025,8 @@ def main():
             parser.parse_args(["graph", "--help"])
         elif args.service == "db":
             parser.parse_args(["db", "--help"])
+        elif args.service == "assessment":
+            parser.parse_args(["assessment", "--help"])
         else:
             parser.print_help()
         return

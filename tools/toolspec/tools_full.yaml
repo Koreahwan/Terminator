@@ -1191,3 +1191,291 @@ tools:
     category: infra
     pipelines: [bounty, ctf]
     agent_roles: [analyst, exploiter]
+
+  # ── exploit (Python libs) ──────────────────────────────
+  - tool_id: pwntools
+    name: pwntools
+    kind: execution
+    entrypoint: pwn
+    description: "CTF/exploit development framework"
+    install_method: pip
+    install_cmd: pwntools
+    binary_path: "~/.local/bin/pwn"
+    version_cmd: "python3 -c 'import pwn; print(pwn.version.__version__)' 2>&1"
+    category: exploit
+    pipelines: [ctf]
+    agent_roles: [chain, trigger, ctf-solver, exploiter]
+
+  - tool_id: angr
+    name: angr
+    kind: analysis
+    entrypoint: ""
+    description: "Symbolic execution engine"
+    install_method: pip
+    install_cmd: angr
+    version_cmd: "python3 -c 'import angr; print(angr.__version__)' 2>&1"
+    category: exploit
+    pipelines: [ctf]
+    agent_roles: [solver, reverser]
+
+  - tool_id: z3-solver
+    name: Z3
+    kind: analysis
+    entrypoint: ""
+    description: "SMT constraint solver"
+    install_method: pip
+    install_cmd: z3-solver
+    version_cmd: "python3 -c 'import z3; print(z3.get_version_string())' 2>&1"
+    category: exploit
+    pipelines: [ctf]
+    agent_roles: [solver, ctf-solver]
+
+  - tool_id: ropgadget
+    name: ROPgadget
+    kind: analysis
+    entrypoint: ROPgadget
+    description: "ROP gadget finder"
+    install_method: pip
+    install_cmd: ROPgadget
+    binary_path: "~/.local/bin/ROPgadget"
+    version_cmd: "ROPgadget --version 2>&1"
+    category: exploit
+    pipelines: [ctf]
+    agent_roles: [chain, reverser, ctf-solver]
+
+  - tool_id: ropper
+    name: Ropper
+    kind: analysis
+    entrypoint: ropper
+    description: "ROP/JOP/SOP gadget finder (alternative)"
+    install_method: pip
+    install_cmd: ropper
+    binary_path: "~/.local/bin/ropper"
+    version_cmd: "ropper --version 2>&1"
+    category: exploit
+    pipelines: [ctf]
+    agent_roles: [chain, reverser]
+
+  - tool_id: one-gadget
+    name: one_gadget
+    kind: analysis
+    entrypoint: one_gadget
+    description: "One-shot execve gadget finder"
+    install_method: gem
+    install_cmd: one_gadget
+    binary_path: "~/.local/share/gem/ruby/*/bin/one_gadget"
+    version_cmd: "one_gadget --version 2>&1"
+    category: exploit
+    pipelines: [ctf]
+    agent_roles: [chain, ctf-solver]
+
+  - tool_id: seccomp-tools
+    name: seccomp-tools
+    kind: analysis
+    entrypoint: seccomp-tools
+    description: "Seccomp sandbox filter analysis"
+    install_method: gem
+    install_cmd: seccomp-tools
+    binary_path: "~/.local/share/gem/ruby/*/bin/seccomp-tools"
+    version_cmd: "seccomp-tools --version 2>&1"
+    category: exploit
+    pipelines: [ctf]
+    agent_roles: [reverser, ctf-solver]
+
+  # ── re (additional) ────────────────────────────────────
+  - tool_id: strace
+    name: strace
+    kind: analysis
+    entrypoint: strace
+    description: "System call tracing"
+    install_method: apt
+    install_cmd: strace
+    binary_path: /usr/bin/strace
+    version_cmd: "strace --version 2>&1 | head -1"
+    category: re
+    pipelines: [ctf]
+    agent_roles: [reverser, trigger]
+
+  - tool_id: ltrace
+    name: ltrace
+    kind: analysis
+    entrypoint: ltrace
+    description: "Library call tracing"
+    install_method: apt
+    install_cmd: ltrace
+    binary_path: /usr/bin/ltrace
+    version_cmd: "ltrace --version 2>&1 | head -1"
+    category: re
+    pipelines: [ctf]
+    agent_roles: [reverser]
+
+  - tool_id: jadx
+    name: jadx
+    kind: analysis
+    entrypoint: jadx
+    description: "APK/DEX decompiler (Java)"
+    install_method: manual
+    install_cmd: "https://github.com/skylot/jadx/releases"
+    binary_path: "~/tools/jadx/bin/jadx"
+    version_cmd: "jadx --version 2>&1"
+    category: mobile
+    pipelines: [mobile, ctf]
+    agent_roles: [mobile-analyst, reverser]
+
+  # ── ai (additional) ────────────────────────────────────
+  - tool_id: crawl4ai
+    name: Crawl4AI
+    kind: network
+    entrypoint: crawl4ai
+    description: "LLM-optimized web crawler (Playwright JS rendering)"
+    install_method: pip
+    install_cmd: crawl4ai
+    binary_path: "~/.local/bin/crawl4ai"
+    version_cmd: "crawl4ai --version 2>&1 | head -1"
+    category: ai
+    pipelines: [bounty, ai_security]
+    agent_roles: [scout, ai-recon]
+
+  # ── supply_chain (additional) ──────────────────────────
+  - tool_id: cargo-fuzz
+    name: cargo-fuzz
+    kind: execution
+    entrypoint: cargo-fuzz
+    description: "Rust libFuzzer integration (coverage-guided)"
+    install_method: cargo
+    install_cmd: cargo-fuzz
+    binary_path: "~/.cargo/bin/cargo-fuzz"
+    version_cmd: "cargo fuzz --version 2>&1"
+    category: supply_chain
+    pipelines: [supplychain]
+    agent_roles: [sc-scanner]
+
+  # ── wireless (additional) ──────────────────���───────────
+  - tool_id: killerbee
+    name: KillerBee
+    kind: execution
+    entrypoint: zbstumbler
+    description: "ZigBee protocol analysis (IoT)"
+    install_method: pip
+    install_cmd: killerbee
+    binary_path: "~/.local/bin/zbstumbler"
+    version_cmd: "zbstumbler -h 2>&1 | head -1"
+    category: wireless
+    pipelines: [firmware]
+    agent_roles: [fw-surface]
+
+  # ── crypto ─────────────────────────────────────────────
+  - tool_id: pycryptodome
+    name: PyCryptodome
+    kind: analysis
+    entrypoint: ""
+    description: "Cryptographic primitives library"
+    install_method: pip
+    install_cmd: pycryptodome
+    version_cmd: "python3 -c 'import Crypto; print(Crypto.__version__)' 2>&1"
+    category: exploit
+    pipelines: [ctf]
+    agent_roles: [solver, ctf-solver]
+
+  # ── debugging ────────────────────────��─────────────────
+  - tool_id: pwndbg
+    name: pwndbg
+    kind: execution
+    entrypoint: ""
+    description: "GDB plugin for exploit development"
+    install_method: git
+    install_cmd: "https://github.com/pwndbg/pwndbg.git"
+    binary_path: "~/pwndbg"
+    version_cmd: "ls ~/pwndbg/pwndbg.py 2>&1"
+    category: re
+    pipelines: [ctf]
+    agent_roles: [reverser, trigger, chain]
+
+  - tool_id: gef
+    name: GEF
+    kind: execution
+    entrypoint: ""
+    description: "GDB Enhanced Features (93 commands)"
+    install_method: pip
+    install_cmd: gef
+    version_cmd: "ls ~/.gdbinit-gef.py 2>&1"
+    category: re
+    pipelines: [ctf]
+    agent_roles: [reverser, trigger]
+
+  # ── binary analysis libs ───────────────────────────────
+  - tool_id: lief
+    name: LIEF
+    kind: analysis
+    entrypoint: ""
+    description: "Binary parsing library (ELF/PE/MachO)"
+    install_method: pip
+    install_cmd: lief
+    version_cmd: "python3 -c 'import lief; print(lief.__version__)' 2>&1"
+    category: re
+    pipelines: [ctf]
+    agent_roles: [reverser]
+
+  - tool_id: pyelftools
+    name: pyelftools
+    kind: analysis
+    entrypoint: ""
+    description: "Pure Python ELF parser"
+    install_method: pip
+    install_cmd: pyelftools
+    version_cmd: "python3 -c 'import elftools; print(elftools.__version__)' 2>&1"
+    category: re
+    pipelines: [ctf]
+    agent_roles: [reverser]
+
+  - tool_id: capstone
+    name: Capstone
+    kind: analysis
+    entrypoint: ""
+    description: "Multi-arch disassembly framework"
+    install_method: pip
+    install_cmd: capstone
+    version_cmd: "python3 -c 'import capstone; print(capstone.cs_version())' 2>&1"
+    category: re
+    pipelines: [ctf]
+    agent_roles: [reverser]
+
+  # ── network utils ──────────────────────────────────────
+  - tool_id: netcat
+    name: Netcat
+    kind: network
+    entrypoint: nc
+    description: "Network utility (connect, listen, transfer)"
+    install_method: apt
+    install_cmd: netcat-openbsd
+    binary_path: /usr/bin/nc
+    version_cmd: "nc -h 2>&1 | head -1"
+    category: sniffing
+    pipelines: [ctf, bounty, all]
+    agent_roles: [all]
+
+  - tool_id: curl
+    name: curl
+    kind: network
+    entrypoint: curl
+    description: "HTTP client"
+    install_method: apt
+    install_cmd: curl
+    binary_path: /usr/bin/curl
+    version_cmd: "curl --version 2>&1 | head -1"
+    category: infra
+    pipelines: [all]
+    agent_roles: [all]
+
+  - tool_id: wget
+    name: wget
+    kind: network
+    entrypoint: wget
+    description: "HTTP downloader"
+    install_method: apt
+    install_cmd: wget
+    binary_path: /usr/bin/wget
+    version_cmd: "wget --version 2>&1 | head -1"
+    category: infra
+    pipelines: [all]
+    agent_roles: [all]
