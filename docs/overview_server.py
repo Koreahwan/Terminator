@@ -205,6 +205,7 @@ def build_status() -> dict:
 
 _subscribers: set[queue.Queue] = set()
 _subs_lock = threading.Lock()
+_MAX_SUBSCRIBERS = 32
 _last_event_ts = 0.0
 _debounce_timer: threading.Timer | None = None
 _debounce_lock = threading.Lock()
@@ -327,8 +328,8 @@ def _start_idle_shutdown(server: ThreadingHTTPServer) -> threading.Thread | None
 # --- HTTP handlers ---
 
 class Handler(BaseHTTPRequestHandler):
-    def log_message(self, fmt, *args):  # quiet
-        return
+    def log_message(self, fmt, *args):
+        sys.stderr.write("%s - - [%s] %s\n" % (self.address_string(), self.log_date_time_string(), fmt % args))
 
     def _send_json(self, payload: dict, status: int = 200) -> None:
         body = json.dumps(payload, ensure_ascii=False, indent=2).encode("utf-8")
@@ -336,7 +337,7 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Cache-Control", "no-store")
-        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Origin", "http://127.0.0.1:8450")
         self.end_headers()
         self.wfile.write(body)
 
@@ -354,10 +355,14 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", "text/event-stream")
         self.send_header("Cache-Control", "no-store")
         self.send_header("Connection", "keep-alive")
-        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Origin", "http://127.0.0.1:8450")
         self.end_headers()
         q: queue.Queue = queue.Queue(maxsize=64)
         with _subs_lock:
+            if len(_subscribers) >= _MAX_SUBSCRIBERS:
+                self.send_response(503)
+                self.end_headers()
+                return
             _subscribers.add(q)
         try:
             self.wfile.write(b": connected\n\n")
@@ -380,9 +385,86 @@ class Handler(BaseHTTPRequestHandler):
             with _subs_lock:
                 _subscribers.discard(q)
 
+    def _get_db_conn(self):
+        try:
+            import psycopg2
+            return psycopg2.connect(
+                host=os.environ.get("TERMINATOR_DB_HOST", "localhost"),
+                port=int(os.environ.get("TERMINATOR_DB_PORT", "5433")),
+                dbname=os.environ.get("TERMINATOR_DB_NAME", "terminator"),
+                user=os.environ.get("TERMINATOR_DB_USER", "shadowhunter"),
+                password=os.environ.get("TERMINATOR_DB_PASS", "terminator"),
+            )
+        except Exception:
+            return None
+
+    def _get_assessments(self):
+        conn = self._get_db_conn()
+        if not conn:
+            return {"error": "Database unavailable"}
+        try:
+            cur = conn.cursor()
+            cur.execute("SELECT id, target, pipeline, status, phase, template, created_at FROM assessments ORDER BY created_at DESC LIMIT 50")
+            cols = [d[0] for d in cur.description]
+            rows = [dict(zip(cols, r)) for r in cur.fetchall()]
+            conn.close()
+            return {"assessments": rows}
+        except Exception as e:
+            return {"error": str(e)}
+
+    def _get_findings(self):
+        conn = self._get_db_conn()
+        if not conn:
+            return {"error": "Database unavailable"}
+        try:
+            cur = conn.cursor()
+            cur.execute("SELECT id, target, title, severity, status, cvss_score, evidence_tier, created_at FROM findings ORDER BY created_at DESC LIMIT 50")
+            cols = [d[0] for d in cur.description]
+            rows = [dict(zip(cols, r)) for r in cur.fetchall()]
+            conn.close()
+            return {"findings": rows}
+        except Exception as e:
+            return {"error": str(e)}
+
+    def _get_timeline(self):
+        conn = self._get_db_conn()
+        if not conn:
+            return {"error": "Database unavailable"}
+        try:
+            cur = conn.cursor()
+            cur.execute("SELECT id, assessment_id, phase, event_type, severity, title, agent_role, created_at FROM timeline_events ORDER BY created_at DESC LIMIT 100")
+            cols = [d[0] for d in cur.description]
+            rows = [dict(zip(cols, r)) for r in cur.fetchall()]
+            conn.close()
+            return {"events": rows}
+        except Exception as e:
+            return {"error": str(e)}
+
+    def _get_tool_health(self):
+        try:
+            r = subprocess.run(
+                ["python3", str(Path(__file__).resolve().parents[1] / "tools" / "tool_lifecycle.py"), "check", "--json"],
+                capture_output=True, text=True, timeout=30,
+            )
+            return json.loads(r.stdout)
+        except Exception as e:
+            return {"error": str(e)}
+
     def do_GET(self) -> None:
         path = self.path.split("?", 1)[0]
         _touch_activity()
+        if path == "/api/assessments":
+            self._send_json(self._get_assessments())
+            return
+        if path == "/api/findings":
+            self._send_json(self._get_findings())
+            return
+        if path == "/api/timeline":
+            self._send_json(self._get_timeline())
+            return
+        if path == "/api/tool-health":
+            self._send_json(self._get_tool_health())
+            return
         if path == "/api/status.json":
             try:
                 self._send_json(build_status())

@@ -40,6 +40,9 @@ DRY_RUN=false
 WAIT_FOR_COMPLETION=false
 PLATFORM="auto"
 CTF_COMPETITION_V2=false
+SANDBOX=false
+ASSESSMENT_TEMPLATE=""
+APPROVAL_MODE="${TERMINATOR_APPROVAL_MODE:-open}"
 
 while [[ "${1:-}" == --* ]]; do
   case "$1" in
@@ -53,6 +56,9 @@ while [[ "${1:-}" == --* ]]; do
     --failover-to) REQUESTED_FAILOVER_TO="$2"; shift 2 ;;
     --runtime-profile) REQUESTED_RUNTIME_PROFILE="$2"; shift 2 ;;
     --resume-session) RESUME_SESSION="$2"; shift 2 ;;
+    --sandbox) SANDBOX=true; shift ;;
+    --template) ASSESSMENT_TEMPLATE="$2"; shift 2 ;;
+    --approval-mode) APPROVAL_MODE="$2"; shift 2 ;;
     --parallel-targets)
       echo "[!] --parallel-targets is no longer supported. Terminator now runs Claude first and only uses Codex as spare on Claude token/context exhaustion or provider/API failure." >&2
       exit $EXIT_ERROR
@@ -614,6 +620,23 @@ preflight_tools() {
   }
 }
 preflight_tools "$MODE"
+
+# --- Sandbox mode (AIDA-inspired container isolation) ---
+if [ "$SANDBOX" = "true" ]; then
+  export TERMINATOR_EXEC_PREFIX="docker exec terminator-sandbox"
+  log_info "Sandbox mode: commands will execute inside terminator-sandbox container"
+fi
+
+# --- Approval mode export ---
+export TERMINATOR_APPROVAL_MODE="$APPROVAL_MODE"
+
+# --- Assessment template preflight ---
+if [ -n "$ASSESSMENT_TEMPLATE" ]; then
+  TEMPLATE_FILE="$SCRIPT_DIR/tools/assessment_templates/${ASSESSMENT_TEMPLATE}.yaml"
+  if [ ! -f "$TEMPLATE_FILE" ]; then
+    log_warn "Template '$ASSESSMENT_TEMPLATE' not found at $TEMPLATE_FILE"
+  fi
+fi
 
 case "$MODE" in
   ctf)

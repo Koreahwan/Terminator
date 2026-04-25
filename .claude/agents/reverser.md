@@ -59,6 +59,8 @@ Source code (if available) → file/checksec/strings/readelf → Ghidra MCP (fun
 | Disassembly | **Ghidra MCP** `get_pseudocode` or `objdump -d` | Handles ARM Thumb-2 correctly |
 | **Decompilation (pseudocode)** | **Ghidra MCP ONLY** `get_pseudocode` | Only trusted decompiler |
 | **Function analysis** | **Ghidra MCP ONLY** | Ghidra handles mode-switching correctly |
+| Memory error detection | **valgrind** | Heap/stack corruption, use-after-free, leaks |
+| Pattern matching rules | **yara** | Malware signatures, binary pattern hunting |
 
 **Ghidra MCP usage:**
 ```

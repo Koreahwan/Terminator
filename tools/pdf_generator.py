@@ -14,9 +14,47 @@ Dependencies:
 
 import argparse
 import json
+import os
 import sys
 from datetime import datetime
 from typing import Optional
+
+
+def load_findings_from_db(assessment_id: int) -> dict:
+    """Load findings from assessment DB (AIDA-inspired)."""
+    PG_CONFIG = {
+        "host": os.environ.get("TERMINATOR_DB_HOST", "localhost"),
+        "port": int(os.environ.get("TERMINATOR_DB_PORT", "5433")),
+        "dbname": os.environ.get("TERMINATOR_DB_NAME", "terminator"),
+        "user": os.environ.get("TERMINATOR_DB_USER", "shadowhunter"),
+        "password": os.environ.get("TERMINATOR_DB_PASS", "terminator"),
+    }
+    try:
+        import psycopg2
+        conn = psycopg2.connect(**PG_CONFIG)
+        cur = conn.cursor()
+        cur.execute(
+            """SELECT title, severity, cvss_score, cvss_vector, cwe_id, evidence_tier,
+                      description, proof, attack_phase, platform
+               FROM findings WHERE assessment_id = %s ORDER BY
+               CASE severity WHEN 'CRITICAL' THEN 1 WHEN 'HIGH' THEN 2
+               WHEN 'MEDIUM' THEN 3 WHEN 'LOW' THEN 4 ELSE 5 END""",
+            (assessment_id,),
+        )
+        cols = [d[0] for d in cur.description]
+        rows = [dict(zip(cols, r)) for r in cur.fetchall()]
+        cur.execute("SELECT target, pipeline, template FROM assessments WHERE id = %s", (assessment_id,))
+        assess = cur.fetchone()
+        conn.close()
+        return {
+            "assessment_id": assessment_id,
+            "target": assess[0] if assess else "",
+            "pipeline": assess[1] if assess else "",
+            "findings": rows,
+        }
+    except Exception as e:
+        print(f"Warning: Could not load from DB: {e}", file=sys.stderr)
+        return {"findings": []}
 
 SEVERITY_COLORS = {
     "critical": "#dc3545",
@@ -584,7 +622,8 @@ def main():
     parser = argparse.ArgumentParser(
         description="Generate PDF security report from Terminator findings JSON"
     )
-    parser.add_argument("--input", "-i", required=True, help="Path to findings JSON file")
+    parser.add_argument("--input", "-i", required=False, default="", help="Path to findings JSON file")
+    parser.add_argument("--assessment-id", type=int, default=None, help="Load findings from assessment DB by ID")
     parser.add_argument("--output", "-o", required=True, help="Output PDF file path")
     parser.add_argument("--title", "-t", default="", help="Report title")
     parser.add_argument("--target", default="", help="Target system name")
@@ -602,14 +641,19 @@ def main():
     )
     args = parser.parse_args()
 
-    try:
-        data = load_findings(args.input)
-    except FileNotFoundError:
-        print(f"Error: Input file not found: {args.input}", file=sys.stderr)
-        sys.exit(1)
-    except json.JSONDecodeError as e:
-        print(f"Error: Invalid JSON in input file: {e}", file=sys.stderr)
-        sys.exit(1)
+    if getattr(args, 'assessment_id', None):
+        data = load_findings_from_db(args.assessment_id)
+        if not args.target and data.get("target"):
+            args.target = data["target"]
+    else:
+        try:
+            data = load_findings(args.input)
+        except FileNotFoundError:
+            print(f"Error: Input file not found: {args.input}", file=sys.stderr)
+            sys.exit(1)
+        except json.JSONDecodeError as e:
+            print(f"Error: Invalid JSON in input file: {e}", file=sys.stderr)
+            sys.exit(1)
 
     html_content = build_html(
         data=data,
