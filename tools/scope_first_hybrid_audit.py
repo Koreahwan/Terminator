@@ -24,6 +24,7 @@ REQUIRED_TOOLS = [
     "tools/scope_contract.py",
     "tools/safety_wrapper.py",
     "tools/debate_gate.py",
+    "tools/runtime_gate.py",
     "tools/scope_first_hybrid_audit.py",
 ]
 OVERCLAIM_RE = re.compile(
@@ -53,9 +54,12 @@ def validate_code(audit: Audit) -> None:
         "scope-auditor agent exists",
         "scope-auditor agent missing",
     )
-    policy = apply_profile(load_policy(), "scope-first-hybrid")
+    base_policy = load_policy()
+    policy = apply_profile(base_policy, "scope-first-hybrid")
     roles = policy.get("roles", {})
     audit.require("policy:scope-first-profile", policy.get("active_profile") == "scope-first-hybrid", "scope-first-hybrid profile resolves", "scope-first-hybrid profile did not resolve")
+    audit.require("policy:default-profile", base_policy.get("default_profile") == "scope-first-hybrid", "default profile is scope-first-hybrid", f"default profile is {base_policy.get('default_profile')!r}")
+    audit.require("policy:old-hybrid-removed", "hybrid" not in (base_policy.get("profiles") or {}), "old unsafe hybrid profile is absent", "old hybrid profile still exists")
     for role in ("target-discovery", "scout", "recon-scanner", "source-auditor", "analyst"):
         audit.require(f"policy:gpt:{role}", roles.get(role, {}).get("backend") == "codex", f"{role} routes to codex", f"{role} route={roles.get(role)}")
     for role in ("scope-auditor", "reporter", "submission-review"):
@@ -66,6 +70,45 @@ def validate_code(audit: Audit) -> None:
     handler = (PROJECT_ROOT / "tools" / "dag_orchestrator" / "claude_handler.py").read_text(encoding="utf-8")
     audit.require("gate:handler-profile", "scope-first-hybrid" in handler and "_scope_gate_for_role" in handler, "DAG backend handler has scope-first gate", "DAG backend handler lacks scope-first gate")
     audit.require("gate:artifact-hash", "scope_contract_sha256" in handler and "ArtifactMissingError" in handler, "agent artifacts require scope hash", "artifact scope hash gate missing")
+    audit.require("gate:runtime-gate-call", "check_runtime_gates" in handler and "runtime_gate" in handler, "DAG backend handler invokes runtime hard gates", "DAG backend handler does not invoke runtime hard gates")
+    audit.require("gate:runtime-fail-closed", 'runtime_gate["status"] != "pass"' in handler and "raise ArtifactMissingError" in handler, "runtime hard gate fails closed", "runtime hard gate does not fail closed")
+
+    runtime_gate = (PROJECT_ROOT / "tools" / "runtime_gate.py").read_text(encoding="utf-8") if (PROJECT_ROOT / "tools" / "runtime_gate.py").exists() else ""
+    audit.require("gate:debate-required", "gpt_proposal" in runtime_gate and "claude_objection" in runtime_gate and "BLOCK" in runtime_gate, "runtime gate enforces debate payload and BLOCK verdicts", "runtime debate enforcement is incomplete")
+    audit.require("gate:evidence-required", "machine-style-real-tool-output" in runtime_gate and "machine-style-3x-local-then-remote" in runtime_gate, "runtime gate enforces CTF evidence gates", "runtime CTF evidence enforcement is incomplete")
+    audit.require("gate:transport-required", "mock" in runtime_gate and "replay" in runtime_gate and "live scan" in runtime_gate, "runtime gate enforces mock/replay transport", "runtime transport enforcement is incomplete")
+
+
+def validate_policy_gate_coverage(audit: Audit) -> None:
+    """Ensure every policy-level debate/evidence/transport flag has a hard-gate implementation path."""
+
+    policy = load_policy()
+    pipelines = ["target_discovery", "ctf_pwn", "ctf_rev", "bounty", "firmware", "ai_security", "robotics", "supplychain"]
+    covered_debate = 0
+    covered_evidence = 0
+    covered_transport = 0
+    unknown_evidence: list[str] = []
+    missing_backend: list[str] = []
+    for pipeline in pipelines:
+        resolved = apply_profile(policy, "scope-first-hybrid", pipeline)
+        for role, entry in (resolved.get("roles") or {}).items():
+            if entry.get("debate_mode"):
+                covered_debate += 1
+            evidence_gate = entry.get("evidence_gate")
+            if evidence_gate:
+                covered_evidence += 1
+                if evidence_gate not in {"machine-style-real-tool-output", "machine-style-3x-local-then-remote"}:
+                    unknown_evidence.append(f"{pipeline}:{role}:{evidence_gate}")
+            if entry.get("transport_policy"):
+                covered_transport += 1
+            if (entry.get("debate_mode") or entry.get("evidence_gate") or entry.get("transport_policy")) and not entry.get("backend"):
+                missing_backend.append(f"{pipeline}:{role}")
+
+    audit.require("policy-gates:debate-present", covered_debate > 0, f"{covered_debate} debate-gated role entries found", "no debate-gated role entries found")
+    audit.require("policy-gates:evidence-present", covered_evidence > 0, f"{covered_evidence} evidence-gated role entries found", "no evidence-gated role entries found")
+    audit.require("policy-gates:transport-present", covered_transport > 0, f"{covered_transport} transport-gated role entries found", "no transport-gated role entries found")
+    audit.require("policy-gates:evidence-known", not unknown_evidence, "all evidence_gate values are implemented", f"unknown evidence_gate values: {unknown_evidence}")
+    audit.require("policy-gates:backend-present", not missing_backend, "all gated entries also declare a backend", f"gated entries missing backend: {missing_backend}")
 
 
 def validate_matrix(audit: Audit, path: Path | None) -> None:
@@ -134,6 +177,7 @@ def main() -> int:
     args.out_dir.mkdir(parents=True, exist_ok=True)
     audit = Audit()
     validate_code(audit)
+    validate_policy_gate_coverage(audit)
     validate_matrix(audit, args.matrix_json)
     validate_passive_run(audit, args.passive_run_json)
     validate_markdown_claims(audit, args.claim_root)

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 import sys
 
@@ -14,11 +15,13 @@ from tools.backend_smoke import parse_agent_messages
 from tools.implementation_intent_audit import Context, run_audit
 from tools.runtime_policy import apply_profile, load_policy
 from tools.runtime_intent import resolve
-from tools.runtime_hallucination_audit import Audit, validate_backend_smoke
+from tools.runtime_hallucination_audit import Audit, validate_backend_smoke, validate_dag_matrix, validate_markdown_claims
+from tools.scope_first_hybrid_audit import validate_code, validate_policy_gate_coverage
 from tools.submission_candidate_replay import extract_first_json, validate_candidate_payload
 from tools.submission_candidate_replay import collect_existing_results
 from tools.submission_fixture_index import build_manifest, default_source_root, has_baseline_packages
 from tools.submission_quality_compare import score_report
+from tools.terminator_dry_run_matrix import command_for, ensure_fixtures
 
 
 SCOPE_FIRST_GPT_ROLES = {"target-discovery", "scout", "recon-scanner", "source-auditor", "analyst"}
@@ -75,6 +78,21 @@ def test_natural_intent_claude_only_bounty_url() -> None:
     assert payload["runtime"]["backend"] == "claude"
     assert payload["runtime"]["failover_to"] == "none"
     assert payload["runtime"]["runtime_profile"] == "claude-only"
+
+
+def test_terminator_dry_run_matrix_commands_are_safe(tmp_path) -> None:
+    fixtures = ensure_fixtures(tmp_path)
+
+    bounty = command_for("bounty", "scope-first-hybrid", fixtures)
+    robotics = command_for("robotics", "gpt-only", fixtures)
+
+    assert "--dry-run" in bounty
+    assert "--json" in bounty
+    assert bounty[bounty.index("--backend") + 1] == "hybrid"
+    assert bounty[bounty.index("--runtime-profile") + 1] == "scope-first-hybrid"
+    assert "--failover-to" in robotics
+    assert robotics[robotics.index("--failover-to") + 1] == "none"
+    assert "replay://rosbag/local" in robotics
 
 
 def test_gpt_only_routes_every_role_to_codex() -> None:
@@ -291,6 +309,48 @@ def test_hallucination_audit_validates_backend_smoke(tmp_path) -> None:
     validate_backend_smoke(audit, smoke)
 
     assert {item["status"] for item in audit.checks} == {"pass"}
+
+
+def test_hallucination_audit_accepts_target_discovery_matrix(tmp_path) -> None:
+    matrix = tmp_path / "matrix.json"
+    results = [
+        {"profile": profile, "pipeline": pipeline, "status": "pass", "failure_count": 0}
+        for profile in ["claude-only", "gpt-only", "scope-first-hybrid"]
+        for pipeline in ["target_discovery", "ctf_pwn", "ctf_rev", "bounty", "firmware", "ai_security", "robotics", "supplychain"]
+    ]
+    matrix.write_text(json.dumps({"status": "pass", "results": results}), encoding="utf-8")
+    audit = Audit()
+
+    validate_dag_matrix(audit, matrix)
+
+    assert {item["status"] for item in audit.checks} == {"pass"}
+
+
+def test_hallucination_audit_skips_raw_program_markdown(tmp_path) -> None:
+    raw_dir = tmp_path / "target" / "program_raw"
+    raw_dir.mkdir(parents=True)
+    (raw_dir / "bundle.md").write_text("comprehensive leveraging furthermore no evidence markers\n", encoding="utf-8")
+    (tmp_path / "program_page_raw.md").write_text("comprehensive leveraging furthermore no evidence markers\n", encoding="utf-8")
+    audit = Audit()
+
+    validate_markdown_claims(audit, tmp_path)
+
+    assert {item["status"] for item in audit.checks} == {"pass"}
+    assert all("raw-source-skip" in item["name"] for item in audit.checks)
+
+
+def test_scope_first_audit_checks_runtime_hard_gate_wiring() -> None:
+    audit = Audit()
+
+    validate_code(audit)
+    validate_policy_gate_coverage(audit)
+
+    failed = [item for item in audit.checks if item["status"] == "fail"]
+    assert not failed
+    names = {item["name"] for item in audit.checks}
+    assert "gate:runtime-gate-call" in names
+    assert "gate:runtime-fail-closed" in names
+    assert "policy-gates:evidence-known" in names
 
 
 def test_implementation_intent_audit_flags_missing_candidate_packages(tmp_path, monkeypatch) -> None:

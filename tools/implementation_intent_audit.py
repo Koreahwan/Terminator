@@ -22,7 +22,7 @@ from typing import Any, Callable
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 ORIGINAL_ROOT = PROJECT_ROOT.parent / "Terminator"
 PROFILES = {"claude-only", "gpt-only", "scope-first-hybrid"}
-DAG_PIPELINES = {"ctf_pwn", "ctf_rev", "bounty", "firmware", "ai_security", "robotics", "supplychain"}
+DAG_PIPELINES = {"target_discovery", "ctf_pwn", "ctf_rev", "bounty", "firmware", "ai_security", "robotics", "supplychain"}
 TERMINATOR_PIPELINES = {"ctf", "bounty", "firmware", "ai-security", "robotics", "supplychain"}
 BASELINE_PACKAGES = {
     "proconnect-identite",
@@ -82,14 +82,18 @@ def latest_eval_dir() -> Path:
 def check_worktree_isolation(_: Context) -> list[dict[str, Any]]:
     code, branch = shell_output(["git", "branch", "--show-current"], cwd=PROJECT_ROOT)
     branch = branch.strip()
+    dedicated_worktree = PROJECT_ROOT.name == "Terminator-gpt-runtime" and branch == "codex/gpt-runtime-policy"
+    merged_main = PROJECT_ROOT.name == "Terminator" and branch == "main"
     checks = [
         result(
-            "pass" if PROJECT_ROOT.name == "Terminator-gpt-runtime" else "fail",
-            f"runtime worktree is {PROJECT_ROOT}",
+            "pass" if dedicated_worktree or merged_main else "fail",
+            f"runtime work location is {PROJECT_ROOT}",
+            expected="Terminator-gpt-runtime before merge, or Terminator/main after merge",
         ),
         result(
-            "pass" if code == 0 and branch == "codex/gpt-runtime-policy" else "fail",
+            "pass" if code == 0 and (dedicated_worktree or merged_main) else "fail",
             f"runtime branch is {branch or 'unknown'}",
+            expected="codex/gpt-runtime-policy before merge, or main after merge",
         ),
     ]
     if ORIGINAL_ROOT.exists():
@@ -170,6 +174,7 @@ def check_role_contracts(_: Context) -> list[dict[str, Any]]:
 def check_required_tools(_: Context) -> list[dict[str, Any]]:
     tools = [
         "runtime_matrix.py",
+        "terminator_dry_run_matrix.py",
         "submission_fixture_index.py",
         "submission_quality_compare.py",
         "backend_smoke.py",

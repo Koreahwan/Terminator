@@ -18,7 +18,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from tools.submission_quality_compare import score_slop
 
-PIPELINES_DAG = ["ctf_pwn", "ctf_rev", "bounty", "firmware", "ai_security", "robotics", "supplychain"]
+PIPELINES_DAG = ["target_discovery", "ctf_pwn", "ctf_rev", "bounty", "firmware", "ai_security", "robotics", "supplychain"]
 PIPELINES_TERMINATOR = ["ctf", "bounty", "firmware", "ai-security", "robotics", "supplychain"]
 PROFILES = ["claude-only", "gpt-only", "scope-first-hybrid"]
 
@@ -185,6 +185,9 @@ def validate_markdown_claims(audit: Audit, eval_dir: Path) -> None:
         rel = path.relative_to(eval_dir)
         if rel == Path("hallucination_audit.md"):
             audit.add("markdown:hallucination_audit.md:self-skip", "pass", "skip self-generated audit report")
+            continue
+        if "program_raw" in rel.parts or path.name in {"program_page_raw.md", "bundle.md"}:
+            audit.add(f"markdown:{rel}:raw-source-skip", "pass", "skip mirrored external program source")
             continue
         text = path.read_text(encoding="utf-8", errors="ignore")
         slop = score_slop(text)
