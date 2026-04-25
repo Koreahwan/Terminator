@@ -68,6 +68,20 @@ moreover, nevertheless, notwithstanding, it should be noted, needless to say,
 in today's landscape, at the end of the day, going forward, in order to,
 due to the fact that
 
+## areuai Rewrite Loop
+
+Before critic review, the Orchestrator runs areuai after the report quality
+score reaches 75+:
+
+```bash
+/home/hw/.areuai/bin/areuai.py evade <report.md> --mode report --target zerogpt --quality-floor 75 --rounds 2
+```
+
+The rewrite is rule-based. It may vary sentence length, replace flagged
+phrases, reduce passive voice, rotate paragraph openings, and clean Korean
+translationese. It must not change URLs, code blocks, commands, file paths,
+hashes, numbers, CVSS vectors, or factual claims.
+
 ## Severity Language
 
 - Never say "critical" unless CVSS confirms it

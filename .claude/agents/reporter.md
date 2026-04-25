@@ -265,7 +265,7 @@ Every sentence MUST earn its place. If removing a sentence loses zero informatio
 ## AI Slop Score Compliance
 
 - Score 0-2: PASS — submit
-- Score 3-5: STRENGTHEN — remove all flagged patterns, re-check with `slop-check` skill
+- Score 3-5: STRENGTHEN — remove all flagged patterns, re-check with areuai (`slop-check` is a deprecated alias)
 - Score >5: KILL — full rewrite required
 - Parse `triager_sim_result.json` issues array for auto-fix
 - Max 3 triager_sim loops — after 3 rounds without SUBMIT, report to Orchestrator as KILL
@@ -350,6 +350,17 @@ If slop warnings are emitted, manually rewrite those sentences with
 target-specific technical detail before proceeding.
 
 **Scrubbing is idempotent** — safe to run multiple times.
+
+After the quality loop passes and scrubbing is done, the Orchestrator runs
+areuai Phase 3.6:
+
+```bash
+/home/hw/.areuai/bin/areuai.py evade <report_path> --mode report --target zerogpt --quality-floor 75 --rounds 2
+```
+
+Review the final text for factual preservation. areuai only rewrites style,
+phrasing, and sentence structure; evidence values and code artifacts must stay
+unchanged.
 
 ## Evidence Manifest Generation (NEW — Phase 5)
 

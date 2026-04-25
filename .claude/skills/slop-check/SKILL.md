@@ -6,7 +6,18 @@ argument-hint: <report-file-path>
 allowed-tools: [Read, Bash, Grep]
 ---
 
-# AI Slop Detection
+# AI Slop Detection (Deprecated Alias)
+
+`slop-check` now delegates to areuai. Keep this skill for compatibility with
+older reporter/triager prompts; the canonical taxonomy and EN/KO logic live in
+`~/.areuai` and `tools/areuai_bridge.py`.
+
+Primary command:
+
+```bash
+python3 tools/areuai_bridge.py analyze "$ARGUMENTS"
+/home/hw/.areuai/bin/areuai.py suggest "$ARGUMENTS" --mode report --lang auto --top 10
+```
 
 ## CRITICAL RULES (NEVER VIOLATE)
 1. **KILL (6+) → delete finding or full rewrite** — simple pattern removal is insufficient
