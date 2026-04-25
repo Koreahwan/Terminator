@@ -928,6 +928,18 @@ PY
     EFFECTIVE_PROFILE="$(runtime_profile_for_backend "$PRIMARY_BACKEND")"
     SESSION_ID="$(build_session_id "bounty" "$TARGET")"
 
+    # Assessment persistence (AIDA-inspired) — create DB record if DB available
+    ASSESSMENT_ID=""
+    if [ "$DRY_RUN" != true ]; then
+      ASSESSMENT_ID=$(python3 "$SCRIPT_DIR/tools/infra_client.py" assessment create \
+        --target "$TARGET" --pipeline bounty \
+        ${ASSESSMENT_TEMPLATE:+--template "$ASSESSMENT_TEMPLATE"} \
+        --json 2>/dev/null | python3 -c "import sys,json; print(json.load(sys.stdin).get('id',''))" 2>/dev/null) || true
+      if [ -n "$ASSESSMENT_ID" ]; then
+        export TERMINATOR_ASSESSMENT_ID="$ASSESSMENT_ID"
+      fi
+    fi
+
     # Phase -1: verify-target gate (v12.3 — LiteLLM/Composio/ONNX $0 incidents)
     # Skip in dry-run mode; skip if TERMINATOR_SKIP_VERIFY=1 (emergency override)
     # Exit codes from verify-target:
