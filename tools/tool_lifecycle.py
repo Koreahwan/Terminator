@@ -195,35 +195,36 @@ def cmd_install(args):
         ):
             print("\nSome tools need Kali repos. Run: tool_lifecycle.py repo add-kali")
 
-        pkgs = " ".join(t.install_cmd for t in apt_tools)
-        print(f"\n[apt] Installing: {pkgs}")
-        subprocess.run(f"sudo apt-get update -qq && sudo apt-get install -y -qq {pkgs}", shell=True, check=False)
+        pkgs = [t.install_cmd for t in apt_tools]
+        print(f"\n[apt] Installing: {' '.join(pkgs)}")
+        subprocess.run(["sudo", "apt-get", "update", "-qq"], check=False)
+        subprocess.run(["sudo", "apt-get", "install", "-y", "-qq"] + pkgs, check=False)
 
     for t in by_method.get("pip", []):
         print(f"\n[pip] Installing: {t.install_cmd}")
-        subprocess.run(f"pip install --user --quiet {t.install_cmd}", shell=True, check=False)
+        subprocess.run(["pip", "install", "--user", "--quiet", t.install_cmd], check=False)
 
     for t in by_method.get("go_install", []):
         print(f"\n[go] Installing: {t.install_cmd}")
-        subprocess.run(f"go install {t.install_cmd}", shell=True, check=False)
+        subprocess.run(["go", "install", t.install_cmd], check=False)
 
     for t in by_method.get("cargo", []):
         print(f"\n[cargo] Installing: {t.install_cmd}")
-        subprocess.run(f"cargo install {t.install_cmd}", shell=True, check=False)
+        subprocess.run(["cargo", "install", t.install_cmd], check=False)
 
     for t in by_method.get("npm", []):
         print(f"\n[npm] Installing: {t.install_cmd}")
-        subprocess.run(f"npm install -g {t.install_cmd}", shell=True, check=False)
+        subprocess.run(["npm", "install", "-g", t.install_cmd], check=False)
 
     for t in by_method.get("gem", []):
         print(f"\n[gem] Installing: {t.install_cmd}")
-        subprocess.run(f"gem install {t.install_cmd}", shell=True, check=False)
+        subprocess.run(["gem", "install", t.install_cmd], check=False)
 
     for t in by_method.get("git", []):
         dest = _expand_home(t.binary_path)
         if not os.path.exists(dest):
             print(f"\n[git] Cloning: {t.install_cmd} → {dest}")
-            subprocess.run(f"git clone --depth 1 {t.install_cmd} {dest}", shell=True, check=False)
+            subprocess.run(["git", "clone", "--depth", "1", t.install_cmd, dest], check=False)
 
     for t in by_method.get("manual", []):
         print(f"\n[manual] {t.tool_id}: {t.install_cmd}")
