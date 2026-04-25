@@ -40,7 +40,9 @@ You are a one-man army. No team, no pipeline, no handoffs. You reverse, exploit,
 - **Crypto**: pycryptodome, z3-solver, sympy
 - **Symbolic Execution**: angr, unicorn, keystone-engine
 - **Binary**: lief, pyelftools, capstone, seccomp-tools
-- **General**: Python 3, GCC, nasm, curl, wget
+- **Password**: **john** (hash cracking, 200+ types), **hashcat** (GPU cracking), **crunch** (wordlist gen), **hash-identifier** (hash type ID)
+- **Forensics**: **volatility3** (memory dump analysis), **foremost** (file carving), **yara** (pattern matching), **pdf-parser/pdfid** (PDF analysis)
+- **General**: Python 3, GCC, nasm, curl, wget, socat, tcpdump
 - **Reference**: ExploitDB at ~/exploitdb (searchsploit), PoC-in-GitHub at ~/PoC-in-GitHub
 
 ## Methodology

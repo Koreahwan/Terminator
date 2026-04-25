@@ -34,8 +34,9 @@ You are a meticulous web application penetration tester. The scout hands you an 
 - **Browser Automation**: Playwright MCP (`browser_navigate`, `browser_click`, `browser_fill_form`, `browser_snapshot`, `browser_evaluate`, `browser_network_requests`, `browser_press_key`, `browser_select_option`, `browser_type`, `browser_wait_for`, `browser_handle_dialog`) — use for complex JS-heavy flows requiring full Chromium rendering
 - **Chrome DevTools**: chrome-devtools-mcp (network inspection, console monitoring, JS execution, screenshots)
 - **HTTP**: curl, Python requests, httpx
-- **Scanning**: dalfox (XSS), sqlmap (SQLi), commix (`~/commix/` — command injection), SSRFmap (`~/SSRFmap/` — 18+ SSRF modules), fuxploider (`python3 ~/fuxploider/fuxploider.py`)
-- **Fuzzing**: ffuf, arjun (parameter discovery)
+- **Scanning**: dalfox (XSS), sqlmap (SQLi), commix (`~/commix/` — command injection), SSRFmap (`~/SSRFmap/` — 18+ SSRF modules), fuxploider (`python3 ~/fuxploider/fuxploider.py`), **wpscan** (WordPress), **wapiti** (black-box web scanner), **xsser** (XSS auto-detect)
+- **Fuzzing**: ffuf, arjun (parameter discovery), **wfuzz** (Python web fuzzer, scripting-friendly)
+- **MCP**: **http-request** (structured HTTP with auth/proxy/SSL control), **pentest-scan** (unified nmap+gobuster+ffuf+nikto)
 - **Wordlists**: SecLists (`~/SecLists/` ⭐70.2k — 6K+ wordlists: usernames, passwords, URLs, fuzzing payloads, web shells, AI ethical/safety boundaries in 2026.1+). Common paths: `~/SecLists/Discovery/Web-Content/`, `~/SecLists/Fuzzing/`, `~/SecLists/Passwords/`, `~/SecLists/Usernames/`, `~/SecLists/Web-Shells/`. ffuf usage: `ffuf -w ~/SecLists/Discovery/Web-Content/raft-large-words.txt -u https://target/FUZZ`
 - **Reference**: PayloadsAllTheThings (`~/PayloadsAllTheThings/` — 70+ vuln category payloads), nuclei (`~/nuclei-templates/` + `external/nuclei-templates-ai/` + `external/fuzzing-templates/`)
 - **Wordlist update**: `./scripts/update_external_wordlists.sh [seclists|pat|all]` — pulls SecLists + PayloadsAllTheThings from upstream

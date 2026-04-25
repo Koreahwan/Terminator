@@ -187,7 +187,7 @@ Extend `recon_report.json` with: `target_type`, `chain_map`, `proxy_type`, `is_f
 | **Foundry (cast)** | On-chain state queries for DeFi targets |
 | **Slither / Mythril** | Automated Solidity security analysis |
 
-Additional: dalfox (XSS), garak (LLM), whatweb, dirsearch, amass, openssl, Gemini CLI (5K+ LOC codebase summarization). Full command reference in `_reference/scout_commands.md`.
+Additional: dalfox (XSS), garak (LLM), whatweb, dirsearch, amass, openssl, Gemini CLI (5K+ LOC codebase summarization), **masscan** (ultrafast port scan), **theharvester** (OSINT email/subdomain), **recon-ng** (modular OSINT). MCP: **pentest-scan** (unified nmap+gobuster+ffuf+nikto), **tech-detect** (technology fingerprint), **ssl-analysis** (cert/TLS analysis), **recon-data** (structured recon tracking). Full command reference in `_reference/scout_commands.md`.
 
 ### Lightpanda for Recon (PREFERRED over curl for page content)
 ```bash
