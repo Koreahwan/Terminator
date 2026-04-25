@@ -1,0 +1,40 @@
+name: API Security Assessment
+description: "REST/GraphQL API security testing"
+phases:
+  - name: api_discovery
+    objectives:
+      - Map API endpoints and methods
+      - Identify authentication mechanisms
+      - Document rate limiting and quotas
+    tools: [httpx, katana, ffuf, arjun]
+    agent: scout
+
+  - name: auth_testing
+    objectives:
+      - Authentication bypass testing
+      - Authorization boundary verification
+      - Token/session management analysis
+    tools: [ffuf, wfuzz, nuclei]
+    agent: web-tester
+
+  - name: input_validation
+    objectives:
+      - Injection testing (SQL, NoSQL, command)
+      - Parameter tampering
+      - Mass assignment detection
+    tools: [sqlmap, commix, dalfox, wfuzz]
+    agent: web-tester
+
+  - name: exploitation
+    objectives:
+      - PoC for confirmed vulnerabilities
+      - BOLA/IDOR demonstration
+      - Data exposure proof
+    tools: [sqlmap, commix, ssrfmap]
+    agent: exploiter
+
+  - name: reporting
+    objectives:
+      - CVSS 4.0 scoring
+      - API-specific remediation
+    agent: reporter

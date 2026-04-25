@@ -1,0 +1,40 @@
+name: Web Application Assessment
+description: "OWASP Top 10 focused web application security testing"
+phases:
+  - name: reconnaissance
+    objectives:
+      - Map attack surface (subdomains, endpoints, technologies)
+      - Identify authentication and session management
+      - Enumerate hidden paths and parameters
+    tools: [subfinder, httpx, katana, ffuf, whatweb, nuclei]
+    agent: scout
+
+  - name: scanning
+    objectives:
+      - OWASP Top 10 vulnerability scanning
+      - Authentication flow analysis
+      - Input validation testing
+    tools: [nuclei, sqlmap, dalfox, xsser, wfuzz, nikto]
+    agent: web-tester
+
+  - name: exploitation
+    objectives:
+      - PoC development for confirmed vulnerabilities
+      - Impact demonstration with evidence
+      - Cross-user / cross-trust-domain proof
+    tools: [sqlmap, commix, ssrfmap]
+    agent: exploiter
+
+  - name: post_exploitation
+    objectives:
+      - Privilege escalation path identification
+      - Data exposure assessment
+    tools: [weevely]
+    agent: exploiter
+
+  - name: reporting
+    objectives:
+      - CVSS 4.0 scoring with vector string
+      - Platform-specific report formatting
+      - Remediation recommendations
+    agent: reporter

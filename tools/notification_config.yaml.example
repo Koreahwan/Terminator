@@ -1,0 +1,20 @@
+# Terminator notification configuration
+# Copy to notification_config.yaml and fill in your credentials.
+
+channels:
+  # discord:
+  #   webhook_url: "https://discord.com/api/webhooks/..."
+
+  # telegram:
+  #   bot_token: "123456:ABC-DEF..."
+  #   chat_id: "123456789"
+
+  # slack:
+  #   webhook_url: "https://hooks.slack.com/services/..."
+
+  # email:
+  #   smtp_host: "smtp.gmail.com"
+  #   smtp_port: 587
+  #   username: "your@gmail.com"
+  #   password: "app-password"
+  #   to_addr: "alerts@yourdomain.com"

@@ -1,0 +1,41 @@
+name: Infrastructure Assessment
+description: "Network and infrastructure penetration testing"
+phases:
+  - name: network_recon
+    objectives:
+      - Port scanning and service detection
+      - OS fingerprinting
+      - Network topology mapping
+    tools: [nmap, masscan, naabu, p0f, hping3]
+    agent: recon-scanner
+
+  - name: service_enumeration
+    objectives:
+      - SMB/NetBIOS enumeration
+      - DNS zone transfers and brute-forcing
+      - Service version identification
+    tools: [enum4linux, dnsrecon, fierce, nmap]
+    agent: scout
+
+  - name: vulnerability_assessment
+    objectives:
+      - Known CVE detection
+      - Default credential testing
+      - Misconfig identification
+    tools: [nuclei, hydra, nikto]
+    agent: web-tester
+
+  - name: exploitation
+    objectives:
+      - Network service exploitation
+      - Credential brute-forcing (scoped)
+      - Lateral movement demonstration
+    tools: [hydra, ncrack, responder]
+    agent: exploiter
+
+  - name: reporting
+    objectives:
+      - Network diagram with findings
+      - CVSS scoring
+      - Prioritized remediation
+    agent: reporter

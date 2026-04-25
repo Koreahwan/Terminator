@@ -1,0 +1,39 @@
+name: Active Directory Assessment
+description: "Windows AD environment penetration testing"
+phases:
+  - name: ad_enumeration
+    objectives:
+      - Domain controller discovery
+      - User and group enumeration
+      - Trust relationship mapping
+    tools: [nmap, enum4linux, dnsrecon]
+    agent: recon-scanner
+
+  - name: auth_attacks
+    objectives:
+      - Kerberoasting
+      - Password spraying (scoped)
+      - NTLM relay testing
+    tools: [hydra, john, hashcat, responder]
+    agent: exploiter
+
+  - name: privilege_escalation
+    objectives:
+      - GPO abuse paths
+      - Service account exploitation
+      - Token manipulation
+    tools: [powersploit, nishang]
+    agent: exploiter
+
+  - name: persistence
+    objectives:
+      - Golden/silver ticket feasibility
+      - Persistence mechanism documentation
+    tools: [powersploit, nishang]
+    agent: exploiter
+
+  - name: reporting
+    objectives:
+      - Attack path visualization
+      - Domain-wide impact assessment
+    agent: reporter

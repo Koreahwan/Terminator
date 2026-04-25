@@ -1,0 +1,54 @@
+FROM ubuntu:22.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV GOPATH=/opt/go
+ENV PATH="${GOPATH}/bin:/usr/local/go/bin:${PATH}"
+
+# Base system
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates curl wget git unzip jq tree less file xxd \
+    python3 python3-pip python3-dev build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Go 1.22
+RUN curl -sSL https://go.dev/dl/go1.22.5.linux-amd64.tar.gz | tar -C /usr/local -xz
+
+# ── APT security tools ──
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    nmap nikto whatweb tcpdump socat netcat-openbsd dnsutils whois iputils-ping \
+    traceroute openssl masscan hping3 p0f \
+    john hashcat hydra ncrack cewl crunch \
+    yara foremost binwalk sslsplit dns2tcp \
+    valgrind apktool \
+    && rm -rf /var/lib/apt/lists/*
+
+# ── Go tools ──
+RUN go install github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest \
+    && go install github.com/projectdiscovery/httpx/cmd/httpx@latest \
+    && go install github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest \
+    && go install github.com/projectdiscovery/katana/cmd/katana@latest \
+    && go install github.com/projectdiscovery/naabu/v2/cmd/naabu@latest \
+    && go install github.com/ffuf/ffuf/v2@latest \
+    && go install github.com/OJ/gobuster/v3@latest \
+    && go install github.com/hahwul/dalfox/v2@latest \
+    && go install github.com/lc/gau/v2/cmd/gau@latest \
+    && go install github.com/tomnomnom/waybackurls@latest \
+    && rm -rf /root/go/pkg /root/.cache/go-build
+
+# ── Python tools ──
+RUN pip3 install --no-cache-dir --break-system-packages \
+    sqlmap wfuzz wapiti3 arjun dirsearch \
+    theharvester dnsrecon fierce \
+    requests httpx beautifulsoup4 lxml \
+    impacket scapy pwntools paramiko dnspython \
+    volatility3 trufflehog
+
+# ── Wordlists ──
+RUN mkdir -p /usr/share/seclists && \
+    git clone --depth 1 https://github.com/danielmiessler/SecLists.git /usr/share/seclists 2>/dev/null || true
+
+# ── Workspace ──
+RUN mkdir -p /workspace/{recon,exploits,evidence,loot,notes,scripts,context}
+WORKDIR /workspace
+
+CMD ["/bin/bash"]

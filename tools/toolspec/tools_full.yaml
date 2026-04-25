@@ -1,0 +1,1193 @@
+# Terminator Tool Registry — katoolin + AIDA + existing tools
+# Auto-managed by tool_lifecycle.py. Do not edit manually.
+# Categories: recon, web, scanning, password, forensics, sniffing,
+#   exploit, post_exploit, re, analysis, ai, web3, firmware,
+#   supply_chain, wireless, mobile, infra
+
+tools:
+
+  # ── recon ──────────────────────────────────────────────
+  - tool_id: subfinder
+    name: Subfinder
+    kind: network
+    entrypoint: subfinder
+    description: "Passive subdomain discovery"
+    install_method: go_install
+    install_cmd: "github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest"
+    binary_path: "~/gopath/bin/subfinder"
+    version_cmd: "subfinder -version 2>&1 | head -1"
+    category: recon
+    pipelines: [bounty, ai_security]
+    agent_roles: [scout, recon-scanner]
+
+  - tool_id: httpx
+    name: httpx
+    kind: network
+    entrypoint: httpx
+    description: "HTTP probing and tech detection"
+    install_method: go_install
+    install_cmd: "github.com/projectdiscovery/httpx/cmd/httpx@latest"
+    binary_path: "~/gopath/bin/httpx"
+    version_cmd: "httpx -version 2>&1 | head -1"
+    category: recon
+    pipelines: [bounty, ai_security]
+    agent_roles: [scout, recon-scanner]
+
+  - tool_id: katana
+    name: Katana
+    kind: network
+    entrypoint: katana
+    description: "Web crawler/spider"
+    install_method: go_install
+    install_cmd: "github.com/projectdiscovery/katana/cmd/katana@latest"
+    binary_path: "~/gopath/bin/katana"
+    version_cmd: "katana -version 2>&1 | head -1"
+    category: recon
+    pipelines: [bounty]
+    agent_roles: [scout, recon-scanner]
+
+  - tool_id: gau
+    name: GetAllURLs
+    kind: network
+    entrypoint: gau
+    description: "Fetch URLs from Wayback Machine, OTX, Common Crawl"
+    install_method: go_install
+    install_cmd: "github.com/lc/gau/v2/cmd/gau@latest"
+    binary_path: "~/gopath/bin/gau"
+    version_cmd: "gau -version 2>&1 | head -1"
+    category: recon
+    pipelines: [bounty]
+    agent_roles: [scout, recon-scanner]
+
+  - tool_id: waybackurls
+    name: waybackurls
+    kind: network
+    entrypoint: waybackurls
+    description: "Fetch Wayback Machine URLs"
+    install_method: go_install
+    install_cmd: "github.com/tomnomnom/waybackurls@latest"
+    binary_path: "~/gopath/bin/waybackurls"
+    version_cmd: "waybackurls -h 2>&1 | head -1"
+    category: recon
+    pipelines: [bounty]
+    agent_roles: [scout, recon-scanner]
+
+  - tool_id: naabu
+    name: Naabu
+    kind: network
+    entrypoint: naabu
+    description: "Fast port scanner"
+    install_method: go_install
+    install_cmd: "github.com/projectdiscovery/naabu/v2/cmd/naabu@latest"
+    binary_path: "~/gopath/bin/naabu"
+    version_cmd: "naabu -version 2>&1 | head -1"
+    category: recon
+    pipelines: [bounty]
+    agent_roles: [scout, recon-scanner]
+
+  - tool_id: masscan
+    name: Masscan
+    kind: network
+    entrypoint: masscan
+    description: "Ultra-fast port scanner (nmap complement)"
+    install_method: apt
+    install_cmd: masscan
+    binary_path: /usr/bin/masscan
+    version_cmd: "masscan --version 2>&1 | head -1"
+    category: recon
+    pipelines: [bounty]
+    agent_roles: [scout, recon-scanner]
+
+  - tool_id: recon-ng
+    name: Recon-ng
+    kind: network
+    entrypoint: recon-ng
+    description: "Modular OSINT framework"
+    install_method: pip
+    install_cmd: recon-ng
+    binary_path: "~/.local/bin/recon-ng"
+    version_cmd: "recon-ng --version 2>&1"
+    category: recon
+    pipelines: [bounty]
+    agent_roles: [scout]
+
+  - tool_id: theharvester
+    name: theHarvester
+    kind: network
+    entrypoint: theHarvester
+    description: "Email, subdomain, IP gathering"
+    install_method: pip
+    install_cmd: theHarvester
+    binary_path: "~/.local/bin/theHarvester"
+    version_cmd: "theHarvester -h 2>&1 | head -3"
+    category: recon
+    pipelines: [bounty]
+    agent_roles: [scout, recon-scanner]
+
+  - tool_id: fierce
+    name: Fierce
+    kind: network
+    entrypoint: fierce
+    description: "DNS recon / subdomain brute"
+    install_method: pip
+    install_cmd: fierce
+    binary_path: "~/.local/bin/fierce"
+    version_cmd: "fierce -h 2>&1 | head -1"
+    category: recon
+    pipelines: [bounty]
+    agent_roles: [scout, recon-scanner]
+
+  - tool_id: dnsrecon
+    name: DNSRecon
+    kind: network
+    entrypoint: dnsrecon
+    description: "DNS enumeration (zone transfer, brute)"
+    install_method: pip
+    install_cmd: dnsrecon
+    binary_path: "~/.local/bin/dnsrecon"
+    version_cmd: "dnsrecon --version 2>&1"
+    category: recon
+    pipelines: [bounty]
+    agent_roles: [scout, recon-scanner]
+
+  - tool_id: enum4linux
+    name: enum4linux
+    kind: network
+    entrypoint: enum4linux
+    description: "SMB/NetBIOS enumeration"
+    install_method: apt
+    install_cmd: enum4linux
+    binary_path: /usr/bin/enum4linux
+    version_cmd: "enum4linux 2>&1 | head -1"
+    category: recon
+    pipelines: [bounty]
+    agent_roles: [scout]
+
+  - tool_id: hping3
+    name: hping3
+    kind: network
+    entrypoint: hping3
+    description: "Packet crafting / firewall testing"
+    install_method: apt
+    install_cmd: hping3
+    binary_path: /usr/sbin/hping3
+    version_cmd: "hping3 --version 2>&1 | head -1"
+    category: recon
+    pipelines: [bounty]
+    agent_roles: [recon-scanner]
+
+  - tool_id: p0f
+    name: p0f
+    kind: network
+    entrypoint: p0f
+    description: "Passive OS fingerprinting"
+    install_method: apt
+    install_cmd: p0f
+    binary_path: /usr/sbin/p0f
+    version_cmd: "p0f -h 2>&1 | head -1"
+    category: recon
+    pipelines: [bounty]
+    agent_roles: [recon-scanner]
+
+  - tool_id: interactsh
+    name: Interactsh
+    kind: network
+    entrypoint: interactsh-client
+    description: "OOB interaction server for SSRF/blind"
+    install_method: go_install
+    install_cmd: "github.com/projectdiscovery/interactsh/cmd/interactsh-client@latest"
+    binary_path: "~/gopath/bin/interactsh-client"
+    version_cmd: "interactsh-client -version 2>&1 | head -1"
+    category: recon
+    pipelines: [bounty]
+    agent_roles: [exploiter, web-tester]
+
+  # ── web ────────────────────────────────────────────────
+  - tool_id: ffuf
+    name: ffuf
+    kind: network
+    entrypoint: ffuf
+    description: "Fast web fuzzer (dirs, params, vhosts)"
+    install_method: go_install
+    install_cmd: "github.com/ffuf/ffuf/v2@latest"
+    binary_path: "~/gopath/bin/ffuf"
+    version_cmd: "ffuf -V 2>&1"
+    category: web
+    pipelines: [bounty]
+    agent_roles: [web-tester, recon-scanner]
+
+  - tool_id: gobuster
+    name: Gobuster
+    kind: network
+    entrypoint: gobuster
+    description: "Directory/file brute-forcing"
+    install_method: go_install
+    install_cmd: "github.com/OJ/gobuster/v3@latest"
+    binary_path: "~/gopath/bin/gobuster"
+    version_cmd: "gobuster version 2>&1"
+    category: web
+    pipelines: [bounty]
+    agent_roles: [web-tester, recon-scanner]
+
+  - tool_id: dalfox
+    name: Dalfox
+    kind: network
+    entrypoint: dalfox
+    description: "XSS scanner with DOM analysis"
+    install_method: go_install
+    install_cmd: "github.com/hahwul/dalfox/v2@latest"
+    binary_path: "~/gopath/bin/dalfox"
+    version_cmd: "dalfox version 2>&1"
+    category: web
+    pipelines: [bounty]
+    agent_roles: [web-tester]
+
+  - tool_id: sqlmap
+    name: sqlmap
+    kind: execution
+    entrypoint: sqlmap
+    description: "SQL injection automation"
+    install_method: apt
+    install_cmd: sqlmap
+    binary_path: /usr/bin/sqlmap
+    version_cmd: "sqlmap --version 2>&1"
+    category: web
+    pipelines: [bounty, ctf]
+    agent_roles: [exploiter, web-tester]
+
+  - tool_id: commix
+    name: Commix
+    kind: execution
+    entrypoint: commix
+    description: "Command injection exploitation"
+    install_method: pip
+    install_cmd: commix
+    binary_path: "~/.local/bin/commix"
+    version_cmd: "commix --version 2>&1 | head -1"
+    category: web
+    pipelines: [bounty]
+    agent_roles: [exploiter]
+
+  - tool_id: ssrfmap
+    name: SSRFmap
+    kind: execution
+    entrypoint: ssrfmap
+    description: "SSRF exploitation (18+ modules)"
+    install_method: pip
+    install_cmd: ssrfmap
+    binary_path: "~/.local/bin/ssrfmap"
+    version_cmd: "ssrfmap --version 2>&1 | head -1"
+    category: web
+    pipelines: [bounty]
+    agent_roles: [exploiter]
+
+  - tool_id: arjun
+    name: Arjun
+    kind: network
+    entrypoint: arjun
+    description: "HTTP parameter discovery"
+    install_method: pip
+    install_cmd: arjun
+    binary_path: "~/.local/bin/arjun"
+    version_cmd: "arjun --version 2>&1"
+    category: web
+    pipelines: [bounty]
+    agent_roles: [web-tester]
+
+  - tool_id: dirsearch
+    name: Dirsearch
+    kind: network
+    entrypoint: dirsearch
+    description: "Directory/file bruteforcer"
+    install_method: pip
+    install_cmd: dirsearch
+    binary_path: "~/.local/bin/dirsearch"
+    version_cmd: "dirsearch --version 2>&1"
+    category: web
+    pipelines: [bounty]
+    agent_roles: [web-tester, recon-scanner]
+
+  - tool_id: nikto
+    name: Nikto
+    kind: network
+    entrypoint: nikto
+    description: "Web server scanner"
+    install_method: apt
+    install_cmd: nikto
+    binary_path: /usr/bin/nikto
+    version_cmd: "nikto -Version 2>&1 | head -1"
+    category: web
+    pipelines: [bounty]
+    agent_roles: [web-tester, recon-scanner]
+
+  - tool_id: wpscan
+    name: WPScan
+    kind: network
+    entrypoint: wpscan
+    description: "WordPress vulnerability scanner"
+    install_method: gem
+    install_cmd: wpscan
+    binary_path: "~/.local/share/gem/ruby/*/bin/wpscan"
+    version_cmd: "wpscan --version 2>&1"
+    category: web
+    pipelines: [bounty]
+    agent_roles: [web-tester]
+
+  - tool_id: wfuzz
+    name: Wfuzz
+    kind: network
+    entrypoint: wfuzz
+    description: "Web fuzzer (Python scripting, ffuf complement)"
+    install_method: pip
+    install_cmd: wfuzz
+    binary_path: "~/.local/bin/wfuzz"
+    version_cmd: "wfuzz --version 2>&1"
+    category: web
+    pipelines: [bounty]
+    agent_roles: [web-tester]
+
+  - tool_id: xsser
+    name: XSSer
+    kind: network
+    entrypoint: xsser
+    description: "XSS auto-detection and exploitation"
+    install_method: pip
+    install_cmd: xsser
+    binary_path: "~/.local/bin/xsser"
+    version_cmd: "xsser --version 2>&1 | head -1"
+    category: web
+    pipelines: [bounty]
+    agent_roles: [web-tester]
+
+  - tool_id: whatweb
+    name: WhatWeb
+    kind: network
+    entrypoint: whatweb
+    description: "Web technology fingerprinting"
+    install_method: apt
+    install_cmd: whatweb
+    binary_path: /usr/bin/whatweb
+    version_cmd: "whatweb --version 2>&1"
+    category: web
+    pipelines: [bounty]
+    agent_roles: [scout, recon-scanner]
+
+  - tool_id: wapiti
+    name: Wapiti
+    kind: network
+    entrypoint: wapiti
+    description: "Black-box web vulnerability scanner"
+    install_method: pip
+    install_cmd: wapiti3
+    binary_path: "~/.local/bin/wapiti"
+    version_cmd: "wapiti --version 2>&1"
+    category: web
+    pipelines: [bounty]
+    agent_roles: [web-tester]
+
+  - tool_id: fuxploider
+    name: Fuxploider
+    kind: execution
+    entrypoint: fuxploider
+    description: "File upload vulnerability scanner/exploiter"
+    install_method: pip
+    install_cmd: fuxploider
+    binary_path: "~/.local/bin/fuxploider"
+    version_cmd: "fuxploider -h 2>&1 | head -1"
+    category: web
+    pipelines: [bounty]
+    agent_roles: [exploiter]
+
+  # ── scanning ───────────────────────────────────────────
+  - tool_id: nuclei
+    name: Nuclei
+    kind: network
+    entrypoint: nuclei
+    description: "Template-based vulnerability scanner (12K+ templates)"
+    install_method: go_install
+    install_cmd: "github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest"
+    binary_path: "~/gopath/bin/nuclei"
+    version_cmd: "nuclei -version 2>&1 | head -1"
+    category: scanning
+    pipelines: [bounty, ai_security]
+    agent_roles: [scout, recon-scanner, web-tester]
+
+  - tool_id: nmap
+    name: Nmap
+    kind: network
+    entrypoint: nmap
+    description: "Network port scanner and service detection"
+    install_method: apt
+    install_cmd: nmap
+    binary_path: /usr/bin/nmap
+    version_cmd: "nmap --version 2>&1 | head -1"
+    category: scanning
+    pipelines: [bounty, ctf, firmware, robotics, all]
+    agent_roles: [scout, recon-scanner]
+
+  - tool_id: trufflehog
+    name: TruffleHog
+    kind: analysis
+    entrypoint: trufflehog
+    description: "Secret/credential scanner (800+ types)"
+    install_method: pip
+    install_cmd: trufflehog
+    binary_path: "~/.local/bin/trufflehog"
+    version_cmd: "trufflehog --version 2>&1"
+    category: scanning
+    pipelines: [bounty, supplychain]
+    agent_roles: [scout, sc-scanner]
+
+  - tool_id: rustscan
+    name: RustScan
+    kind: network
+    entrypoint: rustscan
+    description: "Fast port scanner with nmap integration"
+    install_method: cargo
+    install_cmd: rustscan
+    binary_path: "~/.cargo/bin/rustscan"
+    version_cmd: "rustscan --version 2>&1"
+    category: scanning
+    pipelines: [bounty]
+    agent_roles: [recon-scanner]
+
+  # ── password ───────────────────────────────────────────
+  - tool_id: john
+    name: John the Ripper
+    kind: execution
+    entrypoint: john
+    description: "Hash cracking (CPU, 200+ hash types)"
+    install_method: apt
+    install_cmd: john
+    binary_path: /usr/sbin/john
+    version_cmd: "john 2>&1 | head -1"
+    category: password
+    pipelines: [ctf, bounty]
+    agent_roles: [exploiter, ctf-solver, chain]
+
+  - tool_id: hashcat
+    name: Hashcat
+    kind: execution
+    entrypoint: hashcat
+    description: "Hash cracking (GPU-accelerated)"
+    install_method: apt
+    install_cmd: hashcat
+    binary_path: /usr/bin/hashcat
+    version_cmd: "hashcat --version 2>&1"
+    category: password
+    pipelines: [ctf, bounty]
+    agent_roles: [exploiter, ctf-solver]
+
+  - tool_id: hydra
+    name: THC-Hydra
+    kind: execution
+    entrypoint: hydra
+    description: "Network brute-force (SSH/FTP/HTTP/etc)"
+    read_only: false
+    install_method: apt
+    install_cmd: hydra
+    binary_path: /usr/bin/hydra
+    version_cmd: "hydra -h 2>&1 | head -1"
+    category: password
+    pipelines: [bounty]
+    agent_roles: [exploiter]
+
+  - tool_id: ncrack
+    name: Ncrack
+    kind: execution
+    entrypoint: ncrack
+    description: "High-speed network auth cracker"
+    read_only: false
+    install_method: apt
+    install_cmd: ncrack
+    binary_path: /usr/bin/ncrack
+    version_cmd: "ncrack --version 2>&1 | head -1"
+    category: password
+    pipelines: [bounty]
+    agent_roles: [exploiter]
+
+  - tool_id: patator
+    name: Patator
+    kind: execution
+    entrypoint: patator
+    description: "Modular brute-force framework"
+    read_only: false
+    install_method: pip
+    install_cmd: patator
+    binary_path: "~/.local/bin/patator"
+    version_cmd: "patator -h 2>&1 | head -1"
+    category: password
+    pipelines: [bounty]
+    agent_roles: [exploiter]
+
+  - tool_id: cewl
+    name: CeWL
+    kind: execution
+    entrypoint: cewl
+    description: "Custom wordlist generator from target site"
+    install_method: apt
+    install_cmd: cewl
+    binary_path: /usr/bin/cewl
+    version_cmd: "cewl --version 2>&1"
+    category: password
+    pipelines: [bounty]
+    agent_roles: [exploiter, web-tester]
+
+  - tool_id: crunch
+    name: Crunch
+    kind: execution
+    entrypoint: crunch
+    description: "Custom wordlist generator (charset-based)"
+    install_method: apt
+    install_cmd: crunch
+    binary_path: /usr/bin/crunch
+    version_cmd: "crunch 2>&1 | head -1"
+    category: password
+    pipelines: [ctf, bounty]
+    agent_roles: [exploiter, ctf-solver]
+
+  - tool_id: hash-identifier
+    name: hash-identifier
+    kind: query
+    entrypoint: hash-identifier
+    description: "Hash type auto-identification"
+    install_method: apt
+    install_cmd: hash-identifier
+    binary_path: /usr/bin/hash-identifier
+    version_cmd: "hash-identifier 2>&1 | head -1"
+    category: password
+    pipelines: [ctf]
+    agent_roles: [ctf-solver]
+
+  # ── forensics ──────────────────────────────────────────
+  - tool_id: binwalk
+    name: Binwalk
+    kind: analysis
+    entrypoint: binwalk
+    description: "Firmware extraction and analysis"
+    install_method: pip
+    install_cmd: binwalk
+    binary_path: "~/.local/bin/binwalk"
+    version_cmd: "binwalk --help 2>&1 | head -1"
+    category: forensics
+    pipelines: [ctf, firmware]
+    agent_roles: [reverser, fw-surface, ctf-solver]
+
+  - tool_id: volatility3
+    name: Volatility 3
+    kind: analysis
+    entrypoint: vol
+    description: "Memory dump analysis"
+    install_method: pip
+    install_cmd: volatility3
+    binary_path: "~/.local/bin/vol"
+    version_cmd: "vol -h 2>&1 | head -1"
+    category: forensics
+    pipelines: [ctf, firmware]
+    agent_roles: [ctf-solver, reverser]
+
+  - tool_id: foremost
+    name: Foremost
+    kind: analysis
+    entrypoint: foremost
+    description: "File carving/recovery"
+    install_method: apt
+    install_cmd: foremost
+    binary_path: /usr/bin/foremost
+    version_cmd: "foremost -V 2>&1"
+    category: forensics
+    pipelines: [ctf, firmware]
+    agent_roles: [ctf-solver, fw-surface]
+
+  - tool_id: bulk-extractor
+    name: Bulk Extractor
+    kind: analysis
+    entrypoint: bulk_extractor
+    description: "PII/secret extraction from data dumps"
+    install_method: apt
+    install_cmd: bulk-extractor
+    binary_path: /usr/bin/bulk_extractor
+    version_cmd: "bulk_extractor -h 2>&1 | head -1"
+    category: forensics
+    pipelines: [ctf, firmware]
+    agent_roles: [ctf-solver, fw-surface]
+
+  - tool_id: ddrescue
+    name: GNU ddrescue
+    kind: execution
+    entrypoint: ddrescue
+    description: "Disk image recovery"
+    install_method: apt
+    install_cmd: gddrescue
+    binary_path: /usr/bin/ddrescue
+    version_cmd: "ddrescue --version 2>&1 | head -1"
+    category: forensics
+    pipelines: [firmware]
+    agent_roles: [fw-surface]
+
+  - tool_id: yara
+    name: YARA
+    kind: analysis
+    entrypoint: yara
+    description: "Pattern matching rule engine (malware hunting)"
+    install_method: apt
+    install_cmd: yara
+    binary_path: /usr/bin/yara
+    version_cmd: "yara --version 2>&1"
+    category: forensics
+    pipelines: [ctf, firmware, bounty]
+    agent_roles: [reverser, fw-surface, ctf-solver]
+
+  - tool_id: pdf-parser
+    name: pdf-parser
+    kind: analysis
+    entrypoint: pdf-parser
+    description: "PDF structure analysis"
+    install_method: pip
+    install_cmd: pdf-parser
+    binary_path: "~/.local/bin/pdf-parser"
+    version_cmd: "pdf-parser -h 2>&1 | head -1"
+    category: forensics
+    pipelines: [ctf]
+    agent_roles: [ctf-solver, reverser]
+
+  - tool_id: pdfid
+    name: pdfid
+    kind: analysis
+    entrypoint: pdfid
+    description: "PDF risk keyword detection"
+    install_method: pip
+    install_cmd: pdfid
+    binary_path: "~/.local/bin/pdfid"
+    version_cmd: "pdfid -h 2>&1 | head -1"
+    category: forensics
+    pipelines: [ctf]
+    agent_roles: [ctf-solver]
+
+  # ── sniffing ───────────────────────────────────────────
+  - tool_id: mitmproxy
+    name: mitmproxy
+    kind: network
+    entrypoint: mitmproxy
+    description: "HTTP(S) intercept proxy"
+    install_method: pip
+    install_cmd: mitmproxy
+    binary_path: "~/tools/mitmproxy/mitmproxy"
+    version_cmd: "mitmproxy --version 2>&1 | head -1"
+    category: sniffing
+    pipelines: [bounty]
+    agent_roles: [web-tester, exploiter]
+
+  - tool_id: responder
+    name: Responder
+    kind: execution
+    entrypoint: responder
+    description: "LLMNR/NBT-NS poisoning"
+    read_only: false
+    install_method: pip
+    install_cmd: Responder
+    binary_path: "~/.local/bin/responder"
+    version_cmd: "responder --version 2>&1 | head -1"
+    category: sniffing
+    pipelines: [bounty]
+    agent_roles: [exploiter]
+
+  - tool_id: dnschef
+    name: DNSChef
+    kind: execution
+    entrypoint: dnschef
+    description: "DNS proxy/spoofing"
+    read_only: false
+    install_method: pip
+    install_cmd: dnschef
+    binary_path: "~/.local/bin/dnschef"
+    version_cmd: "dnschef --version 2>&1 | head -1"
+    category: sniffing
+    pipelines: [bounty]
+    agent_roles: [exploiter]
+
+  - tool_id: sslsplit
+    name: SSLsplit
+    kind: network
+    entrypoint: sslsplit
+    description: "SSL/TLS intercept"
+    install_method: apt
+    install_cmd: sslsplit
+    binary_path: /usr/bin/sslsplit
+    version_cmd: "sslsplit -V 2>&1 | head -1"
+    category: sniffing
+    pipelines: [bounty]
+    agent_roles: [exploiter]
+
+  - tool_id: tcpdump
+    name: tcpdump
+    kind: network
+    entrypoint: tcpdump
+    description: "Packet capture"
+    install_method: apt
+    install_cmd: tcpdump
+    binary_path: /usr/bin/tcpdump
+    version_cmd: "tcpdump --version 2>&1 | head -1"
+    category: sniffing
+    pipelines: [bounty, ctf, firmware, all]
+    agent_roles: [all]
+
+  - tool_id: socat
+    name: socat
+    kind: network
+    entrypoint: socat
+    description: "Bidirectional data relay"
+    install_method: apt
+    install_cmd: socat
+    binary_path: /usr/bin/socat
+    version_cmd: "socat -V 2>&1 | head -1"
+    category: sniffing
+    pipelines: [ctf, bounty]
+    agent_roles: [exploiter, chain, ctf-solver]
+
+  # ── exploit ────────────────────────────────────────────
+  - tool_id: beef-xss
+    name: BeEF
+    kind: execution
+    entrypoint: beef-xss
+    description: "Browser exploitation framework"
+    read_only: false
+    install_method: apt
+    install_cmd: beef-xss
+    binary_path: /usr/share/beef-xss/beef
+    version_cmd: "beef-xss --version 2>&1 | head -1"
+    category: exploit
+    pipelines: [bounty]
+    agent_roles: [exploiter]
+
+  - tool_id: weevely
+    name: Weevely
+    kind: execution
+    entrypoint: weevely
+    description: "PHP webshell generation/management"
+    read_only: false
+    install_method: pip
+    install_cmd: weevely3
+    binary_path: "~/.local/bin/weevely"
+    version_cmd: "weevely --version 2>&1 | head -1"
+    category: exploit
+    pipelines: [bounty]
+    agent_roles: [exploiter]
+
+  - tool_id: shellnoob
+    name: Shellnoob
+    kind: execution
+    entrypoint: shellnoob
+    description: "Shellcode authoring helper"
+    install_method: pip
+    install_cmd: shellnoob
+    binary_path: "~/.local/bin/shellnoob"
+    version_cmd: "shellnoob -h 2>&1 | head -1"
+    category: exploit
+    pipelines: [ctf]
+    agent_roles: [chain, ctf-solver]
+
+  # ── post_exploit ───────────────────────────────────────
+  - tool_id: powersploit
+    name: PowerSploit
+    kind: execution
+    entrypoint: ""
+    description: "Windows post-exploitation PowerShell modules"
+    read_only: false
+    install_method: git
+    install_cmd: "https://github.com/PowerShellMafia/PowerSploit.git"
+    binary_path: "~/tools/PowerSploit"
+    version_cmd: "ls ~/tools/PowerSploit/README.md 2>&1"
+    category: post_exploit
+    pipelines: [bounty]
+    agent_roles: [exploiter]
+
+  - tool_id: nishang
+    name: Nishang
+    kind: execution
+    entrypoint: ""
+    description: "PowerShell post-exploitation scripts"
+    read_only: false
+    install_method: git
+    install_cmd: "https://github.com/samratashok/nishang.git"
+    binary_path: "~/tools/nishang"
+    version_cmd: "ls ~/tools/nishang/README.md 2>&1"
+    category: post_exploit
+    pipelines: [bounty]
+    agent_roles: [exploiter]
+
+  - tool_id: dns2tcp
+    name: dns2tcp
+    kind: execution
+    entrypoint: dns2tcpc
+    description: "DNS tunneling"
+    read_only: false
+    install_method: apt
+    install_cmd: dns2tcp
+    binary_path: /usr/bin/dns2tcpc
+    version_cmd: "dns2tcpc --version 2>&1 | head -1"
+    category: post_exploit
+    pipelines: [ctf, bounty]
+    agent_roles: [exploiter, chain]
+
+  # ── re ─────────────────────────────────────────────────
+  - tool_id: gdb
+    name: GDB
+    kind: execution
+    entrypoint: gdb
+    description: "GNU Debugger (with pwndbg/GEF)"
+    install_method: apt
+    install_cmd: gdb
+    binary_path: /usr/bin/gdb
+    version_cmd: "gdb --version 2>&1 | head -1"
+    category: re
+    pipelines: [ctf]
+    agent_roles: [reverser, trigger, chain]
+
+  - tool_id: objdump
+    name: objdump
+    kind: analysis
+    entrypoint: objdump
+    description: "Lightweight disassembly"
+    install_method: apt
+    install_cmd: binutils
+    binary_path: /usr/bin/objdump
+    version_cmd: "objdump --version 2>&1 | head -1"
+    category: re
+    pipelines: [ctf]
+    agent_roles: [reverser]
+
+  - tool_id: strings
+    name: strings
+    kind: analysis
+    entrypoint: strings
+    description: "String extraction from binaries"
+    install_method: apt
+    install_cmd: binutils
+    binary_path: /usr/bin/strings
+    version_cmd: "strings --version 2>&1 | head -1"
+    category: re
+    pipelines: [ctf, firmware]
+    agent_roles: [reverser, fw-surface]
+
+  - tool_id: readelf
+    name: readelf
+    kind: analysis
+    entrypoint: readelf
+    description: "ELF format analysis"
+    install_method: apt
+    install_cmd: binutils
+    binary_path: /usr/bin/readelf
+    version_cmd: "readelf --version 2>&1 | head -1"
+    category: re
+    pipelines: [ctf]
+    agent_roles: [reverser]
+
+  - tool_id: valgrind
+    name: Valgrind
+    kind: analysis
+    entrypoint: valgrind
+    description: "Memory error/leak detection"
+    install_method: apt
+    install_cmd: valgrind
+    binary_path: /usr/bin/valgrind
+    version_cmd: "valgrind --version 2>&1"
+    category: re
+    pipelines: [ctf]
+    agent_roles: [reverser, trigger]
+
+  # ── mobile ─────────────────────────────────────────────
+  - tool_id: apktool
+    name: Apktool
+    kind: analysis
+    entrypoint: apktool
+    description: "APK decompile/rebuild"
+    install_method: apt
+    install_cmd: apktool
+    binary_path: /usr/bin/apktool
+    version_cmd: "apktool --version 2>&1"
+    category: mobile
+    pipelines: [mobile, ctf]
+    agent_roles: [mobile-analyst, ctf-solver]
+
+  - tool_id: dex2jar
+    name: dex2jar
+    kind: analysis
+    entrypoint: d2j-dex2jar
+    description: "DEX to JAR conversion"
+    install_method: apt
+    install_cmd: dex2jar
+    binary_path: /usr/bin/d2j-dex2jar
+    version_cmd: "d2j-dex2jar --version 2>&1 | head -1"
+    category: mobile
+    pipelines: [mobile]
+    agent_roles: [mobile-analyst]
+
+  - tool_id: smali
+    name: smali
+    kind: analysis
+    entrypoint: smali
+    description: "Dalvik assembler/disassembler"
+    install_method: apt
+    install_cmd: smali
+    binary_path: /usr/bin/smali
+    version_cmd: "smali --version 2>&1 | head -1"
+    category: mobile
+    pipelines: [mobile]
+    agent_roles: [mobile-analyst]
+
+  # ── analysis ───────────────────────────────────────────
+  - tool_id: codeql
+    name: CodeQL
+    kind: analysis
+    entrypoint: codeql
+    description: "Semantic code analysis with taint tracking"
+    install_method: manual
+    install_cmd: "https://github.com/github/codeql-cli-binaries/releases"
+    binary_path: "~/tools/codeql/codeql"
+    version_cmd: "codeql --version 2>&1 | head -1"
+    category: analysis
+    pipelines: [bounty, supplychain]
+    agent_roles: [source-auditor, analyst]
+
+  - tool_id: slither
+    name: Slither
+    kind: analysis
+    entrypoint: slither
+    description: "Solidity static analyzer (100+ detectors)"
+    install_method: pip
+    install_cmd: slither-analyzer
+    binary_path: "~/.local/bin/slither"
+    version_cmd: "slither --version 2>&1"
+    category: analysis
+    pipelines: [bounty]
+    agent_roles: [defi-auditor]
+
+  - tool_id: mythril
+    name: Mythril
+    kind: analysis
+    entrypoint: myth
+    description: "EVM bytecode symbolic execution"
+    install_method: pip
+    install_cmd: mythril
+    binary_path: "~/.local/bin/myth"
+    version_cmd: "myth version 2>&1"
+    category: analysis
+    pipelines: [bounty]
+    agent_roles: [defi-auditor]
+
+  # ── ai ─────────────────────────────────────────────────
+  - tool_id: promptfoo
+    name: Promptfoo
+    kind: execution
+    entrypoint: promptfoo
+    description: "LLM red-team evaluation (OWASP Top 10)"
+    install_method: npm
+    install_cmd: promptfoo
+    binary_path: "~/.local/bin/promptfoo"
+    version_cmd: "promptfoo --version 2>&1"
+    category: ai
+    pipelines: [ai_security]
+    agent_roles: [ai-recon]
+
+  - tool_id: garak
+    name: Garak
+    kind: execution
+    entrypoint: garak
+    description: "LLM vulnerability scanner (NVIDIA)"
+    install_method: pip
+    install_cmd: garak
+    binary_path: "~/.local/bin/garak"
+    version_cmd: "garak --version 2>&1"
+    category: ai
+    pipelines: [ai_security]
+    agent_roles: [ai-recon]
+
+  - tool_id: parry-guard
+    name: Parry Guard
+    kind: analysis
+    entrypoint: parry-guard
+    description: "Prompt injection scanner"
+    install_method: pip
+    install_cmd: parry-guard
+    binary_path: "~/.local/bin/parry-guard"
+    version_cmd: "parry-guard --version 2>&1"
+    category: ai
+    pipelines: [ai_security]
+    agent_roles: [ai-recon]
+
+  # ── web3 ───────────────────────────────────────────────
+  - tool_id: forge
+    name: Foundry Forge
+    kind: execution
+    entrypoint: forge
+    description: "Solidity test framework, build, deploy"
+    install_method: manual
+    install_cmd: "curl -L https://foundry.paradigm.xyz | bash && foundryup"
+    binary_path: "~/.foundry/bin/forge"
+    version_cmd: "forge --version 2>&1"
+    category: web3
+    pipelines: [bounty]
+    agent_roles: [defi-auditor]
+
+  - tool_id: cast
+    name: Foundry Cast
+    kind: execution
+    entrypoint: cast
+    description: "Ethereum RPC CLI (call, send, decode)"
+    install_method: manual
+    install_cmd: "foundryup"
+    binary_path: "~/.foundry/bin/cast"
+    version_cmd: "cast --version 2>&1"
+    category: web3
+    pipelines: [bounty]
+    agent_roles: [defi-auditor, exploiter]
+
+  - tool_id: medusa
+    name: Medusa
+    kind: execution
+    entrypoint: medusa
+    description: "Smart contract fuzzer (crytic, Go parallel)"
+    install_method: manual
+    install_cmd: "go install github.com/crytic/medusa/cmd/medusa@latest"
+    binary_path: "~/.local/bin/medusa"
+    version_cmd: "medusa --version 2>&1"
+    category: web3
+    pipelines: [bounty]
+    agent_roles: [defi-auditor]
+
+  - tool_id: ityfuzz
+    name: ItyFuzz
+    kind: execution
+    entrypoint: ityfuzz
+    description: "Hybrid symbolic+fuzzing (44% more bugs than Echidna)"
+    install_method: manual
+    install_cmd: "cargo install ityfuzz"
+    binary_path: "~/.local/bin/ityfuzz"
+    version_cmd: "ityfuzz --version 2>&1"
+    category: web3
+    pipelines: [bounty]
+    agent_roles: [defi-auditor]
+
+  # ── firmware ───────────────────────────────────────────
+  - tool_id: routersploit
+    name: RouterSploit
+    kind: execution
+    entrypoint: rsf
+    description: "Router exploitation framework"
+    read_only: false
+    install_method: pip
+    install_cmd: routersploit
+    binary_path: "~/.local/bin/rsf"
+    version_cmd: "rsf --version 2>&1 | head -1"
+    category: firmware
+    pipelines: [firmware]
+    agent_roles: [fw-surface]
+
+  # ── supply_chain ───────────────────────────────────────
+  - tool_id: syft
+    name: Syft
+    kind: analysis
+    entrypoint: syft
+    description: "SBOM generator (CycloneDX/SPDX)"
+    install_method: manual
+    install_cmd: "curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh"
+    binary_path: "~/.local/bin/syft"
+    version_cmd: "syft version 2>&1"
+    category: supply_chain
+    pipelines: [supplychain]
+    agent_roles: [sc-scanner]
+
+  - tool_id: grype
+    name: Grype
+    kind: analysis
+    entrypoint: grype
+    description: "Vulnerability matcher (reads SBOM)"
+    install_method: manual
+    install_cmd: "curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sh"
+    binary_path: "~/.local/bin/grype"
+    version_cmd: "grype version 2>&1"
+    category: supply_chain
+    pipelines: [supplychain]
+    agent_roles: [sc-scanner]
+
+  - tool_id: pip-audit
+    name: pip-audit
+    kind: analysis
+    entrypoint: pip-audit
+    description: "Python dependency vulnerability scanner"
+    install_method: pip
+    install_cmd: pip-audit
+    binary_path: "~/.local/bin/pip-audit"
+    version_cmd: "pip-audit --version 2>&1"
+    category: supply_chain
+    pipelines: [supplychain]
+    agent_roles: [sc-scanner]
+
+  - tool_id: cargo-audit
+    name: cargo-audit
+    kind: analysis
+    entrypoint: cargo-audit
+    description: "Rust dependency vulnerability scanner"
+    install_method: cargo
+    install_cmd: cargo-audit
+    binary_path: "~/.cargo/bin/cargo-audit"
+    version_cmd: "cargo audit --version 2>&1"
+    category: supply_chain
+    pipelines: [supplychain]
+    agent_roles: [sc-scanner]
+
+  # ── wireless ───────────────────────────────────────────
+  - tool_id: aircrack-ng
+    name: Aircrack-ng
+    kind: execution
+    entrypoint: aircrack-ng
+    description: "WiFi packet capture/analysis"
+    read_only: false
+    install_method: apt
+    install_cmd: aircrack-ng
+    binary_path: /usr/bin/aircrack-ng
+    version_cmd: "aircrack-ng --version 2>&1 | head -1"
+    category: wireless
+    pipelines: [firmware, robotics]
+    agent_roles: [fw-surface, robo-scanner]
+
+  - tool_id: kismet
+    name: Kismet
+    kind: network
+    entrypoint: kismet
+    description: "Wireless network detector/sniffer"
+    install_method: apt
+    install_cmd: kismet
+    binary_path: /usr/bin/kismet
+    version_cmd: "kismet --version 2>&1 | head -1"
+    category: wireless
+    pipelines: [firmware, robotics]
+    agent_roles: [fw-surface, robo-scanner]
+
+  # ── infra ──────────────────────────────────────────────
+  - tool_id: gh
+    name: GitHub CLI
+    kind: query
+    entrypoint: gh
+    description: "GitHub CLI for PR/issue management"
+    install_method: apt
+    install_cmd: gh
+    binary_path: /usr/bin/gh
+    version_cmd: "gh --version 2>&1 | head -1"
+    category: infra
+    pipelines: [all]
+    agent_roles: [all]
+
+  - tool_id: searchsploit
+    name: SearchSploit
+    kind: query
+    entrypoint: searchsploit
+    description: "ExploitDB search (47K+ exploits)"
+    install_method: manual
+    install_cmd: "git clone https://gitlab.com/exploit-database/exploitdb.git ~/exploitdb"
+    binary_path: "~/exploitdb/searchsploit"
+    version_cmd: "searchsploit --version 2>&1 | head -1"
+    category: infra
+    pipelines: [bounty, ctf]
+    agent_roles: [analyst, exploiter]

@@ -35,9 +35,17 @@ class ToolSpec:
     parallel_class: ParallelClass = ParallelClass.INDEPENDENT
     tags: List[str] = field(default_factory=list)
     agent_roles: List[str] = field(default_factory=list)
+    install_method: str = ""
+    install_cmd: str = ""
+    binary_path: str = ""
+    version_cmd: str = ""
+    health_cmd: str = ""
+    category: str = ""
+    min_version: str = ""
+    pipelines: List[str] = field(default_factory=list)
 
     def to_dict(self) -> dict:
-        return {
+        d = {
             "tool_id": self.tool_id,
             "name": self.name,
             "kind": self.kind.value,
@@ -51,14 +59,22 @@ class ToolSpec:
             "tags": self.tags,
             "agent_roles": self.agent_roles,
         }
+        for f in ("install_method", "install_cmd", "binary_path",
+                   "version_cmd", "health_cmd", "category", "min_version"):
+            v = getattr(self, f)
+            if v:
+                d[f] = v
+        if self.pipelines:
+            d["pipelines"] = self.pipelines
+        return d
 
     @classmethod
     def from_dict(cls, d: dict) -> "ToolSpec":
         return cls(
             tool_id=d["tool_id"],
             name=d["name"],
-            kind=ToolKind(d["kind"]),
-            entrypoint=d["entrypoint"],
+            kind=ToolKind(d.get("kind", "execution")),
+            entrypoint=d.get("entrypoint", ""),
             description=d.get("description", ""),
             read_only=d.get("read_only", True),
             side_effects=d.get("side_effects", []),
@@ -67,6 +83,14 @@ class ToolSpec:
             parallel_class=ParallelClass(d.get("parallel_class", "independent")),
             tags=d.get("tags", []),
             agent_roles=d.get("agent_roles", []),
+            install_method=d.get("install_method", ""),
+            install_cmd=d.get("install_cmd", ""),
+            binary_path=d.get("binary_path", ""),
+            version_cmd=d.get("version_cmd", ""),
+            health_cmd=d.get("health_cmd", ""),
+            category=d.get("category", ""),
+            min_version=d.get("min_version", ""),
+            pipelines=d.get("pipelines", []),
         )
 
 
@@ -87,6 +111,13 @@ class ToolRegistry:
 
     def find_by_role(self, role: str) -> List[ToolSpec]:
         return [t for t in self._tools.values() if role in t.agent_roles or "all" in t.agent_roles]
+
+    def find_by_category(self, category: str) -> List[ToolSpec]:
+        return [t for t in self._tools.values() if t.category == category]
+
+    def find_by_pipeline(self, pipeline: str) -> List[ToolSpec]:
+        return [t for t in self._tools.values()
+                if pipeline in t.pipelines or "all" in t.pipelines]
 
     def find_read_only(self) -> List[ToolSpec]:
         return [t for t in self._tools.values() if t.read_only]

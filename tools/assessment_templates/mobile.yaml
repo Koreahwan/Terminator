@@ -1,0 +1,39 @@
+name: Mobile Application Assessment
+description: "Android/iOS static and dynamic security analysis"
+phases:
+  - name: static_analysis
+    objectives:
+      - APK/IPA decompilation and review
+      - Hardcoded secrets detection
+      - Insecure storage identification
+    tools: [apktool, dex2jar, smali, trufflehog]
+    agent: mobile-analyst
+
+  - name: dynamic_analysis
+    objectives:
+      - Runtime behavior monitoring
+      - SSL pinning bypass
+      - API traffic interception
+    tools: [mitmproxy]
+    agent: mobile-analyst
+
+  - name: api_backend
+    objectives:
+      - Backend API security testing
+      - Authentication bypass attempts
+      - BOLA/IDOR testing
+    tools: [ffuf, sqlmap, nuclei]
+    agent: web-tester
+
+  - name: exploitation
+    objectives:
+      - PoC for confirmed vulnerabilities
+      - Data leakage demonstration
+    tools: [sqlmap, commix]
+    agent: exploiter
+
+  - name: reporting
+    objectives:
+      - Mobile-specific CVSS scoring
+      - Platform guidelines compliance
+    agent: reporter
