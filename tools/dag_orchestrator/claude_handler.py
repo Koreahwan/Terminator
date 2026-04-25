@@ -273,9 +273,18 @@ Working directory: {self.work_dir}
             print(f"  [DRY-RUN] Prompt length: {len(prompt)} chars")
             if scope_gate.get("enabled"):
                 print(f"  [DRY-RUN] Scope gate: {scope_gate.get('status')} {scope_gate.get('reason', '')}")
+            runtime_policy = self._policy_for_role(role) if self.backend == "hybrid" else {}
+            runtime_gate = {
+                "status": "dry_run",
+                "required": {
+                    "debate_mode": runtime_policy.get("debate_mode", ""),
+                    "evidence_gate": runtime_policy.get("evidence_gate", ""),
+                    "transport_policy": runtime_policy.get("transport_policy", ""),
+                },
+            }
             duration = 0
             log_run_complete(run_id, "DRY_RUN", 0, f"Dry run for {role}")
-            return {"status": "dry_run", "role": role, "artifacts": [], "scope_gate": scope_gate}
+            return {"status": "dry_run", "role": role, "artifacts": [], "scope_gate": scope_gate, "runtime_gate": runtime_gate}
 
         cli_path = self.cli_path or ("omx" if effective_backend == "codex" else "claude")
 
@@ -336,6 +345,22 @@ Working directory: {self.work_dir}
 
             # Check artifacts
             artifact_check = check_artifacts(self.work_dir, role)
+            runtime_policy = self._policy_for_role(role) if self.backend == "hybrid" else {}
+            runtime_gate = {"status": "not_applicable"}
+            if runtime_policy:
+                from tools.runtime_gate import check_runtime_gates
+
+                runtime_gate = check_runtime_gates(
+                    Path(self.work_dir),
+                    self._canonical_role(role),
+                    runtime_policy,
+                    artifact_check["found"],
+                )
+                gate_path = Path(self.work_dir) / f"{self._canonical_role(role)}_runtime_gate.json"
+                gate_path.write_text(json.dumps(runtime_gate, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+                if runtime_gate["status"] != "pass":
+                    log_run_complete(run_id, "FAILED", duration, f"Runtime gate failed: {runtime_gate}", artifact_check["found"])
+                    raise ArtifactMissingError(f"@{role} runtime gate failed: {runtime_gate}")
             if scope_gate.get("enabled") and scope_gate.get("scope_contract_sha256"):
                 stale = []
                 expected_sha = scope_gate["scope_contract_sha256"]
@@ -371,6 +396,7 @@ Working directory: {self.work_dir}
                 "duration": duration,
                 "summary": summary,
                 "scope_gate": scope_gate,
+                "runtime_gate": runtime_gate,
             }
 
         except subprocess.TimeoutExpired:

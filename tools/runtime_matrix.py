@@ -130,7 +130,7 @@ def smoke_pipeline(pipeline: str, profile: str, out_dir: Path) -> dict:
                     failures.append(f"scope-first GPT role {role} routed to {backend}")
                 if role in SCOPE_FIRST_CLAUDE_ROLES and backend != "claude":
                     failures.append(f"scope-first Claude role {role} routed to {backend}")
-                if role in SCOPE_FIRST_DEBATE_ROLES and not entry.get("debate_mode"):
+                if (role in SCOPE_FIRST_DEBATE_ROLES or entry.get("debate_mode")) and not entry.get("debate_mode"):
                     failures.append(f"scope-first debate role {role} missing debate_mode")
             if backend == "codex" and str(model).lower() in {"sonnet", "opus", "haiku"}:
                 failures.append(f"codex role {role} has Claude alias model {model}")
@@ -144,6 +144,9 @@ def smoke_pipeline(pipeline: str, profile: str, out_dir: Path) -> dict:
                 "backend": backend,
                 "model": model,
                 "contract": has_contract,
+                "debate_mode": (entry or {}).get("debate_mode", ""),
+                "evidence_gate": (entry or {}).get("evidence_gate", ""),
+                "transport_policy": (entry or {}).get("transport_policy", ""),
                 "expected_artifacts": (entry or {}).get("expected_artifacts", []),
             }
         )
