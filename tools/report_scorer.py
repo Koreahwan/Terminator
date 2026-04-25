@@ -18,6 +18,12 @@ import sys
 from pathlib import Path
 from dataclasses import dataclass, field, asdict
 
+_REPO_ROOT = str(Path(__file__).resolve().parent.parent)
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
+
+from tools import areuai_bridge
+
 # ---------------------------------------------------------------------------
 # Dimension weights (sum = 1.0)
 # ---------------------------------------------------------------------------
@@ -417,6 +423,21 @@ def score_ai_slop(text: str) -> tuple[int, list[Fix]]:
     """Score AI signature absence: slop phrases, observational violations, em-dashes."""
     score = 100
     fixes = []
+    bridge_result = areuai_bridge.analyze_text(text, mode="report")
+    bridge_score = float(bridge_result.get("score", 0))
+    if bridge_score > 2:
+        penalty = min(50, int(round(bridge_score * 8)))
+        score -= penalty
+        spans = bridge_result.get("spans", [])[:5]
+        issues = ", ".join(str(s.get("text", s.get("pattern_id", ""))) for s in spans) or "areuai patterns"
+        fixes.append(Fix(
+            "Throughout report", "ai_slop",
+            f"areuai score {bridge_score:.1f}/10 detected: {issues}",
+            "Run areuai suggest/evade, then replace generic wording with target-specific technical facts",
+            "critical" if bridge_score > 5 else "high" if bridge_score > 2 else "medium",
+        ))
+        if bridge_score > 5:
+            return max(0, score), fixes
     text_lower = text.lower()
 
     # Check AI slop phrases

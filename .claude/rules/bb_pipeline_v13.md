@@ -315,6 +315,20 @@ After reporter saves draft, automated quality gate — **`/ralph --critic=critic
 4. Ralph PRD: each priority_fix = user story, acceptance = score 해당 dimension ≥ threshold. Max 3 iterations. 수렴 못 하면 → QUALITY_GATE_FAIL → Orchestrator decides: critic escalation or KILL
 **IRON RULE: No Phase 4 without quality score >= 75. Manual single-pass 금지 — ralph loop 사용.**
 
+#### Phase 3.6: areuai Evade (NEW; Orchestrator-owned)
+
+After Phase 3.5 passes, run rule-based areuai evasion before critic/architect
+review so reviewers inspect the final rewritten text:
+
+```bash
+/home/hw/.areuai/bin/areuai.py evade targets/<target>/submission/<name>/report.md \
+  --mode report --target zerogpt --quality-floor 75 --rounds 2
+```
+
+PASS(exit 0) → Phase 4. WARN(exit 1) → inspect diff/manual judgment.
+FAIL(exit 2) → reporter rewrite. areuai is rule-based only and preserves
+evidence, URLs, code blocks, commands, numbers, hashes, file paths, and CVSS.
+
 ### Phase 4: Review Cycle
 
 1. `critic` → fact-check only (CWE, dates, function names, line numbers, file paths) + Documented Feature Check + Driver/Library Match Check. Phase 4 fundamental KILL = Gate 2 failure → Gate 2 prompt retrospective.
@@ -332,7 +346,7 @@ After reporter saves draft, automated quality gate — **`/ralph --critic=critic
 - File Path Verification
 - Gate Feedback Loop: KILL here = Gate 2 bug → update Gate 2 prompt
 
-**3-Layer AI Detection (v12.3 NEW — MANDATORY before Phase 5)**: `tools/ai_detect.py` 3-layer chain — (1) `heuristic` instant, (2) `self-review-prompt` Claude in-session, (3) `zerogpt-instructions` via Playwright MCP. 전 단계 PASS 필수. Exit codes / score thresholds / 전체 bash 명령: `.claude/rules/bb/ai_detection_3layer.md`.
+**3-Layer AI Detection (v12.3 NEW — MANDATORY before Phase 5)**: `tools/ai_detect.py` 3-layer chain — (1) `heuristic` instant via areuai bridge, (2) `self-review-prompt` Claude in-session, (3) `zerogpt-instructions` via Playwright MCP. 전 단계 PASS 필수. Exit codes / score thresholds / 전체 bash 명령: `.claude/rules/bb/ai_detection_3layer.md`.
 
 **IRON RULE: All 3 layers must PASS. Rhino.fi "AI spam" = account death.**
 

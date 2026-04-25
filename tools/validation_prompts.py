@@ -25,7 +25,14 @@ Usage:
 
 import re
 import sys
+from pathlib import Path
 from typing import Dict, List, Optional
+
+_REPO_ROOT = str(Path(__file__).resolve().parent.parent)
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
+
+from tools import areuai_bridge
 
 
 # ---------------------------------------------------------------------------
@@ -256,6 +263,10 @@ def check_ai_slop(text: str) -> List[str]:
 
     Returns list of AI slop phrases found. Empty list = clean.
     """
+    result = areuai_bridge.analyze_text(text, mode="report")
+    spans = [str(span.get("text", "")) for span in result.get("spans", []) if span.get("text")]
+    if spans:
+        return spans
     return [m.group(0) for m in AI_SLOP_PATTERNS.finditer(text)]
 
 

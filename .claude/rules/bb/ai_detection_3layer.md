@@ -2,11 +2,19 @@
 
 Referenced from `bb_pipeline_v13.md` Phase 4.5. v12.3 MANDATORY before Phase 5. All 3 layers must PASS. Rhino.fi "AI spam" = account death.
 
-## Layer 1: Heuristic (automatic, instant)
+## Layer 1: areuai Bridge Heuristic (automatic, instant)
 
 ```bash
 python3 tools/ai_detect.py heuristic targets/<target>/submission/<name>/report.md
 # PASS (exit 0) → Layer 2 | WARN (exit 1) → fix then retry | FAIL (exit 2) → full rewrite
+```
+
+`tools/ai_detect.py heuristic` delegates to `tools/areuai_bridge.py`, which
+uses the global `~/.areuai` taxonomy/engine and falls back to an inline snapshot
+if the CLI is unavailable. Direct equivalent:
+
+```bash
+/home/hw/.areuai/bin/areuai.py analyze targets/<target>/submission/<name>/report.md --mode report --lang auto --json
 ```
 
 ## Layer 2: Claude self-review (in-session, free)

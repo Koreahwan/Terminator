@@ -256,6 +256,14 @@ AI-generated reports are 40%+ of submissions. Triagers actively scan for:
 - "Impact: An attacker could..." without showing HOW
 - No evidence of actually testing against the target
 
+Use areuai as the canonical automated check:
+
+```bash
+python3 tools/areuai_bridge.py analyze <report.md>
+```
+
+`slop-check` is retained only as a deprecated alias.
+
 **Unverified Language Scoring** — each instance adds +0.5 to AI Slop Score:
 
 | Expression | Problem | Fix |

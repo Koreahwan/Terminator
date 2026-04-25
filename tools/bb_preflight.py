@@ -57,6 +57,8 @@ _REPO_ROOT = str(Path(__file__).resolve().parent.parent)
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
+from tools import areuai_bridge
+
 RULES_FILE = "program_rules_summary.md"
 ENDPOINT_MAP = "endpoint_map.md"
 COVERAGE_THRESHOLD = 80
@@ -2299,7 +2301,10 @@ def kill_gate_1(target_dir: str, finding: str, severity: str = "", impact: str =
     combined_slop = (finding + " " + (impact or "")).lower()
     slop_hits = [m for m in _AI_SLOP_MARKERS if m in combined_slop]
     emoji_count = len(re.findall(_AI_SLOP_EMOJI_RE, finding + (impact or "")))
-    slop_score = len(slop_hits) + (emoji_count // 2)
+    slop_score = max(
+        len(slop_hits) + (emoji_count // 2),
+        areuai_bridge.check_slop_score(finding + " " + (impact or "")),
+    )
     if slop_score >= 3:
         warnings.append(
             f"[AI-SLOP RISK score={slop_score}] Finding/impact uses AI-template language: "

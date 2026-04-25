@@ -19,6 +19,12 @@ import sys
 import unicodedata
 from pathlib import Path
 
+_REPO_ROOT = str(Path(__file__).resolve().parent.parent)
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
+
+from tools import areuai_bridge
+
 # ---------------------------------------------------------------------------
 # Invisible Unicode characters to remove
 # ---------------------------------------------------------------------------
@@ -181,12 +187,17 @@ class ReportScrubber:
         return text  # Flagging only, no auto-replace
 
     def scrub(self, text: str) -> str:
-        text = self.remove_invisible_chars(text)
-        text = self.remove_format_control(text)
-        text = self.replace_em_dashes(text)
-        text = self.normalize_whitespace(text)
-        self.flag_slop_patterns(text)
-        return text
+        cleaned = areuai_bridge.scrub_text(text)
+        # Run legacy stat counters on a throwaway copy so existing CLI output
+        # remains informative while areuai owns the actual transformation.
+        legacy = self.remove_invisible_chars(text)
+        legacy = self.remove_format_control(legacy)
+        legacy = self.replace_em_dashes(legacy)
+        legacy = self.normalize_whitespace(legacy)
+        self.flag_slop_patterns(cleaned)
+        if cleaned != text and not any(self.stats.values()):
+            self.stats["whitespace_normalized"] += 1
+        return cleaned
 
 
 def main():

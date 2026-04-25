@@ -25,6 +25,12 @@ import math
 from pathlib import Path
 from collections import Counter
 
+_REPO_ROOT = str(Path(__file__).resolve().parent.parent)
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
+
+from tools import areuai_bridge
+
 
 # ─── Layer 1: Enhanced Heuristic Analysis ────────────────────────────────
 
@@ -167,6 +173,27 @@ def heuristic_check(filepath: str) -> int:
         return 2
 
     text = path.read_text(encoding="utf-8", errors="replace")
+    result = areuai_bridge.analyze_text(text, mode="report")
+    print(f"[L1-HEURISTIC] File: {filepath} ({result.get('word_count', len(text.split()))} words)")
+    print(
+        "[L1-HEURISTIC] areuai score: "
+        f"{float(result.get('score', 10)):.1f}/10 verdict={result.get('verdict', 'FAIL')}"
+        + (" (fallback)" if result.get("fallback") else "")
+    )
+    for detail in result.get("details", []):
+        print(f"  {detail}")
+    for span in result.get("spans", [])[:10]:
+        print(
+            f"  {span.get('category', 'pattern')}: "
+            f"{span.get('text', '')!r} -> {span.get('fix_hint', 'rewrite')}"
+        )
+    exit_code = int(result.get("exit_code", 2))
+    if exit_code == 2:
+        print("  → REWRITE REQUIRED. Remove template phrases, add specific evidence, or run areuai evade before review.")
+    elif exit_code == 1:
+        print("  → Review flagged patterns. Add target-specific details and rerun areuai analyze.")
+    return exit_code
+
     text_lower = text.lower()
     word_count = len(text.split())
 
