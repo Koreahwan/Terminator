@@ -20,7 +20,7 @@ from tools.scope_first_hybrid_audit import validate_code, validate_policy_gate_c
 from tools.submission_candidate_replay import extract_first_json, validate_candidate_payload
 from tools.submission_candidate_replay import collect_existing_results
 from tools.submission_fixture_index import build_manifest, default_source_root, has_baseline_packages
-from tools.submission_quality_compare import score_report
+from tools.submission_quality_compare import compare_scores_by_profile, score_report
 from tools.terminator_dry_run_matrix import command_for, ensure_fixtures
 
 
@@ -285,6 +285,25 @@ def test_quality_compare_uses_report_scorer_json_even_when_below_threshold(tmp_p
 
     assert result["external_score"] is not None
     assert result["score"] == int(result["external_score"])
+
+
+def test_quality_compare_splits_candidate_profiles() -> None:
+    baseline = [
+        {"name": "case-a", "report": {"score": 80}},
+        {"name": "case-b", "report": {"score": 90}},
+    ]
+    candidate = [
+        {"name": "case-a", "package": "reports/runtime-eval/run/candidate_replay/gpt-only/case-a/submission", "report": {"score": 81}},
+        {"name": "case-b", "package": "reports/runtime-eval/run/candidate_replay/gpt-only/case-b/submission", "report": {"score": 80}},
+        {"name": "case-a", "package": "reports/runtime-eval/run/candidate_replay/scope-first-hybrid/case-a/submission", "report": {"score": 82}},
+        {"name": "case-b", "package": "reports/runtime-eval/run/candidate_replay/scope-first-hybrid/case-b/submission", "report": {"score": 91}},
+    ]
+
+    result = compare_scores_by_profile(baseline, candidate)
+
+    assert result["gpt-only"]["comparable"] == 2
+    assert result["gpt-only"]["matched_or_better"] == 1
+    assert result["scope-first-hybrid"]["matched_or_better"] == 2
 
 
 def test_hallucination_audit_validates_backend_smoke(tmp_path) -> None:

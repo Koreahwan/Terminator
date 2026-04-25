@@ -258,6 +258,23 @@ def compare_scores(baseline: list[dict[str, object]], candidate: list[dict[str, 
     return {"comparable": comparable, "matched_or_better": matched_or_better, "match_rate": rate, "regressions": regressions}
 
 
+def candidate_profile(item: dict[str, object]) -> str:
+    package = Path(str(item.get("package") or ""))
+    parts = package.parts
+    if "candidate_replay" in parts:
+        idx = parts.index("candidate_replay")
+        if idx + 1 < len(parts):
+            return parts[idx + 1]
+    return "candidate"
+
+
+def compare_scores_by_profile(baseline: list[dict[str, object]], candidate: list[dict[str, object]]) -> dict[str, object]:
+    grouped: dict[str, list[dict[str, object]]] = {}
+    for item in candidate:
+        grouped.setdefault(candidate_profile(item), []).append(item)
+    return {profile: compare_scores(baseline, items) for profile, items in sorted(grouped.items())}
+
+
 def write_markdown(path: Path, payload: dict[str, object]) -> None:
     lines = ["# Submission Quality Delta", ""]
     lines.append(f"Generated: {payload['generated_at']}")
@@ -270,17 +287,30 @@ def write_markdown(path: Path, payload: dict[str, object]) -> None:
     elif not payload.get("candidate"):
         lines.append("")
         lines.append("- Candidate packages: not scored in this run; this report is baseline-only fixture calibration.")
+    profile_comparison = payload.get("profile_comparison") or {}
+    if profile_comparison:
+        lines.append("")
+        lines.append("## Profile Comparison")
+        lines.append("")
+        lines.append("| Profile | Comparable | Matched or Better | Match Rate | Regressions |")
+        lines.append("|---|---:|---:|---:|---:|")
+        for profile, item in profile_comparison.items():
+            lines.append(
+                f"| {profile} | {item.get('comparable')} | {item.get('matched_or_better')} | "
+                f"{item.get('match_rate')} | {len(item.get('regressions', []))} |"
+            )
     lines.append("")
-    lines.append("| Set | Package | Report | Slop | Best PoC | Evidence | Decision |")
-    lines.append("|---|---|---:|---:|---:|---|---|")
+    lines.append("| Set | Profile | Package | Report | Slop | Best PoC | Evidence | Decision |")
+    lines.append("|---|---|---|---:|---:|---:|---|---|")
     for set_name in ["baseline", "candidate"]:
         for item in payload.get(set_name, []):
             package_name = item.get("name") or item["package"]
+            profile = candidate_profile(item) if set_name == "candidate" else "baseline"
             review = item.get("review") or {}
             review_payload = review.get("payload") if isinstance(review, dict) else {}
             decision = review_payload.get("decision", "") if isinstance(review_payload, dict) else ""
             lines.append(
-                f"| {set_name} | {package_name} | {item['report']['score']} | "
+                f"| {set_name} | {profile} | {package_name} | {item['report']['score']} | "
                 f"{item['report']['slop']['score']} | {item['best_poc_tier']} | "
                 f"{'yes' if item['evidence_complete'] else 'no'} | {decision} |"
             )
@@ -321,6 +351,7 @@ def main() -> int:
         "baseline": baseline,
         "candidate": candidate,
         "comparison": compare_scores(baseline, candidate) if candidate else {},
+        "profile_comparison": compare_scores_by_profile(baseline, candidate) if candidate else {},
     }
 
     out_dir = args.out_dir or (PROJECT_ROOT / "reports" / "runtime-eval" / time.strftime("%Y%m%d_%H%M%S"))
