@@ -71,6 +71,15 @@
 - `check_agent_completion.sh` (SubagentStop): FLAG 감지 + 지식 추출 + 자동 체크포인트
 - `codex_cross_review.sh` (via SubagentStop hook): critic APPROVED 감지 시 Codex(GPT-5.4) 크로스 모델 리뷰 추천. `/codex:adversarial-review` 또는 `tools/codex_cross_review.sh adversarial` 실행.
 
+## 자연어 런타임 의도 매핑
+
+- 사용자가 "타겟 찾고 돌리자", "target find and run", "버그바운티 타겟 찾아서 돌려"처럼 말하면 먼저 `python3 tools/runtime_intent.py "<사용자 문장>" --shell`로 실행 계획을 해석하세요.
+- 사용자가 별도 모델을 지정하지 않으면 기본은 `scope-first-hybrid`입니다. 이는 `--backend hybrid --runtime-profile scope-first-hybrid`와 동등하며 scope contract/safety wrapper gate가 우선합니다.
+- "Codex로만", "GPT만", "codex only"는 `--backend codex --failover-to none --runtime-profile gpt-only`로 실행하세요.
+- "Claude로만", "클로드만", "claude only"는 `--backend claude --failover-to none --runtime-profile claude-only`로 실행하세요.
+- 특정 URL 없이 타겟 탐색을 요청하면 `tools/target_discovery.py` 후 `tools/bounty_live_ab.py` passive-live-safe-dry-run 순서로 실행하세요. live active action, submit, autofill, account creation은 별도 명시가 있어도 safety wrapper 없이 수행하지 마세요.
+- 특정 bounty URL이 있고 "돌려"라고 하면 `./terminator.sh --backend <resolved> --failover-to <resolved> --runtime-profile <resolved> bounty <url>` 형태로 실행하세요.
+
 ## Cross-tool coordination 규칙
 - 이 저장소의 **교차 도구 정본(source of truth)** 은 `coordination/` 입니다. `.omx/`와 Claude 런타임 상태는 로컬 보조 상태로 취급하세요.
 - Codex/OMX는 1회 `./scripts/install_omx_wrapper.sh` 설치 후 이 repo 안에서는 **plain `omx`** 로 실행하세요. wrapper가 `OMX_HOOK_PLUGINS=1` + `COORD_PROJECT_ROOT`를 자동 주입합니다.

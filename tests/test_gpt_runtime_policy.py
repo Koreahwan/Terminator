@@ -13,6 +13,7 @@ from tools.backend_runner import inject_policy_summary
 from tools.backend_smoke import parse_agent_messages
 from tools.implementation_intent_audit import Context, run_audit
 from tools.runtime_policy import apply_profile, load_policy
+from tools.runtime_intent import resolve
 from tools.runtime_hallucination_audit import Audit, validate_backend_smoke
 from tools.submission_candidate_replay import extract_first_json, validate_candidate_payload
 from tools.submission_candidate_replay import collect_existing_results
@@ -31,6 +32,47 @@ def test_profile_defaults_for_requested_backend(monkeypatch) -> None:
     assert runtime_profile_for_backend("codex") == "gpt-only"
     assert runtime_profile_for_backend("hybrid") == "scope-first-hybrid"
     assert launcher_backend("hybrid") == "claude"
+
+
+def test_natural_intent_defaults_to_scope_first_target_discovery() -> None:
+    payload = resolve("타겟 찾고 돌리자", timestamp="20260426_010000")
+
+    assert payload["intent"] == "target_discovery_then_bounty"
+    assert payload["runtime"]["backend"] == "hybrid"
+    assert payload["runtime"]["runtime_profile"] == "scope-first-hybrid"
+    assert payload["commands"][0][:2] == ["python3", "tools/target_discovery.py"]
+    assert payload["commands"][1][:2] == ["python3", "tools/bounty_live_ab.py"]
+
+
+def test_natural_intent_codex_only_bounty_url() -> None:
+    payload = resolve("codex로만 https://hackerone.com/example 돌려", dry_run=True)
+
+    assert payload["intent"] == "bounty"
+    assert payload["runtime"] == {
+        "backend": "codex",
+        "failover_to": "none",
+        "runtime_profile": "gpt-only",
+        "reason": "codex-only requested",
+    }
+    command = payload["commands"][0]
+    assert command[:7] == [
+        "./terminator.sh",
+        "--backend",
+        "codex",
+        "--failover-to",
+        "none",
+        "--runtime-profile",
+        "gpt-only",
+    ]
+    assert "--dry-run" in command
+
+
+def test_natural_intent_claude_only_bounty_url() -> None:
+    payload = resolve("claude only run https://hackerone.com/example")
+
+    assert payload["runtime"]["backend"] == "claude"
+    assert payload["runtime"]["failover_to"] == "none"
+    assert payload["runtime"]["runtime_profile"] == "claude-only"
 
 
 def test_gpt_only_routes_every_role_to_codex() -> None:
