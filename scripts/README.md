@@ -6,9 +6,20 @@
 
 | 스크립트 | 용도 | 실행 주기 |
 |---------|------|-----------|
+| `install_secall.sh` | seCall CLI 설치 + Terminator-local 세션 메모리 초기화 | 1회 (setup) |
 | `install_omx_wrapper.sh` | OMX 래퍼 설치 | 1회 (setup) |
 | `start_overview_server.sh` | 현재 overview 대시보드 백그라운드 기동 | 필요 시 수동 실행 |
 | `sync_poc_github.sh` | nomi-sec/PoC-in-GitHub 주간 pull + knowledge-fts 재인덱싱 | 주 1회 (cron) |
+
+## install_secall.sh — seCall 세션 메모리 연동
+
+```bash
+./scripts/install_secall.sh
+python3 tools/secall_bridge.py ingest --auto
+python3 tools/secall_bridge.py recall "report scorer"
+```
+
+상세 내용은 `docs/external-integrations/secall.md`를 참고하세요.
 
 ## start_overview_server.sh — 현재 overview 대시보드 기동
 

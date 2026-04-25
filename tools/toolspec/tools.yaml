@@ -52,6 +52,41 @@ tools:
     tags: [digest, context, summary]
     agent_roles: [all]
 
+  - tool_id: secall-session-recall
+    name: seCall Session Recall
+    kind: query
+    entrypoint: "python3 tools/secall_bridge.py recall"
+    description: "Search prior Claude/Codex/Gemini/ChatGPT agent sessions indexed by external seCall. Use for past decisions, handoffs, debugging context, and agent conversation memory. Not a security corpus search; use knowledge-fts for vulnerability research."
+    read_only: true
+    timeout: 30
+    parallel_class: independent
+    tags: [memory, sessions, recall, ai-agents]
+    agent_roles: [all]
+
+  - tool_id: secall-status
+    name: seCall Status
+    kind: query
+    entrypoint: "python3 tools/secall_bridge.py status"
+    description: "Check external seCall installation, config path, vault path, DB path, and indexed session health."
+    read_only: true
+    timeout: 15
+    parallel_class: independent
+    tags: [memory, sessions, health]
+    agent_roles: [all]
+
+  - tool_id: secall-session-ingest
+    name: seCall Session Ingest
+    kind: mutation
+    entrypoint: "python3 tools/secall_bridge.py ingest --auto"
+    description: "Ingest local AI agent session logs into the project-local seCall index. Writes only ignored .secall local state by default."
+    read_only: false
+    side_effects: [writes_local_secall_state]
+    produces_artifacts: [.secall/index.sqlite, .secall/vault]
+    timeout: 120
+    parallel_class: exclusive
+    tags: [memory, sessions, ingest]
+    agent_roles: [all]
+
   - tool_id: flag-detect
     name: Flag Detector
     kind: analysis
