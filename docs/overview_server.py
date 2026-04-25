@@ -17,6 +17,7 @@ import os
 import queue
 import re
 import subprocess
+import sys
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -331,13 +332,19 @@ class Handler(BaseHTTPRequestHandler):
     def log_message(self, fmt, *args):
         sys.stderr.write("%s - - [%s] %s\n" % (self.address_string(), self.log_date_time_string(), fmt % args))
 
+    _ALLOWED_ORIGINS = {"http://127.0.0.1:8450", "http://localhost:8450"}
+
+    def _cors_origin(self) -> str:
+        origin = self.headers.get("Origin", "")
+        return origin if origin in self._ALLOWED_ORIGINS else self._ALLOWED_ORIGINS.__iter__().__next__()
+
     def _send_json(self, payload: dict, status: int = 200) -> None:
         body = json.dumps(payload, ensure_ascii=False, indent=2).encode("utf-8")
         self.send_response(status)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Cache-Control", "no-store")
-        self.send_header("Access-Control-Allow-Origin", "http://127.0.0.1:8450")
+        self.send_header("Access-Control-Allow-Origin", self._cors_origin())
         self.end_headers()
         self.wfile.write(body)
 
@@ -351,11 +358,16 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(data)
 
     def _send_sse(self) -> None:
+        with _subs_lock:
+            if len(_subscribers) >= _MAX_SUBSCRIBERS:
+                self.send_response(503)
+                self.end_headers()
+                return
         self.send_response(200)
         self.send_header("Content-Type", "text/event-stream")
         self.send_header("Cache-Control", "no-store")
         self.send_header("Connection", "keep-alive")
-        self.send_header("Access-Control-Allow-Origin", "http://127.0.0.1:8450")
+        self.send_header("Access-Control-Allow-Origin", self._cors_origin())
         self.end_headers()
         q: queue.Queue = queue.Queue(maxsize=64)
         with _subs_lock:
