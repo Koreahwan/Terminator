@@ -36,7 +36,7 @@ RUN go install github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest \
     && rm -rf /root/go/pkg /root/.cache/go-build
 
 # ── Python tools ──
-RUN pip3 install --no-cache-dir --break-system-packages \
+RUN pip3 install --no-cache-dir \
     sqlmap wfuzz wapiti3 arjun dirsearch \
     theharvester dnsrecon fierce \
     requests httpx beautifulsoup4 lxml \
