@@ -442,6 +442,7 @@ def oos_scope_collision(target_dir: str) -> int:
                 "amazonaws.com", "cloudfront.net", "googleapis.com",
                 "dashboard.hackenproof", "docs.hackerone", "hproof-static",
                 "docs.google.com", "support.google.com",
+                "play.google.com", "apps.apple.com",  # app store distribution links
             )
             raw_urls = re.findall(r"https?://[^\s\)\]\"'>]+", line)
             for u in raw_urls:
@@ -492,6 +493,9 @@ def oos_scope_collision(target_dir: str) -> int:
         _DOC_SEGMENTS = ("docs", "doc", "wiki", "blog", "articles", "help", "faq",
                          "support", "learn", "guide", "tutorial", "reference", "api-docs")
         if any(seg in _DOC_SEGMENTS for seg in path_parts):
+            continue
+        host = parsed.hostname or ""
+        if host.startswith("docs.") or host.startswith("doc.") or host.startswith("wiki.") or host.startswith("support.") or host.startswith("help."):
             continue
         if "github.com" in oos_id:
             if len(path_parts) >= 3:  # org/repo/tree/... or org/repo/blob/...
