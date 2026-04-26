@@ -9,17 +9,21 @@ v12 splits the pipeline into two lanes:
 - **Prove Lane** (Phases 2–6): Validate, gate, submit. Only E1/E2 evidence proceeds to submission. Kill Gate rigor preserved from v11.
 
 ```
-EXPLORE LANE                                              PROVE LANE
+EXPLORE LANE (×N parallel, max 3)                         PROVE LANE (best finding only)
 ┌─────────────────────────────────────────┐   ┌──────────────────────────────────────┐
 │ Phase 0:   target-evaluator (+ novelty) │   │ ★ Gate 1: triager-sim (finding)      │
 │ Phase 0.2: bb_preflight rules           │   │ Phase 2:  exploiter (E1-E4 tiers)    │
 │ Phase 0.5: automated tool scan          │   │ ★ Gate 2: triager-sim (PoC)          │
 │ Phase 1:   scout + analyst + threat-    │   │ Phase 3:  reporter                   │
-│            modeler + patch-hunter       │   │ Phase 4:  critic + architect          │
-│ Phase 1.5: workflow-auditor + web-tester│   │ Phase 4.5:triager-sim (report)       │
-│ ★ Gate 1→2: coverage + workflow check   │   │ Phase 5:  reporter (finalize)        │
-└─────────────────────────────────────────┘   │ Phase 6:  TeamDelete                 │
-                                               └──────────────────────────────────────┘
+│            modeler + patch-hunter       │   │ Phase 4:  critic ┐                   │
+│ Phase 1.5: workflow-auditor + web-tester│   │           architect ├─ parallel READ  │
+│ ★ Gate 1→2: coverage + workflow check   │   │           codex  ┘  KILL-trumps-all  │
+│                                         │   │ Phase 4.5:triager-sim (report)       │
+│ v15: N targets run Phase 0-1.5 in       │   │ Phase 5:  reporter (finalize)        │
+│ parallel. Best finding enters Prove.    │   │ Phase 6:  TeamDelete                 │
+│ Detail: .claude/rules/bb/              │   └──────────────────────────────────────┘
+│         explore_parallel.md             │
+└─────────────────────────────────────────┘
 ```
 
 ---
@@ -329,12 +333,25 @@ PASS(exit 0) → Phase 4. WARN(exit 1) → inspect diff/manual judgment.
 FAIL(exit 2) → reporter rewrite. areuai is rule-based only and preserves
 evidence, URLs, code blocks, commands, numbers, hashes, file paths, and CVSS.
 
-### Phase 4: Review Cycle
+### Phase 4: Review Cycle (v15 — parallel spawn, KILL-trumps-all)
 
-1. `critic` → fact-check only (CWE, dates, function names, line numbers, file paths) + Documented Feature Check + Driver/Library Match Check. Phase 4 fundamental KILL = Gate 2 failure → Gate 2 prompt retrospective.
-2. `architect` → consistency (report-PoC-evidence alignment)
-3. **`codex:adversarial-review` (v12.1 NEW)** → `/codex:adversarial-review --wait` on submission/. GPT-5.4 challenges threat model realism / CVSS / evidence gaps. CRITICAL ISSUE → reporter fix. AI Slop cross-check (Claude-specific patterns neutralized).
-4. Optional: user external review
+**Parallel spawn** — critic, architect, codex는 동일 artifact를 READ-only로 검토. 데이터 의존성 없음.
+
+```
+Orchestrator spawns 3 agents in ONE message (parallel tool calls):
+  Agent(critic,  model=opus)   → fact-check (CWE, dates, names, paths) + Feature Check + Driver/Library Match
+  Agent(architect, model=opus) → consistency (report-PoC-evidence alignment)
+  Agent(codex:adversarial-review) → GPT-5.4 threat model realism / CVSS / evidence gaps / AI Slop
+```
+
+**KILL-trumps-all merge logic** (Orchestrator 직접 실행):
+1. 3자 결과 수집 (병렬 완료 대기)
+2. **ANY KILL** → 즉시 나머지 결과 폐기 → Gate 2 prompt retrospective (Phase 4 fundamental KILL = Gate 2 failure)
+3. **ALL PASS** → 3자 피드백 merge → dedup (동일 이슈 다른 표현 통합) → reporter에 consolidated fix list 전달
+4. **MIXED (PASS + STRENGTHEN)** → STRENGTHEN 항목만 수집 → reporter fix → Phase 4.5 진입
+5. Optional: user external review
+
+**왜 안전한가**: 3자 모두 report.md + PoC + evidence를 읽기만 함. 어떤 agent도 artifact를 수정하지 않음. KILL 판정은 merge 단계에서 orchestrator가 처리.
 
 ### Phase 4.5: Triager Simulation + AI Detection (EXPANDED v12.3)
 

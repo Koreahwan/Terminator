@@ -41,7 +41,7 @@
 
 ### Pipeline Selection
 - **CTF**: `.claude/rules-ctf/_ctf_pipeline.md` — reverser → [trigger] → chain/solver → critic → verifier → reporter
-- **Bug Bounty**: `.claude/rules/bb_pipeline_v13.md` (canonical path; v13.4 gate/check additions live in `tools/bb_preflight.py`) — Explore Lane (Phase 0-1.5) → Prove Lane (Gate 1 → Phase 2-6)
+- **Bug Bounty**: `.claude/rules/bb_pipeline_v13.md` (canonical path; v13.4 gate/check additions live in `tools/bb_preflight.py`) — Explore Lane (Phase 0-1.5, **v15: ×N parallel** `.claude/rules/bb/explore_parallel.md`) → Prove Lane (Gate 1 → Phase 2-6, **v15: Phase 4 parallel READ** critic+architect+codex KILL-trumps-all)
 - **Firmware**: fw-profiler → fw-inventory → fw-surface → fw-validator
 - **AI/LLM Security**: ai-recon + analyst(domain=ai) → Gate 1 → exploiter → Gate 2 → reporter → critic → triager-sim → final
 - **Robotics/ROS** (CVE track): robo-scanner + analyst(domain=robotics) → exploiter → reporter(CVE) → critic → cve-manager
@@ -125,6 +125,7 @@ See `.claude/agents/_reference/observation_masking.md`.
 ```bash
 ./terminator.sh ctf /path/to/challenge[.zip]
 ./terminator.sh bounty https://target.com "*.target.com"
+./terminator.sh bounty-explore targets.json          # v15: parallel explore (max 3)
 ./terminator.sh firmware /path/to/firmware.bin
 ./terminator.sh ai-security https://api.example.com "GPT-4o"
 ./terminator.sh robotics 192.168.1.100:11311 "Unitree-G1"

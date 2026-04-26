@@ -19,6 +19,10 @@ EXIT_MEDIUM=3
 EXIT_ERROR=10
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
+log_info()  { printf '[*] %s\n' "$*" >&2; }
+log_warn()  { printf '[!] %s\n' "$*" >&2; }
+log_error() { printf '[ERROR] %s\n' "$*" >&2; }
 TIMESTAMP="${TERMINATOR_TIMESTAMP:-$(date +%Y%m%d_%H%M%S)}"
 REPORT_DIR=""
 PID_DIR="$SCRIPT_DIR/.pids"
@@ -1036,7 +1040,7 @@ plan = {
         'phase_2_exploiter_poc_validation',
         'kill_gate_2_triager_sim_poc_destruction',
         'phase_3_reporter',
-        'phase_4_critic_factcheck',
+        'phase_4_parallel_review_critic_architect_codex',
         'phase_4_5_triager_sim_report_review',
         'phase_5_finalize_zip',
         'phase_6_cleanup'
@@ -1104,12 +1108,36 @@ print(json.dumps(plan, indent=2))
     PID_FILE="$PID_DIR/${TARGET_NAME}.pid"
     PID_META="$PID_DIR/${TARGET_NAME}.json"
 
-    if [ "$EFFECTIVE_PROFILE" = "scope-first-hybrid" ]; then
+    # Scope-first Phase 0: MANDATORY for ALL bounty backends (not just hybrid)
+    # Without bundle.md, agents "infer" scope → OOS items land in scope → submission accident
+    # Root cause: NEAR Intents escrow-swap OOS collision (2026-04-26)
+    # Override: TERMINATOR_SKIP_SCOPE_FIRST=1 (emergency only)
+    if [ "${TERMINATOR_SKIP_SCOPE_FIRST:-0}" != "1" ]; then
       echo "[*] Scope-first Phase 0: passive program fetch + scope contract"
-      python3 "$SCRIPT_DIR/tools/bb_preflight.py" init "$TARGET_DIR" >/dev/null
+      python3 "$SCRIPT_DIR/tools/bb_preflight.py" init "$TARGET_DIR" >/dev/null 2>&1 || true
       python3 "$SCRIPT_DIR/tools/bb_preflight.py" fetch-program "$TARGET_DIR" "$TARGET" --hold-ok
-      python3 "$SCRIPT_DIR/tools/scope_contract.py" create "$TARGET_DIR" --allow-hold
-      echo "[*] Scope-first Phase 0: scope_contract.json ready"
+      if [ ! -f "$TARGET_DIR/program_raw/bundle.md" ]; then
+        log_error "SCOPE GATE FAIL: bundle.md not created — agents MUST NOT start without verbatim scope."
+        log_error "Fix: check program URL, network, or Cloudflare. Override: TERMINATOR_SKIP_SCOPE_FIRST=1"
+        exit $EXIT_ERROR
+      fi
+      # Reverse OOS check: bundle OOS items must not appear in rules_summary scope
+      python3 "$SCRIPT_DIR/tools/bb_preflight.py" verbatim-check "$TARGET_DIR" --warn >/dev/null 2>&1 || true
+      python3 "$SCRIPT_DIR/tools/bb_preflight.py" oos-scope-collision "$TARGET_DIR" 2>/dev/null || {
+        _OOS_EXIT=$?
+        if [ "${_OOS_EXIT:-0}" = "2" ]; then
+          log_error "OOS-SCOPE COLLISION: Out-of-scope items found in scope section. Fix rules_summary before proceeding."
+          exit $EXIT_ERROR
+        fi
+      }
+      if [ "$EFFECTIVE_PROFILE" = "scope-first-hybrid" ]; then
+        python3 "$SCRIPT_DIR/tools/scope_contract.py" create "$TARGET_DIR" --allow-hold 2>/dev/null || true
+        echo "[*] Scope-first Phase 0: scope_contract.json ready"
+      else
+        echo "[*] Scope-first Phase 0: bundle.md ready (non-hybrid — no scope_contract)"
+      fi
+    else
+      log_warn "TERMINATOR_SKIP_SCOPE_FIRST=1 — scope gate bypassed. Agents may infer incorrect scope."
     fi
 
     # Write prompt to file to avoid heredoc escaping issues
@@ -1184,6 +1212,43 @@ if p:
     # Append platform context to prompt
     if [ -n "$PLATFORM_INFO" ]; then
       printf "\n\nPLATFORM CONTEXT:\n%s\nRead the submission template file before writing any report.\n" "$PLATFORM_INFO" >> "$PROMPT_FILE"
+    fi
+
+    # Explore-only mode: restrict to Phase 0-1.5, skip Prove Lane
+    if [ "${TERMINATOR_EXPLORE_ONLY:-0}" = "1" ]; then
+      cat >> "$PROMPT_FILE" <<'EXPLORE_APPEND'
+
+## EXPLORE-ONLY MODE (bounty-explore parallel)
+
+This session runs ONLY the Explore Lane (Phase 0 through Phase 1.5).
+Do NOT enter the Prove Lane (Phase 2+). Do NOT spawn exploiter.
+
+After Phase 1.5 completes (or earlier if NO-GO):
+1. Write `explore_summary.json` to __TARGET_DIR__/:
+   {
+     "target": "<url>",
+     "status": "explore_complete|no_go|abandoned",
+     "no_go_reason": "<if applicable>",
+     "top_findings": [
+       {
+         "name": "<finding name>",
+         "confidence": <1-10>,
+         "severity_estimate": "critical|high|medium|low",
+         "evidence_tier_estimate": "E1|E2|E3|E4",
+         "gate1_prediction": "GO|CONDITIONAL|KILL",
+         "one_line": "<one sentence description>"
+       }
+     ],
+     "coverage_pct": <0-100>,
+     "artifacts": ["endpoint_map.md", "vulnerability_candidates.md", ...],
+     "elapsed_minutes": <N>
+   }
+2. Write checkpoint.json with status="completed"
+3. Exit. Do NOT proceed to Gate 1 or Phase 2.
+
+Time-box: 2 hours max for explore. No HIGH+ signal at 1.5hr → write summary and exit.
+EXPLORE_APPEND
+      sed -i "s|__TARGET_DIR__|$TARGET_DIR|g" "$PROMPT_FILE"
     fi
 
     nohup bash -c "
@@ -1272,6 +1337,151 @@ if p:
       tail -80 "$REPORT_DIR/session.log" 2>/dev/null
       echo "=== END ==="
     fi
+    ;;
+
+  bounty-explore)
+    TARGETS_FILE="$TARGET"
+    if [ -z "$TARGETS_FILE" ]; then
+      echo "Usage: ./terminator.sh bounty-explore targets.json"
+      echo ""
+      echo "targets.json format:"
+      echo '  [{"target":"https://...","scope":"*.example.com","platform":"bugcrowd"}, ...]'
+      exit $EXIT_ERROR
+    fi
+    if [ ! -f "$TARGETS_FILE" ]; then
+      echo "[!] File not found: $TARGETS_FILE"
+      exit $EXIT_ERROR
+    fi
+
+    init_report_dir
+    EXPLORE_GROUP="explore-$TIMESTAMP"
+    EXPLORE_MAX="${TERMINATOR_EXPLORE_MAX:-3}"
+
+    echo "╔══════════════════════════════════════════╗"
+    echo "║   TERMINATOR - Explore Parallel Mode      ║"
+    echo "╠══════════════════════════════════════════╣"
+    echo "║ Group:     $EXPLORE_GROUP"
+    echo "║ Max slots: $EXPLORE_MAX"
+    echo "║ Report:    $REPORT_DIR"
+    echo "╚══════════════════════════════════════════╝"
+
+    # Parse targets JSON → TSV (target, scope, platform)
+    python3 - <<'PY' "$TARGETS_FILE" > "$REPORT_DIR/explore_targets.tsv"
+import json, sys
+from pathlib import Path
+data = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+if isinstance(data, dict):
+    data = data.get("targets", [])
+for item in data:
+    print("\t".join([
+        str(item.get("target", "")),
+        str(item.get("scope", item.get("target", ""))),
+        str(item.get("platform", "unknown")),
+    ]))
+PY
+
+    if [ "$DRY_RUN" = true ]; then
+      echo "[DRY-RUN] Explore targets:"
+      cat "$REPORT_DIR/explore_targets.tsv"
+      exit $EXIT_CLEAN
+    fi
+
+    # Phase -1: verify-target for each (sequential — fast, seconds each)
+    VERIFIED_TARGETS="$REPORT_DIR/verified_targets.tsv"
+    : > "$VERIFIED_TARGETS"
+    echo "[*] Phase -1: Verifying targets..."
+    while IFS=$'\t' read -r t_url t_scope t_platform; do
+      [ -n "$t_url" ] || continue
+      _vp="$t_platform"
+      [ "$_vp" = "unknown" ] && _vp="huntr"
+      set +e
+      python3 "$SCRIPT_DIR/tools/bb_preflight.py" verify-target "$_vp" "$t_url" 2>/dev/null
+      _vx=$?
+      set -e
+      if [ "$_vx" -eq 0 ] || [ "$_vx" -eq 3 ]; then
+        printf '%s\t%s\t%s\n' "$t_url" "$t_scope" "$t_platform" >> "$VERIFIED_TARGETS"
+        echo "  [GO]   $t_url"
+      else
+        echo "  [SKIP] $t_url (verify-target exit $_vx)"
+      fi
+    done < "$REPORT_DIR/explore_targets.tsv"
+
+    VERIFIED_COUNT="$(wc -l < "$VERIFIED_TARGETS" | tr -d ' ')"
+    if [ "$VERIFIED_COUNT" -eq 0 ]; then
+      echo "[!] No targets passed verification."
+      exit $EXIT_ERROR
+    fi
+    echo "[*] $VERIFIED_COUNT target(s) verified. Launching explore sessions (max $EXPLORE_MAX parallel)..."
+
+    # Launch explore-only bounty sessions
+    EXPLORE_PIDS=()
+    EXPLORE_DIRS=()
+    SLOT=0
+    while IFS=$'\t' read -r t_url t_scope t_platform; do
+      [ -n "$t_url" ] || continue
+
+      # Respect max parallel slots
+      while [ "$SLOT" -ge "$EXPLORE_MAX" ]; do
+        # Wait for any child to finish
+        for i in "${!EXPLORE_PIDS[@]}"; do
+          if ! kill -0 "${EXPLORE_PIDS[$i]}" 2>/dev/null; then
+            unset "EXPLORE_PIDS[$i]"
+            SLOT=$((SLOT - 1))
+          fi
+        done
+        EXPLORE_PIDS=("${EXPLORE_PIDS[@]}")
+        [ "$SLOT" -ge "$EXPLORE_MAX" ] && sleep 5
+      done
+
+      # Launch with TERMINATOR_EXPLORE_ONLY=1
+      env TERMINATOR_EXPLORE_ONLY=1 \
+        TERMINATOR_PARALLEL_GROUP_ID="$EXPLORE_GROUP" \
+        "$SCRIPT_DIR/terminator.sh" \
+        --backend "${BACKEND:-claude}" \
+        bounty "$t_url" "$t_scope" &
+      _pid=$!
+      EXPLORE_PIDS+=("$_pid")
+
+      _tname="$(echo "$t_url" | sed 's|https\?://||;s|/$||;s|/information$||;s|/details$||;s|/scope$||' | awk -F/ '{print $NF}' | sed 's|\.|-|g')"
+      [ -z "$_tname" ] && _tname="$(echo "$t_url" | sed 's|https\?://||;s|/.*||;s|\.|-|g')"
+      EXPLORE_DIRS+=("$SCRIPT_DIR/targets/$_tname")
+      SLOT=$((SLOT + 1))
+      echo "  [LAUNCH] $t_url (PID $_pid)"
+
+    done < "$VERIFIED_TARGETS"
+
+    # Wait for all explore sessions to complete
+    echo "[*] Waiting for all explore sessions..."
+    for pid in "${EXPLORE_PIDS[@]}"; do
+      wait "$pid" 2>/dev/null || true
+    done
+
+    # Collect and rank results
+    echo ""
+    echo "╔══════════════════════════════════════════╗"
+    echo "║   EXPLORE RESULTS                         ║"
+    echo "╠══════════════════════════════════════════╣"
+    for d in "${EXPLORE_DIRS[@]}"; do
+      if [ -f "$d/explore_summary.json" ]; then
+        python3 -c "
+import json, sys
+s = json.load(open('$d/explore_summary.json'))
+status = s.get('status','unknown')
+findings = s.get('top_findings',[])
+top = findings[0] if findings else {}
+print(f'  {s.get(\"target\",\"?\")}')
+print(f'    Status: {status} | Findings: {len(findings)} | Coverage: {s.get(\"coverage_pct\",\"?\")}'+'%')
+if top:
+    print(f'    Best: {top.get(\"name\",\"?\")} (conf={top.get(\"confidence\",\"?\")}, sev={top.get(\"severity_estimate\",\"?\")}, tier={top.get(\"evidence_tier_estimate\",\"?\")})')
+" 2>/dev/null || echo "  $d — explore_summary.json parse error"
+      else
+        echo "  $(basename "$d") — no explore_summary.json (session may have failed)"
+      fi
+    done
+    echo "╚══════════════════════════════════════════╝"
+    echo ""
+    echo "[*] To run full pipeline on a target:"
+    echo "    ./terminator.sh bounty <target_url> [scope]"
     ;;
 
   firmware)
@@ -2184,6 +2394,7 @@ PY
     echo "Usage:"
     echo "  ./terminator.sh [OPTIONS] ctf /path/to/challenge[.zip]    Solve a CTF challenge"
     echo "  ./terminator.sh [OPTIONS] bounty <url> [scope]             Bug bounty assessment"
+  echo "  ./terminator.sh [OPTIONS] bounty-explore targets.json       Parallel explore (max 3)"
     echo "  ./terminator.sh [OPTIONS] firmware /path/to/firmware.bin   Firmware pipeline"
     echo "  ./terminator.sh status                                      Check running session"
     echo "  ./terminator.sh logs                                        Tail latest session log"

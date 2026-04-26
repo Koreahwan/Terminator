@@ -59,6 +59,20 @@ def detect_platform(url: str) -> str:
         return "huntr"
     if host == "github.com" or host.endswith(".github.com") or host.endswith("githubusercontent.com"):
         return "github_md"
+    if host.endswith("hckrt.com") or host.endswith("hackrate.com"):
+        return "hackrate"
+    if host.endswith("compass-security.com"):
+        return "compass"
+    if host.endswith("inspectiv.com"):
+        return "inspectiv"
+    if host.endswith("yogosha.com"):
+        return "yogosha"
+    if host.endswith("cobalt.io"):
+        return "cobalt"
+    if host.endswith("synack.com"):
+        return "synack"
+    if host.endswith("gobugfree.com"):
+        return "gobugfree"
     return "generic"
 
 
@@ -105,6 +119,13 @@ def _load_handlers() -> dict[str, HandlerFn]:
         "hackenproof",
         "huntr",
         "github_md",
+        "hackrate",
+        "compass",
+        "inspectiv",
+        "yogosha",
+        "cobalt",
+        "synack",
+        "gobugfree",
         "generic",
     ):
         _try_import(name)

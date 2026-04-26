@@ -1,4 +1,4 @@
-# BB Core Rules — Version History / Changelog (v12 → v14)
+# BB Core Rules — Version History / Changelog (v12 → v15)
 
 Referenced from `bb_pipeline_v13.md` "BB Core Rules". These are the version addenda that accumulated over iterations. Full enforcement text lives inside the relevant Phase sections in the main file — this is the one-line summary per version.
 
@@ -61,3 +61,8 @@ Referenced from `bb_pipeline_v13.md` "BB Core Rules". These are the version adde
 - Program scope verbatim-traceability IRON RULE — `program_raw/bundle.md` raw-bundle layer, Phase 0.2 `verbatim-check` HARD FAIL 시 block
 - Playwright tier 4 SPA escalation + persistent login profile for invitation-only programs
 - `scripts/refetch_active_targets.sh` retrospective refetch for pre-v14 targets
+
+## v15 (2026-04-26)
+
+- **Explore Parallel**: Explore Lane ×N 타겟 병렬 실행 (max 3). 각 타겟 `targets/<target>/` 독립 디렉토리, 공유 상태 없음. 최고 finding만 Prove Lane 진입. `terminator.sh bounty-explore targets.json` 자율 모드 추가. 상세: `.claude/rules/bb/explore_parallel.md`
+- **Phase 4 Parallel READ**: critic + architect + codex:adversarial-review 3자 병렬 spawn (동일 artifact READ-only). KILL-trumps-all merge — ANY KILL 즉시 폐기, ALL PASS → dedup merge → reporter fix. 게이트 기준 변경 없음, 실행 구조만 직렬→병렬

@@ -392,6 +392,139 @@ def rules_check(target_dir: str, domain: str = "bounty") -> int:
     return 0
 
 
+def oos_scope_collision(target_dir: str) -> int:
+    """Reverse OOS→scope cross-check: detect OOS items that leaked into the scope section.
+
+    verbatim_check validates forward (rules_summary → bundle). This validates
+    the reverse: bundle OOS items must NOT appear in rules_summary scope section.
+
+    Root cause: NEAR Intents escrow-swap incident (2026-04-26) — agent inferred
+    scope from repo structure and placed an OOS target in Priority modules.
+
+    Exit codes:
+      0 PASS  — no OOS items found in scope
+      1 WARN  — potential overlap (fuzzy match)
+      2 FAIL  — definite OOS item in scope section
+      3 ERROR — missing files
+    """
+    td = Path(target_dir)
+    bundle = td / "program_raw" / "bundle.md"
+    rules = td / "program_rules_summary.md"
+
+    if not bundle.exists():
+        print("ERROR: program_raw/bundle.md missing — run fetch-program first")
+        return 3
+    if not rules.exists():
+        print("ERROR: program_rules_summary.md missing")
+        return 3
+
+    bundle_text = bundle.read_text(encoding="utf-8", errors="replace")
+    rules_text = rules.read_text(encoding="utf-8", errors="replace")
+
+    # Extract OOS identifiers from bundle (URLs, repo paths, domain names)
+    oos_identifiers: list[str] = []
+    in_oos = False
+    for line in bundle_text.splitlines():
+        lower = line.lower().strip()
+        if re.search(r"out[- ]of[- ]scope|exclusion|not eligible|not in scope", lower):
+            in_oos = True
+            continue
+        if in_oos and re.match(r"^#{1,4}\s", line):
+            if not re.search(r"out[- ]of[- ]scope|exclusion", line.lower()):
+                in_oos = False
+                continue
+        if in_oos:
+            # Extract URLs — clean markdown artifacts, skip platform noise
+            _NOISE_PATTERNS = (
+                "hackerone.com", "hackenproof.com", "bugcrowd.com", "intigriti.com",
+                "yeswehack.com", "immunefi.com", "huntr.com",
+                "x.com/", "twitter.com/", "linkedin.com/", "discord.com/", "t.me/",
+                "amazonaws.com", "cloudfront.net", "googleapis.com",
+                "dashboard.hackenproof", "docs.hackerone", "hproof-static",
+                "docs.google.com", "support.google.com",
+            )
+            raw_urls = re.findall(r"https?://[^\s\)\]\"'>]+", line)
+            for u in raw_urls:
+                u = re.sub(r"\]\(https?://.*", "", u)  # strip markdown ](url tail
+                u = u.rstrip("/.,;:)")
+                if not u or len(u) < 10:
+                    continue
+                if any(noise in u for noise in _NOISE_PATTERNS):
+                    continue
+                oos_identifiers.append(u)
+
+    if not oos_identifiers:
+        print("PASS: no OOS identifiers extracted from bundle — nothing to cross-check")
+        return 0
+
+    # Extract scope section from rules_summary
+    scope_section = ""
+    in_scope = False
+    for line in rules_text.splitlines():
+        if re.match(r"^#{1,3}\s.*(scope|in-scope|in scope|assets).*", line, re.I):
+            if not re.search(r"out[- ]of[- ]scope|exclusion", line, re.I):
+                in_scope = True
+                scope_section += line + "\n"
+                continue
+        if in_scope:
+            if re.match(r"^#{1,3}\s", line) and not re.search(r"scope|asset", line, re.I):
+                in_scope = False
+                continue
+            scope_section += line + "\n"
+
+    if not scope_section:
+        print("WARN: could not extract scope section from rules_summary — manual check needed")
+        return 1
+
+    # Deduplicate
+    oos_identifiers = list(dict.fromkeys(oos_identifiers))
+
+    # Filter: only keep URLs with specific paths (not bare domains/top-level repos).
+    # A bare domain (neon.tech) or top-level repo (github.com/grafana/grafana) in both
+    # OOS and scope is normal — different parts have different scope status.
+    # Only flag when a SPECIFIC sub-path is explicitly OOS (e.g. /tree/main/escrow-swap).
+    specific_oos: list[str] = []
+    for oos_id in oos_identifiers:
+        from urllib.parse import urlparse as _up
+        parsed = _up(oos_id)
+        path_parts = [p for p in parsed.path.split("/") if p]
+        # Skip documentation/reference links — not actual target assets
+        _DOC_SEGMENTS = ("docs", "doc", "wiki", "blog", "articles", "help", "faq",
+                         "support", "learn", "guide", "tutorial", "reference", "api-docs")
+        if any(seg in _DOC_SEGMENTS for seg in path_parts):
+            continue
+        if "github.com" in oos_id:
+            if len(path_parts) >= 3:  # org/repo/tree/... or org/repo/blob/...
+                specific_oos.append(oos_id)
+        elif parsed.path and len(path_parts) >= 2:
+            specific_oos.append(oos_id)
+
+    if not specific_oos:
+        print(f"PASS: {len(oos_identifiers)} OOS URLs are top-level (normal partial-OOS) — no specific sub-paths to cross-check")
+        return 0
+
+    # Cross-check: any specific OOS identifier in scope section?
+    collisions: list[str] = []
+    for oos_id in specific_oos:
+        slug = oos_id.split("/")[-1]
+        if len(slug) < 4:
+            continue
+        if slug in scope_section and oos_id not in scope_section:
+            collisions.append(f"{oos_id} (slug '{slug}' found in scope)")
+        elif oos_id in scope_section:
+            collisions.append(oos_id)
+
+    if collisions:
+        print(f"FAIL: {len(collisions)} OOS item(s) found in scope section of rules_summary:")
+        for c in collisions:
+            print(f"  - {c}")
+        print("Fix: remove these from the scope section or verify they are truly in-scope on the live page")
+        return 2
+
+    print(f"PASS: {len(oos_identifiers)} OOS identifiers checked — none found in scope section")
+    return 0
+
+
 def verbatim_check(
     target_dir: str,
     *,
@@ -3928,6 +4061,13 @@ _VERIFY_DISPATCH = {
     "intigriti": _verify_intigriti,
     "immunefi": _verify_immunefi,
     "hackenproof": _verify_hackenproof,
+    "hackrate": lambda url, cve: _verify_generic(url, cve, "hackrate"),
+    "compass": lambda url, cve: _verify_generic(url, cve, "compass"),
+    "inspectiv": lambda url, cve: _verify_generic(url, cve, "inspectiv"),
+    "yogosha": lambda url, cve: _verify_generic(url, cve, "yogosha"),
+    "cobalt": lambda url, cve: _verify_generic(url, cve, "cobalt"),
+    "synack": lambda url, cve: _verify_generic(url, cve, "synack"),
+    "gobugfree": lambda url, cve: _verify_generic(url, cve, "gobugfree"),
 }
 
 
@@ -4488,6 +4628,8 @@ def main():
             elif arg == "--platform" and i + 1 < len(args):
                 platform_arg = args[i + 1]
         sys.exit(historical_match(target, finding, vuln_type, program, platform_arg, json_flag))
+    elif cmd == "oos-scope-collision":
+        sys.exit(oos_scope_collision(sys.argv[2]))
     elif cmd == "verify-target":
         # Usage: verify-target <platform> <target_url> [--cve-only]
         if len(sys.argv) < 4:

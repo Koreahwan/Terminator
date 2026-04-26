@@ -76,3 +76,5 @@ now keep **lessons/patterns only**; live status lives here.
 2. 신규 제출은 **Active** 상단에 추가
 3. Resolved 항목은 **Resolved** 섹션으로 이동 (삭제 금지 — 패턴 학습용)
 4. 상세 lesson은 `memory/project_*.md`에만 기록 (상태/바운티 금액은 이 파일만)
+
+| Grafana OSS | CVE-2025-3415 incomplete fix — receiver tokens to Viewers | Intigriti | High (8.5) | 2026-04-26 | Submitted | $6,343 est | targets/detail/submission/cve2025-3415-variant/ |
