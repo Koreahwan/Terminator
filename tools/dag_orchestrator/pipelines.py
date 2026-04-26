@@ -5,6 +5,8 @@ Each pipeline is a factory function that returns a configured AgentDAG.
 """
 from .dag import AgentDAG, AgentNode
 
+CLAUDE_OPUS_1M = "claude-opus-4-6[1m]"
+
 
 def _make_node(name: str, role: str, model: str, description: str = "",
                effort: str = "default", max_turns: int = None) -> AgentNode:
@@ -24,10 +26,10 @@ def ctf_pwn_pipeline(challenge_name: str = "challenge") -> AgentDAG:
                              effort="high", max_turns=40))
     dag.add_node(_make_node("trigger", "trigger", "sonnet",
                              "Crash exploration, minimal reproduction, primitive identification"))
-    dag.add_node(_make_node("chain", "chain", "opus",
+    dag.add_node(_make_node("chain", "chain", CLAUDE_OPUS_1M,
                              "Exploit chain: leak → overwrite → shell",
                              effort="high", max_turns=60))
-    dag.add_node(_make_node("critic", "critic", "opus",
+    dag.add_node(_make_node("critic", "critic", CLAUDE_OPUS_1M,
                              "Cross-validation of all artifacts, logic error detection",
                              effort="high", max_turns=30))
     dag.add_node(_make_node("verifier", "verifier", "sonnet",
@@ -56,10 +58,10 @@ def ctf_rev_pipeline(challenge_name: str = "challenge") -> AgentDAG:
     dag.add_node(_make_node("reverser", "reverser", "sonnet",
                              "Binary/VM/algorithm analysis",
                              effort="high", max_turns=40))
-    dag.add_node(_make_node("solver", "solver", "opus",
+    dag.add_node(_make_node("solver", "solver", CLAUDE_OPUS_1M,
                              "Reverse computation, solver implementation (z3/GDB oracle)",
                              effort="high", max_turns=50))
-    dag.add_node(_make_node("critic", "critic", "opus",
+    dag.add_node(_make_node("critic", "critic", CLAUDE_OPUS_1M,
                              "Verify solver logic and address calculations",
                              effort="high", max_turns=30))
     dag.add_node(_make_node("verifier", "verifier", "sonnet",
@@ -91,7 +93,7 @@ def bounty_pipeline(target_name: str = "target") -> AgentDAG:
     # Phase 0
     dag.add_node(_make_node("target_evaluator", "target_evaluator", "sonnet",
                              "GO/NO-GO gate: ROI, competition, tech stack match, novelty score"))
-    dag.add_node(_make_node("scope_auditor", "scope-auditor", "opus",
+    dag.add_node(_make_node("scope_auditor", "scope-auditor", CLAUDE_OPUS_1M,
                              "Audit scope_contract.json and block unsafe/OOS active paths",
                              effort="high", max_turns=20))
 
@@ -112,7 +114,7 @@ def bounty_pipeline(target_name: str = "target") -> AgentDAG:
                              "Request-level testing + workflow pack testing"))
 
     # Phase 2 — Prove Lane
-    dag.add_node(_make_node("exploiter", "exploiter", "opus",
+    dag.add_node(_make_node("exploiter", "exploiter", CLAUDE_OPUS_1M,
                              "PoC development + Evidence Tier classification (E1-E4)",
                              effort="high", max_turns=60))
 
@@ -121,14 +123,14 @@ def bounty_pipeline(target_name: str = "target") -> AgentDAG:
                              "Draft report with CVSS"))
 
     # Phase 4 (parallel review)
-    dag.add_node(_make_node("critic", "critic", "opus",
+    dag.add_node(_make_node("critic", "critic", CLAUDE_OPUS_1M,
                              "Fact-check: CWE, dates, function names, line numbers",
                              effort="high", max_turns=30))
-    dag.add_node(_make_node("architect", "architect", "opus",
+    dag.add_node(_make_node("architect", "architect", CLAUDE_OPUS_1M,
                              "Framing review: attacker perspective"))
 
     # Phase 4.5
-    dag.add_node(_make_node("triager_sim", "triager_sim", "opus",
+    dag.add_node(_make_node("triager_sim", "triager_sim", CLAUDE_OPUS_1M,
                              "Adversarial triage simulation: SUBMIT/STRENGTHEN/KILL"))
 
     # Phase 5
@@ -183,7 +185,7 @@ def target_discovery_pipeline(target_name: str = "bug-bounty-programs") -> Agent
                              "Collect and rank public bug bounty programs using passive official metadata"))
     dag.add_node(_make_node("target_evaluator", "target_evaluator", "sonnet",
                              "Validate selected candidate scope, bounty status, OOS risk, and ROI"))
-    dag.add_node(_make_node("critic", "critic", "opus",
+    dag.add_node(_make_node("critic", "critic", CLAUDE_OPUS_1M,
                              "Challenge target choice for scope violations, duplicate risk, and weak ROI",
                              effort="high", max_turns=20))
     dag.add_node(_make_node("reporter", "reporter", "sonnet",
@@ -215,7 +217,7 @@ def firmware_pipeline(firmware_name: str = "firmware") -> AgentDAG:
     dag.add_node(_make_node("code_scanner", "analyst", "sonnet",
                              "Static analysis: command injection, buffer overflow patterns"))
 
-    dag.add_node(_make_node("exploiter", "exploiter", "opus",
+    dag.add_node(_make_node("exploiter", "exploiter", CLAUDE_OPUS_1M,
                              "PoC for highest-value findings"))
     dag.add_node(_make_node("reporter", "reporter", "sonnet",
                              "Firmware security report"))
@@ -254,11 +256,11 @@ def ai_security_pipeline(target_name: str = "target") -> AgentDAG:
                              "Gate 1: finding viability (mode=finding-viability, domain=ai)"))
 
     # Phase 2: PoC development
-    dag.add_node(_make_node("exploiter", "exploiter", "opus",
+    dag.add_node(_make_node("exploiter", "exploiter", CLAUDE_OPUS_1M,
                              "AI/LLM PoC: jailbreak, injection chains, agent hijack (domain=ai)"))
 
     # Gate 2: PoC destruction
-    dag.add_node(_make_node("gate2_triager", "triager_sim", "opus",
+    dag.add_node(_make_node("gate2_triager", "triager_sim", CLAUDE_OPUS_1M,
                              "Gate 2: PoC destruction (mode=poc-destruction, domain=ai)"))
 
     # Phase 3: Report
@@ -266,11 +268,11 @@ def ai_security_pipeline(target_name: str = "target") -> AgentDAG:
                              "Draft report + CVSS + bugcrowd_form.md"))
 
     # Phase 4: Review
-    dag.add_node(_make_node("critic", "critic", "opus",
+    dag.add_node(_make_node("critic", "critic", CLAUDE_OPUS_1M,
                              "Fact-check AI-specific claims, OWASP mapping verification"))
 
     # Phase 4.5: Report review
-    dag.add_node(_make_node("triager_report", "triager_sim", "opus",
+    dag.add_node(_make_node("triager_report", "triager_sim", CLAUDE_OPUS_1M,
                              "Report review (mode=report-review, domain=ai)"))
 
     # Phase 5: Final
@@ -314,7 +316,7 @@ def robotics_pipeline(target_name: str = "target") -> AgentDAG:
                              "ROS auth bypass, node spoofing, parameter tampering (domain=robotics)"))
 
     # Phase 2: PoC (no Gate 1 — CVE track uses critic as quality check)
-    dag.add_node(_make_node("exploiter", "exploiter", "opus",
+    dag.add_node(_make_node("exploiter", "exploiter", CLAUDE_OPUS_1M,
                              "Node injection, topic hijack, firmware exploit PoC (domain=robotics)"))
 
     # Phase 3: CVE advisory report
@@ -322,7 +324,7 @@ def robotics_pipeline(target_name: str = "target") -> AgentDAG:
                              "CVE advisory format: CVSS, CWE, affected versions, timeline, credit"))
 
     # Phase 4: Review (lighter — no triager-sim for CVE track)
-    dag.add_node(_make_node("critic", "critic", "opus",
+    dag.add_node(_make_node("critic", "critic", CLAUDE_OPUS_1M,
                              "Fact-check: CWE mapping, affected versions, PoC reproducibility"))
 
     # Phase 5: CVE submission
@@ -372,19 +374,19 @@ def supplychain_pipeline(target_name: str = "target", bounty_mode: bool = True) 
                                  "Gate 1: finding viability (mode=finding-viability, domain=supplychain)"))
 
         # Phase 2
-        dag.add_node(_make_node("exploiter", "exploiter", "opus",
+        dag.add_node(_make_node("exploiter", "exploiter", CLAUDE_OPUS_1M,
                                  "Dependency confusion PoC, build pipeline exploit (domain=supplychain)"))
 
         # Gate 2
-        dag.add_node(_make_node("gate2_triager", "triager_sim", "opus",
+        dag.add_node(_make_node("gate2_triager", "triager_sim", CLAUDE_OPUS_1M,
                                  "Gate 2: PoC destruction (mode=poc-destruction, domain=supplychain)"))
 
         # Phase 3-5
         dag.add_node(_make_node("reporter_draft", "reporter", "sonnet",
                                  "Draft report + CVSS + platform form"))
-        dag.add_node(_make_node("critic", "critic", "opus",
+        dag.add_node(_make_node("critic", "critic", CLAUDE_OPUS_1M,
                                  "Fact-check supply chain claims, package names, versions"))
-        dag.add_node(_make_node("triager_report", "triager_sim", "opus",
+        dag.add_node(_make_node("triager_report", "triager_sim", CLAUDE_OPUS_1M,
                                  "Report review (mode=report-review, domain=supplychain)"))
         dag.add_node(_make_node("reporter_final", "reporter", "sonnet",
                                  "Final report + ZIP packaging"))
@@ -407,7 +409,7 @@ def supplychain_pipeline(target_name: str = "target", bounty_mode: bool = True) 
         # --- CVE Track ---
 
         # Phase 2: PoC (no gates)
-        dag.add_node(_make_node("exploiter", "exploiter", "opus",
+        dag.add_node(_make_node("exploiter", "exploiter", CLAUDE_OPUS_1M,
                                  "Dependency confusion PoC, build pipeline exploit (domain=supplychain)"))
 
         # Phase 3: CVE advisory
@@ -415,7 +417,7 @@ def supplychain_pipeline(target_name: str = "target", bounty_mode: bool = True) 
                                  "CVE advisory format: CVSS, CWE, affected packages, remediation"))
 
         # Phase 4: Review
-        dag.add_node(_make_node("critic", "critic", "opus",
+        dag.add_node(_make_node("critic", "critic", CLAUDE_OPUS_1M,
                                  "Fact-check: package names, versions, PoC reproducibility"))
 
         # Phase 5: CVE submission

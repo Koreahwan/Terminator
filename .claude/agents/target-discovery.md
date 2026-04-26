@@ -1,6 +1,6 @@
 ---
 name: target-discovery
-description: Use this agent to discover and rank live bug bounty programs before target-evaluator spends analysis budget.
+description: Use this agent when live bug bounty programs must be discovered and ranked before target-evaluator spends analysis budget.
 model: sonnet
 color: cyan
 permissionMode: bypassPermissions

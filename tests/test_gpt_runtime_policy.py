@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+import re
 import sys
 
 
@@ -29,6 +30,7 @@ SCOPE_FIRST_CLAUDE_ROLES = {"scope-auditor", "reporter", "submission-review"}
 SCOPE_FIRST_DEBATE_ROLES = {"exploiter", "critic", "triager-sim"}
 CTF_PWN_CODEX_ROLES = {"reverser", "trigger", "chain", "critic", "verifier"}
 CTF_REV_CODEX_ROLES = {"reverser", "solver", "critic", "verifier"}
+CLAUDE_OPUS_1M = "claude-opus-4-6[1m]"
 
 
 def test_profile_defaults_for_requested_backend(monkeypatch) -> None:
@@ -153,6 +155,35 @@ def test_scope_first_hybrid_has_domain_specific_overrides() -> None:
     assert supplychain["sc-scanner"]["backend"] == "codex"
     for roles in (ai, robotics, supplychain):
         assert roles["reporter"]["backend"] == "claude"
+
+
+def test_opus_runtime_roles_are_pinned_to_claude_opus_1m() -> None:
+    policy = load_policy()
+    for role, entry in policy["roles"].items():
+        assert entry.get("model") != "opus", role
+    for profile in policy["profiles"].values():
+        for role, entry in profile.get("roles", {}).items():
+            assert entry.get("model") != "opus", role
+        for pipeline, roles in profile.get("pipeline_roles", {}).items():
+            for role, entry in roles.items():
+                assert entry.get("model") != "opus", f"{pipeline}:{role}"
+
+    runtime_surfaces = [
+        PROJECT_ROOT / "tools" / "dag_orchestrator" / "pipelines.py",
+        PROJECT_ROOT / "tools" / "dag_orchestrator" / "claude_handler.py",
+        PROJECT_ROOT / ".claude" / "agents" / "scope-auditor.md",
+    ]
+    forbidden_patterns = [
+        r"model:\s*opus\b",
+        r"_make_node\([^\n]*,\s*[\"']opus[\"']",
+        r"[\"'](?:solver|chain|critic|exploiter|triager_sim|architect)[\"']:\s*[\"']opus[\"']",
+    ]
+    for path in runtime_surfaces:
+        text = path.read_text(encoding="utf-8")
+        for pattern in forbidden_patterns:
+            assert not re.search(pattern, text), f"{path}: {pattern}"
+        if path.name == "scope-auditor.md":
+            assert "model: " + CLAUDE_OPUS_1M in text
 
 
 def test_codex_command_coerces_claude_alias_model() -> None:

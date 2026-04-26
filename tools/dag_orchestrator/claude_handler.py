@@ -15,6 +15,7 @@ from .agent_bridge import ROLE_ARTIFACTS, check_artifacts, log_run_start, log_ru
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 CODEX_SKIP_MODELS = {"sonnet", "opus", "haiku"}
+CLAUDE_OPUS_1M = "claude-opus-4-6[1m]"
 
 
 class ArtifactMissingError(Exception):
@@ -32,17 +33,17 @@ class BackendAgentHandler:
         "claude": {
             "reverser": "sonnet",
             "trigger": "sonnet",
-            "solver": "opus",
-            "chain": "opus",
-            "critic": "opus",
+            "solver": CLAUDE_OPUS_1M,
+            "chain": CLAUDE_OPUS_1M,
+            "critic": CLAUDE_OPUS_1M,
             "verifier": "sonnet",
             "reporter": "sonnet",
             "scout": "sonnet",
             "analyst": "sonnet",
-            "exploiter": "opus",
+            "exploiter": CLAUDE_OPUS_1M,
             "target_evaluator": "sonnet",
-            "triager_sim": "opus",
-            "architect": "opus",
+            "triager_sim": CLAUDE_OPUS_1M,
+            "architect": CLAUDE_OPUS_1M,
         },
         "codex": {},
     }

@@ -184,7 +184,7 @@ roles:
 
   architect:
     backend: claude
-    model: opus
+    model: claude-opus-4-6[1m]
     phase_class: design-review
     rollback_group: bounty
     shadow_mode: compare
@@ -194,7 +194,7 @@ roles:
 
   chain:
     backend: claude
-    model: opus
+    model: claude-opus-4-6[1m]
     phase_class: exploit-chain
     rollback_group: ctf
     shadow_mode: compare
@@ -204,7 +204,7 @@ roles:
 
   critic:
     backend: claude
-    model: opus
+    model: claude-opus-4-6[1m]
     phase_class: adversarial-review
     rollback_group: shared
     shadow_mode: compare
@@ -235,7 +235,7 @@ roles:
 
   defi-auditor:
     backend: claude
-    model: opus
+    model: claude-opus-4-6[1m]
     phase_class: smart-contract-audit
     rollback_group: bounty
     shadow_mode: compare
@@ -245,7 +245,7 @@ roles:
 
   exploiter:
     backend: claude
-    model: opus
+    model: claude-opus-4-6[1m]
     phase_class: poc-development
     rollback_group: bounty
     shadow_mode: compare
@@ -336,7 +336,7 @@ roles:
 
   scope-auditor:
     backend: claude
-    model: opus
+    model: claude-opus-4-6[1m]
     phase_class: scope-audit
     rollback_group: bounty
     shadow_mode: compare
@@ -387,7 +387,7 @@ roles:
 
   solver:
     backend: claude
-    model: opus
+    model: claude-opus-4-6[1m]
     phase_class: inverse-computation
     rollback_group: ctf
     shadow_mode: compare
@@ -397,7 +397,7 @@ roles:
 
   source-auditor:
     backend: claude
-    model: opus
+    model: claude-opus-4-6[1m]
     phase_class: source-audit
     rollback_group: bounty
     shadow_mode: compare
@@ -407,7 +407,7 @@ roles:
 
   submission-review:
     backend: claude
-    model: opus
+    model: claude-opus-4-6[1m]
     phase_class: submission-review
     rollback_group: bounty
     shadow_mode: compare
@@ -448,7 +448,7 @@ roles:
 
   triager-sim:
     backend: claude
-    model: opus
+    model: claude-opus-4-6[1m]
     phase_class: triage-simulation
     rollback_group: bounty
     shadow_mode: compare

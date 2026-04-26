@@ -1,7 +1,7 @@
 ---
 name: scope-auditor
-description: Use this agent to audit bug bounty scope contracts before any live or submission-facing work proceeds.
-model: opus
+description: Use this agent when bug bounty scope contracts must be audited before any live or submission-facing work proceeds.
+model: claude-opus-4-6[1m]
 color: red
 permissionMode: bypassPermissions
 effort: high

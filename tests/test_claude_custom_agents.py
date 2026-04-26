@@ -8,10 +8,13 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 AGENTS_DIR = PROJECT_ROOT / ".claude" / "agents"
 
 CANONICAL_NAMES = {
+    "ai-recon.md": "ai-recon",
     "analyst.md": "analyst",
+    "architect.md": "architect",
     "chain.md": "chain",
     "critic.md": "critic",
     "ctf-solver.md": "ctf-solver",
+    "cve-manager.md": "cve-manager",
     "defi-auditor.md": "defi-auditor",
     "exploiter.md": "exploiter",
     "fw_inventory.md": "fw-inventory",
@@ -19,17 +22,25 @@ CANONICAL_NAMES = {
     "fw_surface.md": "fw-surface",
     "fw_validator.md": "fw-validator",
     "mobile-analyst.md": "mobile-analyst",
+    "patch-hunter.md": "patch-hunter",
     "recon-scanner.md": "recon-scanner",
     "reporter.md": "reporter",
     "reverser.md": "reverser",
+    "robo-scanner.md": "robo-scanner",
+    "sc-scanner.md": "sc-scanner",
+    "scope-auditor.md": "scope-auditor",
     "scout.md": "scout",
     "solver.md": "solver",
     "source-auditor.md": "source-auditor",
+    "submission-review.md": "submission-review",
+    "target-discovery.md": "target-discovery",
     "target_evaluator.md": "target-evaluator",
+    "threat-modeler.md": "threat-modeler",
     "triager_sim.md": "triager-sim",
     "trigger.md": "trigger",
     "verifier.md": "verifier",
     "web-tester.md": "web-tester",
+    "workflow-auditor.md": "workflow-auditor",
 }
 
 
@@ -59,8 +70,21 @@ def test_all_custom_agents_have_required_frontmatter() -> None:
             assert frontmatter.get(key), f"{path} missing {key}"
 
         assert re.fullmatch(r"[a-z0-9](?:[a-z0-9-]{1,48}[a-z0-9])?", frontmatter["name"]), path
-        assert frontmatter["model"] in {"haiku", "sonnet", "opus", "inherit"}
-        assert frontmatter["color"] in {"blue", "cyan", "green", "yellow", "magenta", "red"}
+        assert frontmatter["model"] in {"haiku", "sonnet", "claude-opus-4-6[1m]", "inherit"}
+        assert frontmatter["color"] in {
+            "blue",
+            "cyan",
+            "gold",
+            "green",
+            "indigo",
+            "lime",
+            "magenta",
+            "orange",
+            "purple",
+            "red",
+            "teal",
+            "yellow",
+        }
         assert frontmatter["permissionMode"] == "bypassPermissions"
         assert frontmatter["name"] == CANONICAL_NAMES[path.name]
         assert frontmatter["description"].startswith("Use this agent when "), path

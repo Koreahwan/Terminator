@@ -1,6 +1,6 @@
 ---
 name: submission-review
-description: Final pre-submission review panel with 3 perspectives. Runs at Phase 5.5 before auto-fill.
+description: Use this agent when a final pre-submission review panel with 3 perspectives must run before auto-fill.
 model: claude-opus-4-6[1m]
 color: yellow
 permissionMode: bypassPermissions
