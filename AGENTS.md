@@ -70,7 +70,7 @@
 - `safe_payload_hook.py` (PreToolUse:Bash): 위험 명령 런타임 차단
 - `observation_mask_hook.py` (PostToolUse:Bash|Read): 500줄 초과 출력 자동 저장
 - `check_agent_completion.sh` (SubagentStop): FLAG 감지 + 지식 추출 + 자동 체크포인트
-- `codex_cross_review.sh` (via SubagentStop hook): critic APPROVED 감지 시 Codex(GPT-5.4) 크로스 모델 리뷰 추천. `/codex:adversarial-review` 또는 `tools/codex_cross_review.sh adversarial` 실행.
+- `codex_cross_review.sh` (via SubagentStop hook): critic APPROVED 감지 시 Codex(GPT-5.5) 크로스 모델 리뷰 추천. `/codex:adversarial-review` 또는 `tools/codex_cross_review.sh adversarial` 실행.
 
 ## 자연어 런타임 의도 매핑
 

@@ -199,7 +199,7 @@ def default_model(backend: str, explicit: str | None) -> str:
     if explicit:
         return model_for_backend(backend, explicit)
     if backend == "codex":
-        return os.environ.get("TERMINATOR_CODEX_MODEL") or os.environ.get("TERMINATOR_MODEL") or "gpt-5.4"
+        return os.environ.get("TERMINATOR_CODEX_MODEL") or os.environ.get("TERMINATOR_MODEL") or "gpt-5.5"
     return os.environ.get("TERMINATOR_CLAUDE_MODEL") or os.environ.get("TERMINATOR_MODEL") or "sonnet"
 
 
@@ -209,8 +209,8 @@ def model_for_backend(backend: str, value: str | None) -> str:
         return value or default_model(backend, None)
     lowered = (value or "").strip().lower()
     if not lowered or lowered in CODEX_SKIP_MODELS or lowered.startswith("claude"):
-        return os.environ.get("TERMINATOR_CODEX_MODEL") or "gpt-5.4"
-    return value or os.environ.get("TERMINATOR_CODEX_MODEL") or "gpt-5.4"
+        return os.environ.get("TERMINATOR_CODEX_MODEL") or "gpt-5.5"
+    return value or os.environ.get("TERMINATOR_CODEX_MODEL") or "gpt-5.5"
 
 
 def normalize_backend(value: str) -> str:
