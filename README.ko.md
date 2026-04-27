@@ -83,6 +83,30 @@ Recon/Input
 
 raw endpoint는 버리지 않습니다. 자동 분류가 낮게 본 endpoint도 legacy API, generic state-changing endpoint, 보호되어 보이는 401/403/405 endpoint, GraphQL/gRPC/WebSocket/SSE, query parameter가 많은 static-like endpoint는 `raw_endpoint_review.md`에 남깁니다.
 
+## IDOR/BOLA 보조 기능
+
+Passive IDOR/BOLA 분석:
+
+```bash
+python3 -m tools.vuln_assistant idor-passive \
+  --input targets/company/bounty/attack_surface.json \
+  --out targets/company/idor
+```
+
+안전한 read-only IDOR/BOLA 검증은 승인된 bounty scope, 본인 소유 테스트 계정 2개, 두 계정이 각각 소유한 object ID, 명시적 scope host가 있을 때만 사용합니다. 토큰은 명령행 값으로 직접 넣지 말고 환경변수 또는 로컬 auth profile로 전달합니다.
+
+```bash
+ACCOUNT_A_TOKEN=... ACCOUNT_B_TOKEN=... \
+python3 -m tools.vuln_assistant idor-verify \
+  --mode bounty \
+  --candidates targets/company/idor/idor_candidates.json \
+  --owned-objects owned_objects.json \
+  --scope-host api.example.com \
+  --auth-a-env ACCOUNT_A_TOKEN \
+  --auth-b-env ACCOUNT_B_TOKEN \
+  --out targets/company/idor
+```
+
 ## 주요 출력
 
 - `attack_surface.json`
@@ -97,6 +121,11 @@ raw endpoint는 버리지 않습니다. 자동 분류가 낮게 본 endpoint도 
 - `recommended_test_scope.md`
 - `bug_bounty_report_draft.md`
 - `ai_security_report_draft.md`
+- `idor_candidates.json`
+- `idor_manual_queue.md`
+- `idor_verification.json`
+- `idor_verification_summary.md`
+- `idor_report_draft.md`
 
 ## 안전 정책
 
@@ -108,6 +137,9 @@ raw endpoint는 버리지 않습니다. 자동 분류가 낮게 본 endpoint도 
 - brute force, DoS, cache poisoning, webhook replay 자동 실행 금지.
 - state-changing endpoint는 자동 실행하지 않고 manual review queue로 보냅니다.
 - 증거 없는 항목은 `confirmed` 또는 `submission-ready`로 표시하지 않습니다.
+- `idor-passive`는 네트워크 요청을 보내지 않습니다.
+- `idor-verify`는 `client-pitch`에서 거부되며, 명시적 scope host와 사용자 제공 owned object ID가 있는 `GET`/`HEAD` 요청만 사용합니다.
+- IDOR/BOLA 검증은 response fingerprint만 저장하고 raw response body나 auth secret은 저장하지 않으며, 자동으로 confirmed finding을 만들지 않습니다.
 
 ## 검증
 

@@ -62,6 +62,31 @@ python3 -m tools.vuln_assistant analyze \
   --out targets/company/client_pitch
 ```
 
+Passive IDOR/BOLA analysis:
+
+```bash
+python3 -m tools.vuln_assistant idor-passive \
+  --input targets/company/bounty/attack_surface.json \
+  --out targets/company/idor
+```
+
+Safe read-only IDOR/BOLA verification requires authorized bounty scope, two
+owned test accounts, owned object IDs for both accounts, and exact scope hosts.
+Secrets should be passed through environment variables or local auth profiles,
+not raw command-line values:
+
+```bash
+ACCOUNT_A_TOKEN=... ACCOUNT_B_TOKEN=... \
+python3 -m tools.vuln_assistant idor-verify \
+  --mode bounty \
+  --candidates targets/company/idor/idor_candidates.json \
+  --owned-objects owned_objects.json \
+  --scope-host api.example.com \
+  --auth-a-env ACCOUNT_A_TOKEN \
+  --auth-b-env ACCOUNT_B_TOKEN \
+  --out targets/company/idor
+```
+
 Supported inputs:
 
 - gau/wayback/katana URL lists
@@ -88,6 +113,11 @@ Outputs:
 - `recommended_test_scope.md`
 - `bug_bounty_report_draft.md`
 - `ai_security_report_draft.md`
+- `idor_candidates.json`
+- `idor_manual_queue.md`
+- `idor_verification.json`
+- `idor_verification_summary.md`
+- `idor_report_draft.md`
 
 ## Risk Taxonomy
 
@@ -145,6 +175,12 @@ A refund endpoint can be risk 10 and confidence 20 until it is actually tested.
   sensitive file payloads, or destructive state-changing requests.
 - State-changing endpoints are placed in the manual review queue.
 - Evidence-free items stay `candidate` or `needs_verification`.
+- `idor-passive` sends no network requests.
+- `idor-verify` is refused in `client-pitch` mode and only uses `GET`/`HEAD`
+  against explicit scope hosts with user-provided owned object IDs.
+- IDOR/BOLA verification stores response fingerprints only, never raw response
+  bodies or auth secrets, and outputs `needs_manual_confirmation` rather than
+  automatic confirmed findings.
 
 ## Verification
 

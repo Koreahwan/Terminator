@@ -135,6 +135,8 @@ def parse_json_file(path: Path) -> list[SurfaceItem]:
         data = json.loads(path.read_text(encoding="utf-8", errors="replace"))
     except json.JSONDecodeError:
         return parse_text_file(path, source=path.stem)
+    if _looks_like_attack_surface(data):
+        return parse_attack_surface(data)
     if isinstance(data, dict) and "log" in data and isinstance(data["log"], dict):
         return parse_har(data)
     if _looks_like_openapi(data):
@@ -143,6 +145,39 @@ def parse_json_file(path: Path) -> list[SurfaceItem]:
         return parse_postman(data)
     items: list[SurfaceItem] = []
     _walk_json(data, items, source=path.stem)
+    return items
+
+
+def _looks_like_attack_surface(data: Any) -> bool:
+    return isinstance(data, dict) and isinstance(data.get("raw_inventory"), list) and isinstance(data.get("summary"), dict)
+
+
+def parse_attack_surface(data: dict[str, Any]) -> list[SurfaceItem]:
+    """Rebuild SurfaceItem objects from attack_surface raw inventory only.
+
+    Avoid recursively walking attack_surface.json because it contains rendered
+    candidates and report text that would create duplicate synthetic endpoints.
+    """
+
+    items: list[SurfaceItem] = []
+    for raw in data.get("raw_inventory", []) or []:
+        if not isinstance(raw, dict):
+            continue
+        item = SurfaceItem(
+            method=str(raw.get("method") or "GET").upper(),
+            url=str(raw.get("url") or ""),
+            path=str(raw.get("path") or ""),
+            params=[str(p) for p in raw.get("params", []) or []],
+            source=str(raw.get("source") or "attack_surface"),
+            raw_rank=int(raw.get("raw_rank") or 0),
+            status_code=int(raw["status_code"]) if isinstance(raw.get("status_code"), int) else None,
+            auth_hint=str(raw.get("auth_hint") or "unknown"),
+            notes=str(raw.get("notes") or ""),
+            body_fields=[str(p) for p in raw.get("body_fields", []) or []],
+            headers={str(k): str(v) for k, v in (raw.get("headers") or {}).items()} if isinstance(raw.get("headers"), dict) else {},
+            raw=raw.get("raw") if isinstance(raw.get("raw"), dict) else {},
+        )
+        items.append(item)
     return items
 
 
