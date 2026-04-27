@@ -89,7 +89,7 @@ if [ -n "$REQUESTED_FAILOVER_TO" ] && [ "$REQUESTED_FAILOVER_TO" != "claude" ] &
   exit $EXIT_ERROR
 fi
 
-BACKEND="${REQUESTED_BACKEND:-${TERMINATOR_PRIMARY_BACKEND:-claude}}"
+BACKEND="${REQUESTED_BACKEND:-${TERMINATOR_PRIMARY_BACKEND:-hybrid}}"
 FAILOVER_TO="${TERMINATOR_FAILOVER_TO:-codex}"
 if [ -n "$REQUESTED_FAILOVER_TO" ]; then
   FAILOVER_TO="$REQUESTED_FAILOVER_TO"
@@ -222,7 +222,7 @@ normalize_backend() {
   backend=$(printf '%s' "$backend" | tr '[:upper:]' '[:lower:]')
   case "$backend" in
     auto)
-      printf '%s\n' "${TERMINATOR_PRIMARY_BACKEND:-claude}"
+      printf '%s\n' "${TERMINATOR_PRIMARY_BACKEND:-hybrid}"
       ;;
     claude|codex|hybrid)
       printf '%s\n' "$backend"
@@ -1371,7 +1371,7 @@ PY
     echo "  TERMINATOR_MODEL         Shared default model override"
     echo "  TERMINATOR_CLAUDE_MODEL  Claude model override (default: sonnet)"
     echo "  TERMINATOR_CODEX_MODEL   Codex model override (default: gpt-5.4)"
-    echo "  TERMINATOR_PRIMARY_BACKEND  claude|codex|hybrid (default: claude)"
+    echo "  TERMINATOR_PRIMARY_BACKEND  claude|codex|hybrid (default: hybrid)"
     echo "  TERMINATOR_RUNTIME_PROFILE  claude-only|gpt-only|scope-first-hybrid"
     echo "  TERMINATOR_FAILOVER_TO   Spare override (claude|codex|none, default: codex)"
     echo ""

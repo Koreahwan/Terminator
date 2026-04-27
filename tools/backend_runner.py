@@ -216,7 +216,7 @@ def model_for_backend(backend: str, value: str | None) -> str:
 def normalize_backend(value: str) -> str:
     lowered = (value or "claude").strip().lower()
     if lowered == "auto":
-        return os.environ.get("TERMINATOR_PRIMARY_BACKEND", "claude").strip().lower() or "claude"
+        return os.environ.get("TERMINATOR_PRIMARY_BACKEND", "hybrid").strip().lower() or "hybrid"
     if lowered in {"claude", "codex", "hybrid"}:
         return lowered
     raise ValueError(f"Unsupported backend: {value}")
