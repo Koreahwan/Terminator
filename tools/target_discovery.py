@@ -253,7 +253,7 @@ JSON schema:
   "decision": "GO|CONDITIONAL_GO|NO_GO",
   "score": 0,
   "scope_risk": "low|medium|high",
-  "recommended_pipeline": "bounty|source_review|supplychain|ai_security",
+  "recommended_pipeline": "bounty|client_pitch|source_review|ai_security",
   "top_candidates": [
     {{
       "program_url": "https://...",

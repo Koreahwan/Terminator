@@ -6,6 +6,23 @@ from typing import Dict, List, Optional
 import json
 import yaml
 
+REMOVED_PIPELINES = {"ctf", "firmware", "robotics", "supplychain"}
+REMOVED_AGENT_ROLES = {
+    "chain",
+    "ctf-solver",
+    "cve-manager",
+    "fw-inventory",
+    "fw-profiler",
+    "fw-surface",
+    "fw-validator",
+    "reverser",
+    "robo-scanner",
+    "sc-scanner",
+    "solver",
+    "trigger",
+    "verifier",
+}
+
 
 class ToolKind(Enum):
     QUERY = "query"
@@ -110,12 +127,16 @@ class ToolRegistry:
         return [t for t in self._tools.values() if t.kind == kind]
 
     def find_by_role(self, role: str) -> List[ToolSpec]:
+        if role in REMOVED_AGENT_ROLES:
+            return []
         return [t for t in self._tools.values() if role in t.agent_roles or "all" in t.agent_roles]
 
     def find_by_category(self, category: str) -> List[ToolSpec]:
         return [t for t in self._tools.values() if t.category == category]
 
     def find_by_pipeline(self, pipeline: str) -> List[ToolSpec]:
+        if pipeline in REMOVED_PIPELINES:
+            return []
         return [t for t in self._tools.values()
                 if pipeline in t.pipelines or "all" in t.pipelines]
 

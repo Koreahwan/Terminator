@@ -157,7 +157,7 @@ def test_debate_gate_blocks_scope_risk() -> None:
 def test_runtime_gate_requires_debate_artifact(tmp_path: Path) -> None:
     policy = {
         "runtime_profile": "scope-first-hybrid",
-        "runtime_pipeline": "ctf_pwn",
+        "runtime_pipeline": "bounty",
         "debate_mode": "gpt-propose-claude-object-gpt-respond",
     }
 
@@ -185,42 +185,42 @@ def test_runtime_gate_requires_debate_artifact(tmp_path: Path) -> None:
 def test_runtime_gate_requires_machine_evidence(tmp_path: Path) -> None:
     policy = {
         "runtime_profile": "scope-first-hybrid",
-        "runtime_pipeline": "ctf_pwn",
+        "runtime_pipeline": "bounty",
         "evidence_gate": "machine-style-3x-local-then-remote",
     }
     report = tmp_path / "verification_report.md"
 
     report.write_text("local passes: 2\n", encoding="utf-8")
-    assert check_runtime_gates(tmp_path, "verifier", policy, ["verification_report.md"])["status"] == "fail"
+    assert check_runtime_gates(tmp_path, "exploiter", policy, ["verification_report.md"])["status"] == "fail"
 
     report.write_text("local passes: 3\nremote flag captured: FLAG{ok}\n", encoding="utf-8")
-    assert check_runtime_gates(tmp_path, "verifier", policy, ["verification_report.md"])["status"] == "pass"
+    assert check_runtime_gates(tmp_path, "exploiter", policy, ["verification_report.md"])["status"] == "pass"
 
 
 def test_runtime_gate_real_tool_output_does_not_accept_generic_file_word(tmp_path: Path) -> None:
     policy = {
         "runtime_profile": "scope-first-hybrid",
-        "runtime_pipeline": "ctf_pwn",
+        "runtime_pipeline": "bounty",
         "evidence_gate": "machine-style-real-tool-output",
     }
-    report = tmp_path / "chain_notes.md"
+    report = tmp_path / "exploit_notes.md"
 
     report.write_text("The PoC file should be reviewed manually.\n", encoding="utf-8")
-    assert check_runtime_gates(tmp_path, "chain", policy, ["chain_notes.md"])["status"] == "fail"
+    assert check_runtime_gates(tmp_path, "exploiter", policy, ["exploit_notes.md"])["status"] == "fail"
 
     report.write_text("$ file ./vuln\n./vuln: ELF 64-bit LSB executable\n", encoding="utf-8")
-    assert check_runtime_gates(tmp_path, "chain", policy, ["chain_notes.md"])["status"] == "pass"
+    assert check_runtime_gates(tmp_path, "exploiter", policy, ["exploit_notes.md"])["status"] == "pass"
 
 
 def test_runtime_gate_requires_mock_or_replay_transport(tmp_path: Path) -> None:
     policy = {
         "runtime_profile": "scope-first-hybrid",
-        "runtime_pipeline": "robotics",
+        "runtime_pipeline": "bounty",
         "transport_policy": "mock-or-replay-required",
     }
 
-    (tmp_path / "robo_endpoint_map.md").write_text("live scan against robot\n", encoding="utf-8")
-    assert check_runtime_gates(tmp_path, "robo-scanner", policy, ["robo_endpoint_map.md"])["status"] == "fail"
+    (tmp_path / "endpoint_map.md").write_text("live scan against target\n", encoding="utf-8")
+    assert check_runtime_gates(tmp_path, "scout", policy, ["endpoint_map.md"])["status"] == "fail"
 
-    (tmp_path / "robo_endpoint_map.md").write_text("replay transport fixture used\n", encoding="utf-8")
-    assert check_runtime_gates(tmp_path, "robo-scanner", policy, ["robo_endpoint_map.md"])["status"] == "pass"
+    (tmp_path / "endpoint_map.md").write_text("replay transport fixture used\n", encoding="utf-8")
+    assert check_runtime_gates(tmp_path, "scout", policy, ["endpoint_map.md"])["status"] == "pass"

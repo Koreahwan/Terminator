@@ -110,6 +110,8 @@ def _filter_tools(reg: ToolRegistry, category: str = "",
     if tool_ids:
         return [reg.get(t) for t in tool_ids if reg.get(t)]
     if pipeline:
+        if pipeline not in PIPELINE_CATEGORIES:
+            return []
         cats = PIPELINE_CATEGORIES.get(pipeline, [])
         result = []
         seen = set()

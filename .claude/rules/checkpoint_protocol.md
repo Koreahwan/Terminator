@@ -1,6 +1,6 @@
 ## Agent Checkpoint Protocol (MANDATORY)
 
-All work agents (chain, solver, exploiter, analyst, reverser, trigger) must:
+All work agents (scout, analyst, threat-modeler, workflow-auditor, web-tester, exploiter, reporter) must:
 - **On start**: write `{"status":"in_progress", "phase":1, ...}`
 - **On phase complete**: update (add to completed array, increment phase)
 - **On full complete**: `"status":"completed"` + verify produced_artifacts
@@ -8,7 +8,7 @@ All work agents (chain, solver, exploiter, analyst, reverser, trigger) must:
 
 Required fields: `agent, status, phase, phase_name, completed, in_progress, critical_facts, expected_artifacts, produced_artifacts, timestamp`
 
-Location: CTF=`<challenge_dir>/checkpoint.json`, BB=`targets/<target>/checkpoint.json`
+Location: `targets/<target>/checkpoint.json`
 
 ### Orchestrator Idle Recovery
 ```

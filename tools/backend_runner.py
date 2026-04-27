@@ -162,6 +162,7 @@ def parse_args() -> argparse.Namespace:
     run.add_argument("--runtime-profile")
     run.add_argument("--mode", default="unknown")
     run.add_argument("--target", default="")
+    run.add_argument("--target-dir", default="")
     run.add_argument("--scope", default="")
     run.add_argument("--session-id")
     run.add_argument("--resume-session")
@@ -429,23 +430,80 @@ def inject_policy_summary(prompt: str, *, requested_backend: str, launcher: str,
     if os.environ.get("TERMINATOR_SKIP_POLICY_INJECTION", "").strip().lower() in {"1", "true", "yes"}:
         return prompt
     summary = _load_policy_summary()
+    target_dir = os.environ.get("TERMINATOR_TARGET_DIR", "").strip()
+    dispatch_example_target_dir = target_dir or "<target_dir>"
     runtime_block = f"""[RUNTIME MODE]
 Requested backend: {requested_backend}
 Launcher backend: {launcher}
 Runtime profile: {profile}
+Target artifact directory: {target_dir or "(not provided)"}
 
 If the launcher is Codex/OMX, do not use Claude Agent Teams or Task-tool-only
 syntax. Execute role work directly from the compact contracts in
 generated/role_contracts/ and the artifacts named in the pipeline prompt.
 
-If the runtime profile is scope-first-hybrid, enforce scope contract and safety
-wrapper gates before any live action. Use tools/runtime_policy.py get-role
-<role> and tools/runtime_dispatch.py run-role <role> for offloaded roles when
-the orchestrator needs a separate worker. Keep all handoffs in coordination/.
+If the runtime profile is scope-first-hybrid, this is a ROLE-SPLIT run, not a
+Claude-only run with Codex spare. The launcher may coordinate, but it must not
+perform Codex-assigned role work inline. For each pipeline role, first check:
+
+  python3 tools/runtime_policy.py --profile scope-first-hybrid --pipeline <pipeline> get-role <role>
+
+If that policy says backend=codex, you MUST execute the role through:
+
+  TERMINATOR_ACTIVE_PIPELINE=<pipeline> python3 tools/runtime_dispatch.py run-role <role> \\
+    --profile scope-first-hybrid --pipeline <pipeline> \\
+    --work-dir {dispatch_example_target_dir} --target "<target>" --report-dir "<report_dir>"
+
+Call runtime_dispatch for Claude-assigned roles too; that is how the run records
+role ownership, token usage, and hard-gate status. Do not mark the session
+complete until the target directory has runtime_dispatch_log.jsonl entries
+proving at least one Codex role and one Claude governance/reporting role
+completed for any reached phase.
+
+Debate-gated roles (exploiter, critic, triager-sim) must produce a valid
+<role>_debate.json or debate_gate.json. tools/runtime_dispatch.py will run the
+runtime gate and fail the role if debate evidence is missing or BLOCK.
 """
     if not summary:
         return runtime_block.strip() + "\n\n" + prompt
     return f"{runtime_block.strip()}\n\n[RUNTIME POLICY]\n{summary}\n\n{prompt}"
+
+
+def validate_hybrid_completion(*, profile: str, mode: str, target_dir: str, report_dir: Path) -> tuple[bool, str, dict[str, object] | None]:
+    """Validate that scope-first hybrid produced actual role-dispatch evidence."""
+    if profile != "scope-first-hybrid" or mode != "bounty":
+        return True, "", None
+    if os.environ.get("TERMINATOR_SKIP_HYBRID_COMPLETION_GATE", "").strip().lower() in {"1", "true", "yes"}:
+        return True, "hybrid completion gate skipped by env", None
+    if not target_dir:
+        return False, "scope-first hybrid completion gate missing --target-dir", None
+
+    out_path = report_dir / "hybrid_completion_gate.json"
+    cmd = [
+        sys.executable,
+        str(PROJECT_ROOT / "tools" / "hybrid_completion_gate.py"),
+        "--target-dir",
+        target_dir,
+        "--mode",
+        mode,
+        "--out",
+        str(out_path),
+    ]
+    try:
+        result = subprocess.run(cmd, cwd=str(PROJECT_ROOT), capture_output=True, text=True, timeout=30)
+    except (subprocess.TimeoutExpired, OSError) as exc:
+        return False, f"hybrid completion gate error: {type(exc).__name__}: {exc}", None
+
+    payload: dict[str, object] | None = None
+    try:
+        payload = json.loads(result.stdout)
+    except json.JSONDecodeError:
+        try:
+            payload = json.loads(out_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            payload = None
+    detail = result.stdout.strip() or result.stderr.strip()
+    return result.returncode == 0, detail, payload
 
 
 def augment_prompt(
@@ -622,6 +680,7 @@ def main() -> int:
                 "backend_requested": requested_primary,
                 "runtime_profile": profile,
                 "target": args.target,
+                "target_dir": args.target_dir,
                 "scope": args.scope,
                 "mode": args.mode,
                 "report_dir": str(report_dir),
@@ -666,6 +725,19 @@ def main() -> int:
         attempts.append(attempt)
 
         if failure_kind == "completed":
+            gate_ok, gate_detail, gate_payload = validate_hybrid_completion(
+                profile=profile,
+                mode=args.mode,
+                target_dir=args.target_dir,
+                report_dir=report_dir,
+            )
+            if not gate_ok:
+                failure_kind = "hybrid_contract_failed"
+                output_text = f"{output_text}\n\n[HYBRID COMPLETION GATE FAILED]\n{gate_detail}\n"
+                attempts[-1]["failure_kind"] = failure_kind
+                attempts[-1]["returncode"] = 1
+                attempts[-1]["hybrid_completion_gate"] = gate_payload
+                break
             result = {
                 "status": "completed",
                 "session_id": session_id,
@@ -675,6 +747,7 @@ def main() -> int:
                 "failover_used": backend != primary,
                 "failover_count": max(len(attempts) - 1, 0),
                 "attempts": attempts,
+                "hybrid_completion_gate": gate_payload,
             }
             write_result(args.result_file, result)
             print(f"\n=== BACKEND COMPLETE: {backend} ===")

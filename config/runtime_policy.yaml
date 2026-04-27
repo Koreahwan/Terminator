@@ -16,8 +16,6 @@ profiles:
         model: gpt-5.5
       reporter:
         model: gpt-5.4-mini
-      verifier:
-        model: gpt-5.4-mini
       scout:
         model: gpt-5.4-mini
       recon-scanner:
@@ -70,84 +68,8 @@ profiles:
         model: gpt-5.4
         debate_mode: gpt-propose-claude-object-gpt-respond
     pipeline_roles:
-      ctf_pwn:
-        reverser:
-          backend: codex
-          model: gpt-5.4
-        trigger:
-          backend: codex
-          model: gpt-5.4
-        chain:
-          backend: codex
-          model: gpt-5.4
-          debate_mode: gpt-propose-claude-object-gpt-respond
-          evidence_gate: machine-style-real-tool-output
-        verifier:
-          backend: codex
-          model: gpt-5.4
-          debate_mode: gpt-propose-claude-object-gpt-respond
-          evidence_gate: machine-style-3x-local-then-remote
-        reporter:
-          backend: claude
-          model: claude-opus-4-6[1m]
-      ctf_rev:
-        reverser:
-          backend: codex
-          model: gpt-5.4
-          evidence_gate: machine-style-real-tool-output
-        solver:
-          backend: codex
-          model: gpt-5.4
-          debate_mode: gpt-propose-claude-object-gpt-respond
-        verifier:
-          backend: codex
-          model: gpt-5.4
-          debate_mode: gpt-propose-claude-object-gpt-respond
-          evidence_gate: machine-style-3x-local-then-remote
-        reporter:
-          backend: claude
-          model: claude-opus-4-6[1m]
-      firmware:
-        reverser:
-          backend: claude
-          model: claude-opus-4-6[1m]
-        exploiter:
-          backend: codex
-          model: gpt-5.4
-          debate_mode: gpt-propose-claude-object-gpt-respond
-        reporter:
-          backend: claude
-          model: claude-opus-4-6[1m]
       ai_security:
         ai-recon:
-          backend: codex
-          model: gpt-5.4
-        analyst:
-          backend: codex
-          model: gpt-5.4
-        triager-sim:
-          backend: codex
-          model: gpt-5.4
-          debate_mode: gpt-propose-claude-object-gpt-respond
-        reporter:
-          backend: claude
-          model: claude-opus-4-6[1m]
-      robotics:
-        robo-scanner:
-          backend: codex
-          model: gpt-5.4
-          transport_policy: mock-or-replay-required
-        analyst:
-          backend: codex
-          model: gpt-5.4
-        reporter:
-          backend: claude
-          model: claude-opus-4-6[1m]
-        cve-manager:
-          backend: claude
-          model: claude-opus-4-6[1m]
-      supplychain:
-        sc-scanner:
           backend: codex
           model: gpt-5.4
         analyst:
@@ -192,16 +114,6 @@ roles:
     mcp_parity_required: [knowledge-fts]
     expected_artifacts: [architect_review.md]
 
-  chain:
-    backend: claude
-    model: claude-opus-4-6[1m]
-    phase_class: exploit-chain
-    rollback_group: ctf
-    shadow_mode: compare
-    claude_fallback_allowed: true
-    mcp_parity_required: [gdb, knowledge-fts]
-    expected_artifacts: [chain_report.md, solve.py]
-
   critic:
     backend: claude
     model: claude-opus-4-6[1m]
@@ -212,26 +124,6 @@ roles:
     disagreement_policy: block-on-critical
     mcp_parity_required: [gdb, ghidra, knowledge-fts]
     expected_artifacts: [critic_review.md]
-
-  ctf-solver:
-    backend: claude
-    model: sonnet
-    phase_class: ctf-fast-path
-    rollback_group: ctf
-    shadow_mode: disabled
-    claude_fallback_allowed: true
-    mcp_parity_required: [gdb, knowledge-fts]
-    expected_artifacts: [solve.py]
-
-  cve-manager:
-    backend: claude
-    model: sonnet
-    phase_class: cve-filing
-    rollback_group: domain
-    shadow_mode: disabled
-    claude_fallback_allowed: true
-    mcp_parity_required: [knowledge-fts]
-    expected_artifacts: [cve_submission.json, checkpoint.json]
 
   defi-auditor:
     backend: claude
@@ -252,46 +144,6 @@ roles:
     claude_fallback_allowed: true
     disagreement_policy: block-on-tier-regression
     mcp_parity_required: [knowledge-fts]
-    expected_artifacts: [checkpoint.json]
-
-  fw-inventory:
-    backend: claude
-    model: sonnet
-    phase_class: firmware-inventory
-    rollback_group: firmware
-    shadow_mode: disabled
-    claude_fallback_allowed: true
-    mcp_parity_required: []
-    expected_artifacts: [checkpoint.json]
-
-  fw-profiler:
-    backend: claude
-    model: sonnet
-    phase_class: firmware-profile
-    rollback_group: firmware
-    shadow_mode: disabled
-    claude_fallback_allowed: true
-    mcp_parity_required: []
-    expected_artifacts: [checkpoint.json]
-
-  fw-surface:
-    backend: claude
-    model: sonnet
-    phase_class: firmware-surface
-    rollback_group: firmware
-    shadow_mode: disabled
-    claude_fallback_allowed: true
-    mcp_parity_required: []
-    expected_artifacts: [checkpoint.json]
-
-  fw-validator:
-    backend: claude
-    model: sonnet
-    phase_class: firmware-validator
-    rollback_group: firmware
-    shadow_mode: disabled
-    claude_fallback_allowed: true
-    mcp_parity_required: []
     expected_artifacts: [checkpoint.json]
 
   mobile-analyst:
@@ -345,36 +197,6 @@ roles:
     mcp_parity_required: [knowledge-fts]
     expected_artifacts: [scope_audit.json, scope_audit.md]
 
-  reverser:
-    backend: claude
-    model: sonnet
-    phase_class: binary-analysis
-    rollback_group: ctf
-    shadow_mode: disabled
-    claude_fallback_allowed: true
-    mcp_parity_required: [ghidra, gdb, knowledge-fts]
-    expected_artifacts: [reversal_map.md]
-
-  robo-scanner:
-    backend: claude
-    model: sonnet
-    phase_class: robotics-scan
-    rollback_group: domain
-    shadow_mode: disabled
-    claude_fallback_allowed: true
-    mcp_parity_required: [knowledge-fts]
-    expected_artifacts: [checkpoint.json]
-
-  sc-scanner:
-    backend: claude
-    model: sonnet
-    phase_class: supplychain-scan
-    rollback_group: domain
-    shadow_mode: disabled
-    claude_fallback_allowed: true
-    mcp_parity_required: [knowledge-fts]
-    expected_artifacts: [checkpoint.json]
-
   scout:
     backend: claude
     model: sonnet
@@ -384,16 +206,6 @@ roles:
     claude_fallback_allowed: true
     mcp_parity_required: [nuclei, knowledge-fts, graphrag-security]
     expected_artifacts: [endpoint_map.md, program_context.md, checkpoint.json]
-
-  solver:
-    backend: claude
-    model: claude-opus-4-6[1m]
-    phase_class: inverse-computation
-    rollback_group: ctf
-    shadow_mode: compare
-    claude_fallback_allowed: true
-    mcp_parity_required: [gdb, knowledge-fts]
-    expected_artifacts: [solve.py]
 
   source-auditor:
     backend: claude
@@ -456,26 +268,6 @@ roles:
     disagreement_policy: block-on-negative-promotion
     mcp_parity_required: [knowledge-fts]
     expected_artifacts: [triager_sim_result.json]
-
-  trigger:
-    backend: claude
-    model: sonnet
-    phase_class: crash-trigger
-    rollback_group: ctf
-    shadow_mode: disabled
-    claude_fallback_allowed: true
-    mcp_parity_required: [gdb, knowledge-fts]
-    expected_artifacts: [trigger_report.md]
-
-  verifier:
-    backend: claude
-    model: sonnet
-    phase_class: execution-verification
-    rollback_group: shared
-    shadow_mode: disabled
-    claude_fallback_allowed: true
-    mcp_parity_required: [gdb]
-    expected_artifacts: [verification_report.md, checkpoint.json]
 
   web-tester:
     backend: claude

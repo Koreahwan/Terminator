@@ -1,34 +1,37 @@
 # Context Snapshot
 
-Updated: 2026-04-26T22:10:00+09:00
-Task: Grafana OSS CVE-2025-3415 variant 제출 완료 + 다음 타겟 대기
-Current Status: Grafana finding 제출됨. Intigriti submission limit 도달 — triage 대기.
+Updated: 2026-04-27T04:20:00+09:00
+Task: tchap VARIANT-002 제출 완료, 다음 타겟 준비
+Current Status: YWH #771404 제출 완료. Triage 대기.
 
-## Submitted
-- **Grafana OSS** — CVE-2025-3415 incomplete fix, Viewer credential exposure (High 8.5, $6,343 est)
-- Platform: Intigriti (grafanalabs/grafanaossbbp)
-- Submitted: 2026-04-26
-- Status: Submitted, awaiting triage
-- Intigriti submission limit reached — next submission after triage
+## Decisions
+- tchap VARIANT-002 제출 완료 | Why: E2 증거 (live state change), CVSS 7.9 High, €1.5K-3K 예상
+- Account B 포기 | Why: registration API disabled, E2로 진행
+- Path B (moderator) 수정 | Why: state_default=100, admin-only
+- PoC 자기완결성 보강 | Why: Step 10-11 live state verification 추가 (사용자 피드백)
 
-## Killed This Session
-- **NEAR Intents SC** — 10 candidates all killed (intentional design, NEAR rollback semantics)
-- **Neon BBP SSRF** — control plane validates JWKS URLs (HTTP/IP blocked), finding dead
+## Submission
+- Platform: YesWeHack
+- Report: #771404
+- URL: https://yeswehack.com/reports/771404
+- Target: DINUM - Tchap
+- Finding: TchapRoomLinkAccess.tsx:37 missing encrypted-room guard
+- Severity: High (CVSS 7.9)
+- Submitted: 2026-04-27
 
-## Pipeline Improvements Made
-- Cross-model review gap identified: hybrid failover = Codex-only review
-- 5 defects found by Claude cross-review that Codex missed (CVSS arithmetic, evidence mismatch, 403 negative control, markdown, severity inflation)
-- Concrete attack scenarios feedback saved as mandatory rule
-- Tier 1 (not Tier 3) corrected from live page verification
+## Test Account (DO NOT DELETE until triage resolves)
+- beta.tchap.gouv.fr / hwanwah-ywh-2c9434d94d7d2114@yeswehack.ninja
+- Room !kZTefvMFzbUVtmxGip:i.tchap.gouv.fr (evidence room, keep alive)
 
-## Pending
-- [ ] Intigriti triage response 대기
-- [ ] 다음 배치: tchap (YWH €20K), NEAR Bridges (HP $100K), Whatnot (H1 $10K)
-- [ ] tchap mobile app OOS collision 수정 필요
-- [ ] terminator.sh cross-model post-session gate 구현
-- [ ] 코드 변경 커밋 (dispatch.py, bb_preflight.py, terminator.sh 등)
-- [ ] Neon API key cleanup (test project 삭제)
+## Open Work
+- [ ] Tchap triage 응답 대기
+- [ ] 카카오 탐색 시작
+- [ ] 토스 참가신청서 제출
+- [ ] Whatnot 셀러 계정 → CAND-01 BOLA
+- [ ] Intigriti Grafana triage 대기
+- [ ] 코드 변경사항 커밋
 
 ## Risks
-- Grafana duplicate risk 20% (CVE-2025-3415 SLO clause)
-- Intigriti concurrent limit — triage까지 추가 제출 불가
+- DINUM Won't Fix 가능성 (이전 다른 프로그램에서 Won't Fix 이력)
+- E2 증거 한계 (Account B join 미증명)
+- YWH concurrent limit 3건 중 2건 사용 (Qwant + Tchap + ProConnect = 3/3)

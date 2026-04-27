@@ -73,6 +73,10 @@ def detect_platform(url: str) -> str:
         return "synack"
     if host.endswith("gobugfree.com"):
         return "gobugfree"
+    if host.endswith("patchday.io"):
+        return "patchday"
+    if host.endswith("findthegap.co.kr"):
+        return "findthegap"
     return "generic"
 
 
@@ -126,6 +130,8 @@ def _load_handlers() -> dict[str, HandlerFn]:
         "cobalt",
         "synack",
         "gobugfree",
+        "patchday",
+        "findthegap",
         "generic",
     ):
         _try_import(name)

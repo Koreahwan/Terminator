@@ -31,15 +31,15 @@ def test_toolspec_new_fields():
         "install_cmd": "test-pkg",
         "binary_path": "/usr/bin/test",
         "category": "web",
-        "pipelines": ["bounty", "ctf"],
+        "pipelines": ["bounty", "client-pitch"],
     })
     assert t.install_method == "pip"
     assert t.category == "web"
-    assert t.pipelines == ["bounty", "ctf"]
+    assert t.pipelines == ["bounty", "client-pitch"]
     d = t.to_dict()
     assert d["install_method"] == "pip"
     assert d["category"] == "web"
-    assert d["pipelines"] == ["bounty", "ctf"]
+    assert d["pipelines"] == ["bounty", "client-pitch"]
 
 
 def test_find_by_category():
@@ -55,8 +55,8 @@ def test_find_by_pipeline():
     r = ToolRegistry(registry_path=PROJECT_ROOT / "tools" / "toolspec" / "tools_full.yaml")
     bounty = r.find_by_pipeline("bounty")
     assert len(bounty) >= 20, f"Expected >= 20 bounty tools, got {len(bounty)}"
-    ctf = r.find_by_pipeline("ctf")
-    assert len(ctf) >= 10, f"Expected >= 10 ctf tools, got {len(ctf)}"
+    client_pitch = r.find_by_pipeline("client-pitch")
+    assert len(client_pitch) >= 1, "Expected client-pitch tool metadata"
 
 
 def test_tool_lifecycle_check_json():

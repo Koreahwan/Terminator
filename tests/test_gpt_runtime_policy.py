@@ -16,6 +16,7 @@ from tools.backend_smoke import parse_agent_messages
 from tools.implementation_intent_audit import Context, run_audit
 from tools.runtime_policy import apply_profile, load_policy
 from tools.runtime_intent import resolve
+from tools.hybrid_completion_gate import validate as validate_hybrid_completion
 from tools.runtime_hallucination_audit import Audit, validate_backend_smoke, validate_dag_matrix, validate_markdown_claims
 from tools.scope_first_hybrid_audit import validate_code, validate_policy_gate_coverage
 from tools.submission_candidate_replay import extract_first_json, validate_candidate_payload
@@ -28,8 +29,6 @@ from tools.terminator_dry_run_matrix import command_for, ensure_fixtures
 SCOPE_FIRST_GPT_ROLES = {"target-discovery", "scout", "recon-scanner", "source-auditor", "analyst"}
 SCOPE_FIRST_CLAUDE_ROLES = {"scope-auditor", "reporter", "submission-review"}
 SCOPE_FIRST_DEBATE_ROLES = {"exploiter", "critic", "triager-sim"}
-CTF_PWN_CODEX_ROLES = {"reverser", "trigger", "chain", "critic", "verifier"}
-CTF_REV_CODEX_ROLES = {"reverser", "solver", "critic", "verifier"}
 CLAUDE_OPUS_1M = "claude-opus-4-6[1m]"
 
 
@@ -46,6 +45,7 @@ def test_natural_intent_defaults_to_scope_first_target_discovery() -> None:
 
     assert payload["intent"] == "target_discovery_then_bounty"
     assert payload["runtime"]["backend"] == "hybrid"
+    assert payload["runtime"]["failover_to"] == "none"
     assert payload["runtime"]["runtime_profile"] == "scope-first-hybrid"
     assert payload["commands"][0][:2] == ["python3", "tools/target_discovery.py"]
     assert payload["commands"][1][:2] == ["python3", "tools/bounty_live_ab.py"]
@@ -82,19 +82,48 @@ def test_natural_intent_claude_only_bounty_url() -> None:
     assert payload["runtime"]["runtime_profile"] == "claude-only"
 
 
+def test_hybrid_completion_gate_requires_role_split_ledger(tmp_path) -> None:
+    (tmp_path / "endpoint_map.md").write_text("# endpoints\n", encoding="utf-8")
+
+    missing = validate_hybrid_completion(tmp_path, mode="bounty")
+
+    assert missing["status"] == "fail"
+    assert "missing runtime_dispatch_log.jsonl completed role entries" in missing["failures"]
+
+    (tmp_path / "runtime_dispatch_log.jsonl").write_text(
+        "\n".join(
+            [
+                json.dumps({"role": "scout", "backend": "codex", "status": "completed"}),
+                json.dumps({"role": "scope-auditor", "backend": "claude", "status": "completed"}),
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    passed = validate_hybrid_completion(tmp_path, mode="bounty")
+
+    assert passed["status"] == "pass"
+    assert passed["codex_roles"] == ["scout"]
+    assert passed["claude_roles"] == ["scope-auditor"]
+
+
 def test_terminator_dry_run_matrix_commands_are_safe(tmp_path) -> None:
     fixtures = ensure_fixtures(tmp_path)
 
     bounty = command_for("bounty", "scope-first-hybrid", fixtures)
-    robotics = command_for("robotics", "gpt-only", fixtures)
+    ai_security = command_for("ai-security", "gpt-only", fixtures)
+    client_pitch = command_for("client-pitch", "claude-only", fixtures)
 
     assert "--dry-run" in bounty
     assert "--json" in bounty
     assert bounty[bounty.index("--backend") + 1] == "hybrid"
     assert bounty[bounty.index("--runtime-profile") + 1] == "scope-first-hybrid"
-    assert "--failover-to" in robotics
-    assert robotics[robotics.index("--failover-to") + 1] == "none"
-    assert "replay://rosbag/local" in robotics
+    assert "--failover-to" in ai_security
+    assert ai_security[ai_security.index("--failover-to") + 1] == "none"
+    assert "ai-security" in ai_security
+    assert "--json" in client_pitch
+    assert "client-pitch" in client_pitch
 
 
 def test_gpt_only_routes_every_role_to_codex() -> None:
@@ -124,37 +153,13 @@ def test_scope_first_hybrid_policy_is_adjustable_but_guarded() -> None:
     assert roles["scope-auditor"]["disagreement_policy"] == "block-on-unknown-or-oos"
 
 
-def test_scope_first_hybrid_has_ctf_machine_style_overrides() -> None:
-    pwn = apply_profile(load_policy(), "scope-first-hybrid", "ctf_pwn")["roles"]
-    rev = apply_profile(load_policy(), "scope-first-hybrid", "ctf_rev")["roles"]
-
-    for role in CTF_PWN_CODEX_ROLES:
-        assert pwn[role]["backend"] == "codex"
-    for role in CTF_REV_CODEX_ROLES:
-        assert rev[role]["backend"] == "codex"
-    assert pwn["chain"]["debate_mode"] == "gpt-propose-claude-object-gpt-respond"
-    assert pwn["verifier"]["evidence_gate"] == "machine-style-3x-local-then-remote"
-    assert rev["solver"]["debate_mode"] == "gpt-propose-claude-object-gpt-respond"
-    assert rev["verifier"]["evidence_gate"] == "machine-style-3x-local-then-remote"
-    assert pwn["reporter"]["backend"] == "claude"
-    assert rev["reporter"]["backend"] == "claude"
-
-
-def test_scope_first_hybrid_has_domain_specific_overrides() -> None:
-    firmware = apply_profile(load_policy(), "scope-first-hybrid", "firmware")["roles"]
+def test_scope_first_hybrid_has_retained_domain_overrides() -> None:
     ai = apply_profile(load_policy(), "scope-first-hybrid", "ai_security")["roles"]
-    robotics = apply_profile(load_policy(), "scope-first-hybrid", "robotics")["roles"]
-    supplychain = apply_profile(load_policy(), "scope-first-hybrid", "supplychain")["roles"]
 
-    assert firmware["reverser"]["backend"] == "claude"
-    assert firmware["exploiter"]["backend"] == "codex"
-    assert firmware["exploiter"]["debate_mode"] == "gpt-propose-claude-object-gpt-respond"
     assert ai["ai-recon"]["backend"] == "codex"
-    assert robotics["robo-scanner"]["backend"] == "codex"
-    assert robotics["robo-scanner"]["transport_policy"] == "mock-or-replay-required"
-    assert supplychain["sc-scanner"]["backend"] == "codex"
-    for roles in (ai, robotics, supplychain):
-        assert roles["reporter"]["backend"] == "claude"
+    assert ai["analyst"]["backend"] == "codex"
+    assert ai["triager-sim"]["backend"] == "codex"
+    assert ai["reporter"]["backend"] == "claude"
 
 
 def test_opus_runtime_roles_are_pinned_to_claude_opus_1m() -> None:
@@ -366,7 +371,7 @@ def test_hallucination_audit_accepts_target_discovery_matrix(tmp_path) -> None:
     results = [
         {"profile": profile, "pipeline": pipeline, "status": "pass", "failure_count": 0}
         for profile in ["claude-only", "gpt-only", "scope-first-hybrid"]
-        for pipeline in ["target_discovery", "ctf_pwn", "ctf_rev", "bounty", "firmware", "ai_security", "robotics", "supplychain"]
+        for pipeline in ["target_discovery", "bounty", "ai_security", "client-pitch"]
     ]
     matrix.write_text(json.dumps({"status": "pass", "results": results}), encoding="utf-8")
     audit = Audit()

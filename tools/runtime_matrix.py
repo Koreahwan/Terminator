@@ -18,7 +18,6 @@ PROFILE_BACKEND = {"claude-only": "claude", "gpt-only": "codex", "scope-first-hy
 DEEP_HYBRID_ROLES = {
     "analyst",
     "architect",
-    "chain",
     "critic",
     "defi-auditor",
     "exploiter",

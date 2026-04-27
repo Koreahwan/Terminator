@@ -29,7 +29,7 @@ Usage:
     bb_preflight.py evidence-tier-check <submission_dir> [--json]     Classify evidence E1-E4 tier (v12)
     bb_preflight.py duplicate-graph-check <target_dir> --finding "<desc>" [--json]  Graph-assisted duplicate detection with heuristic fallback (v12)
 
-Global option: --domain <bounty|ai|robotics|supplychain>  (default: bounty)
+Global option: --domain <bounty|ai>  (default: bounty)
   Selects domain-specific rules file, endpoint map, coverage threshold, and required sections.
 
 Exit: 0=PASS, 1=FAIL (with specific error message); kill-gate-1: 0=PASS, 1=WARN, 2=HARD_KILL; kill-gate-2: 0=PASS, 1=FAIL
@@ -148,34 +148,6 @@ DOMAIN_CONFIG = {
             "Acceptable Use Policy",
             "Severity Scope",
             "Prompt Injection Scope",  # explicit: is prompt injection in-scope?
-        ],
-    },
-    "robotics": {
-        "rules_file": "robo_program_rules_summary.md",
-        "endpoint_map": "robo_endpoint_map.md",
-        "coverage_threshold": 70,  # lower due to physical access constraints
-        "required_sections": [
-            "Robot Model",
-            "ROS Version",
-            "Network Access",
-            "Known Issues",
-            "Exclusion List",
-            "Safety Constraints",  # physical safety limitations
-            "CVE Submission Target",  # GHSA or MITRE
-        ],
-    },
-    "supplychain": {
-        "rules_file": "sc_program_rules_summary.md",
-        "endpoint_map": "sc_endpoint_map.md",
-        "coverage_threshold": 80,
-        "required_sections": [
-            "Package Manager",
-            "Registry Configuration",
-            "Known Issues",
-            "Exclusion List",
-            "Submission Rules",
-            "Severity Scope",
-            "Build Pipeline Platform",
         ],
     },
 }
@@ -3056,7 +3028,7 @@ curl -s "https://api.example.com/endpoint" \\
 
 def _inline_map_template(target_dir: str, domain: str = "bounty") -> str:
     name = Path(target_dir).name.upper()
-    domain_label = {"ai": "AI/LLM", "robotics": "Robotics/ROS", "supplychain": "Supply Chain"}.get(domain, "")
+    domain_label = {"ai": "AI/LLM"}.get(domain, "")
     if domain_label:
         return f"""# {domain_label} Endpoint Map — {name}
 
@@ -3981,6 +3953,71 @@ def _verify_hackenproof(target_url: str, accept_cve_only: bool) -> int:
     return 0
 
 
+def _verify_patchday(target_url: str, accept_cve_only: bool) -> int:
+    """patchday.io: program at /org/program-slug"""
+    m = re.match(r"https?://patchday\.io/([^/?#]+)/([^/?#]+)", target_url)
+    if not m:
+        print(f"FAIL: patchday URL must match /org/program-slug: {target_url}")
+        return 1
+    org, slug = m.group(1), m.group(2)
+    canonical_url = f"https://patchday.io/{org}/{slug}"
+    variants = [canonical_url]
+    canonical, body, log = _vt_probe(variants)
+    if not body:
+        print("FAIL (HARD): patchday program not found:")
+        for u, c in log:
+            print(f"  {c}  {u}")
+        return 1
+    print(f"patchday program resolved: {canonical}")
+
+    no_cash = re.search(r"\bno reward\b|\bhall of fame\b|\brecognition[- ]only\b", body, re.I)
+    if no_cash and not accept_cve_only:
+        print("NO-GO (CASH): patchday program has no cash reward")
+        return 2
+
+    dupes, info = _vt_count_recent_status(body)
+    if dupes >= 5 or info >= 5:
+        print(f"WARN: {dupes} duplicates / {info} informative")
+        return 3
+
+    print(f"GO: patchday target verified ({org}/{slug})")
+    return 0
+
+
+def _verify_findthegap(target_url: str, accept_cve_only: bool) -> int:
+    """findthegap.co.kr: Korean bug bounty platform"""
+    m = re.match(r"https?://(?:www\.)?findthegap\.co\.kr/(?:programs?|bounty)/([^/?#]+)", target_url)
+    if not m:
+        print(f"FAIL: findthegap URL must match /program/<slug> or /bounty/<slug>: {target_url}")
+        return 1
+    slug = m.group(1)
+    variants = [
+        f"https://findthegap.co.kr/program/{slug}",
+        f"https://findthegap.co.kr/bounty/{slug}",
+        f"https://www.findthegap.co.kr/program/{slug}",
+    ]
+    canonical, body, log = _vt_probe(variants)
+    if not body:
+        print("FAIL (HARD): findthegap program not found:")
+        for u, c in log:
+            print(f"  {c}  {u}")
+        return 1
+    print(f"findthegap program resolved: {canonical}")
+
+    no_cash = re.search(r"\bno reward\b|\bhall of fame\b|\brecognition[- ]only\b|\b무보상\b|\b포인트만\b", body, re.I)
+    if no_cash and not accept_cve_only:
+        print("NO-GO (CASH): findthegap program has no cash reward")
+        return 2
+
+    dupes, info = _vt_count_recent_status(body)
+    if dupes >= 5 or info >= 5:
+        print(f"WARN: {dupes} duplicates / {info} informative")
+        return 3
+
+    print(f"GO: findthegap target verified ({slug})")
+    return 0
+
+
 def _verify_generic(target_url: str, accept_cve_only: bool, platform_key: str = "") -> int:
     """
     Generic fallback: probe the URL, detect live/dead, basic bounty signal extraction.
@@ -4072,6 +4109,8 @@ _VERIFY_DISPATCH = {
     "cobalt": lambda url, cve: _verify_generic(url, cve, "cobalt"),
     "synack": lambda url, cve: _verify_generic(url, cve, "synack"),
     "gobugfree": lambda url, cve: _verify_generic(url, cve, "gobugfree"),
+    "patchday": _verify_patchday,
+    "findthegap": _verify_findthegap,
 }
 
 

@@ -33,6 +33,10 @@ GENERATED_CONTRACTS = PROJECT_ROOT / "generated" / "role_contracts"
 KEEPALIVE_FILE = PROJECT_ROOT / ".dispatch_active"
 
 
+def _canonical_role(role: str) -> str:
+    return role.replace("_", "-")
+
+
 def _load_policy_entry(role: str) -> dict:
     """Load a role's policy entry via runtime_policy.py."""
     profile_args: list[str] = []
@@ -45,7 +49,7 @@ def _load_policy_entry(role: str) -> dict:
             str(PROJECT_ROOT / "tools" / "runtime_policy.py"),
             *profile_args,
             "get-role",
-            role,
+            _canonical_role(role),
         ],
         capture_output=True, text=True, cwd=str(PROJECT_ROOT),
     )
@@ -56,7 +60,7 @@ def _load_policy_entry(role: str) -> dict:
 
 def _load_compact_contract(role: str) -> str | None:
     """Load pre-compiled compact contract for a role, if it exists."""
-    contract_path = GENERATED_CONTRACTS / f"{role}.txt"
+    contract_path = GENERATED_CONTRACTS / f"{_canonical_role(role)}.txt"
     if contract_path.exists():
         return contract_path.read_text(encoding="utf-8")
     return None
@@ -86,7 +90,8 @@ def _agent_file_for_role(role: str) -> Path | None:
 def _build_dispatch_prompt(role: str, policy: dict, *,
                            context_file: str | None = None,
                            target: str = "",
-                           work_dir: str = "") -> str:
+                           work_dir: str = "",
+                           project_root: str = "") -> str:
     """Assemble the full dispatch prompt from contract + context."""
     parts: list[str] = []
 
@@ -111,7 +116,17 @@ def _build_dispatch_prompt(role: str, policy: dict, *,
     if target:
         parts.append(f"\nTarget: {target}")
     if work_dir:
-        parts.append(f"Working directory: {work_dir}")
+        parts.append(f"Artifact working directory: {work_dir}")
+    if project_root:
+        parts.append(f"Project root: {project_root}")
+
+    parts.append(
+        "\n## Dispatch Rules\n"
+        "- Save required artifacts under the artifact working directory.\n"
+        "- Use absolute project-root paths when invoking repository tools.\n"
+        "- If this role has debate_mode in runtime policy, produce a valid "
+        "`<role>_debate.json` or `debate_gate.json` before finishing."
+    )
 
     return "\n\n".join(parts)
 
@@ -126,7 +141,8 @@ def _resolve_codex_model(model: str) -> str | None:
 
     Returns None to use Codex default model (recommended for ChatGPT accounts).
     """
-    if model in CODEX_SKIP_MODELS:
+    lowered = (model or "").strip().lower()
+    if lowered in CODEX_SKIP_MODELS or lowered.startswith("claude"):
         return None  # use Codex default
     return model
 
@@ -175,6 +191,16 @@ def _write_state(dispatch_id: str, state: dict) -> None:
         json.dumps(state, indent=2, ensure_ascii=False) + "\n",
         encoding="utf-8",
     )
+
+
+def _append_dispatch_log(work_dir: str, row: dict) -> None:
+    """Append a durable per-target role-dispatch ledger entry."""
+    if not work_dir:
+        return
+    path = Path(work_dir) / "runtime_dispatch_log.jsonl"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a", encoding="utf-8") as fh:
+        fh.write(json.dumps(row, ensure_ascii=False) + "\n")
 
 
 def _read_state(dispatch_id: str) -> dict | None:
@@ -287,6 +313,7 @@ def _scan_artifacts(work_dir: str, role: str) -> tuple[list[str], list[str]]:
 
     Returns (found_paths, missing_names).
     """
+    role = _canonical_role(role)
     expected = ROLE_EXPECTED_ARTIFACTS.get(role, [])
     found: list[str] = []
     missing: list[str] = []
@@ -356,14 +383,45 @@ def _finalize_completion_state(state: dict, *, exit_code: int, output: str = "",
     return state, found_artifacts, missing_names
 
 
+def _run_runtime_gate(state: dict, found_artifacts: list[str]) -> dict:
+    """Run debate/evidence hard gates for the dispatched role when policy asks for it."""
+    work_dir = state.get("work_dir", "")
+    role = _canonical_role(str(state.get("role", "")))
+    if not work_dir or not role:
+        return {"status": "not_applicable"}
+
+    try:
+        policy = _load_policy_entry(role)
+    except ValueError:
+        return {"status": "not_applicable", "reason": "policy_lookup_failed"}
+
+    try:
+        from tools.runtime_gate import check_runtime_gates
+
+        payload = check_runtime_gates(Path(work_dir), role, policy, found_artifacts)
+    except Exception as exc:  # noqa: BLE001 - hard gate metadata must be explicit.
+        payload = {
+            "schema_version": "runtime-gate/1",
+            "role": role,
+            "status": "fail",
+            "error": f"{type(exc).__name__}: {exc}",
+        }
+
+    gate_path = Path(work_dir) / f"{role}_runtime_gate.json"
+    gate_path.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    return payload
+
+
 # ─── Commands ──────────────────────────────────────────────────────
 
 def cmd_run_role(args: argparse.Namespace) -> int:
     """Execute run-role (sync or async)."""
-    role = args.role
+    role = _canonical_role(args.role)
     is_async = args.async_mode
     if args.profile:
         os.environ["TERMINATOR_RUNTIME_PROFILE"] = args.profile
+    if args.pipeline:
+        os.environ["TERMINATOR_ACTIVE_PIPELINE"] = args.pipeline
 
     # Load policy
     try:
@@ -382,6 +440,7 @@ def cmd_run_role(args: argparse.Namespace) -> int:
         context_file=args.context_file,
         target=args.target or "",
         work_dir=work_dir,
+        project_root=str(PROJECT_ROOT),
     )
 
     # Dispatch ID
@@ -397,6 +456,10 @@ def cmd_run_role(args: argparse.Namespace) -> int:
         "started_at": time.time(),
         "is_async": is_async,
         "work_dir": work_dir,
+        "report_dir": str(Path(args.report_dir).resolve()) if args.report_dir else "",
+        "target": args.target or "",
+        "runtime_profile": os.environ.get("TERMINATOR_RUNTIME_PROFILE", ""),
+        "runtime_pipeline": os.environ.get("TERMINATOR_ACTIVE_PIPELINE", ""),
         "pid": None,
         "duration_sec": 0,
     }
@@ -454,6 +517,10 @@ def _run_sync(dispatch_id: str, state: dict, prompt: str,
             output=stdout_text,
             error_text=stderr_text,
         )
+        runtime_gate = _run_runtime_gate(state, found_artifacts)
+        if state["status"] == "completed" and runtime_gate.get("status") == "fail":
+            state["status"] = "failed"
+            state["error"] = f"Runtime gate failed: {runtime_gate}"
         _write_state(dispatch_id, state)
 
         # Extract token usage from stdout (JSONL events)
@@ -467,6 +534,22 @@ def _run_sync(dispatch_id: str, state: dict, prompt: str,
             error=state.get("error", ""),
             token_usage=token_usage,
         )
+        result_json["runtime_gate"] = runtime_gate
+        _append_dispatch_log(work_dir, {
+            "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            "dispatch_id": dispatch_id,
+            "role": state.get("role", ""),
+            "backend": state.get("backend", ""),
+            "model": state.get("model", ""),
+            "status": state.get("status", ""),
+            "duration_sec": state.get("duration_sec", 0),
+            "target": state.get("target", ""),
+            "runtime_profile": state.get("runtime_profile", ""),
+            "runtime_pipeline": state.get("runtime_pipeline", ""),
+            "artifacts": found_artifacts,
+            "missing_artifacts": missing_names,
+            "runtime_gate_status": runtime_gate.get("status"),
+        })
         print(json.dumps(result_json, indent=2, ensure_ascii=False))
         return 0 if state["status"] == "completed" else 1
 
@@ -475,6 +558,18 @@ def _run_sync(dispatch_id: str, state: dict, prompt: str,
         state["duration_sec"] = 3600
         _write_state(dispatch_id, state)
         result_json = _make_result(state, error="Dispatch timed out after 3600s")
+        _append_dispatch_log(work_dir, {
+            "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            "dispatch_id": dispatch_id,
+            "role": state.get("role", ""),
+            "backend": state.get("backend", ""),
+            "model": state.get("model", ""),
+            "status": "timeout",
+            "duration_sec": state.get("duration_sec", 0),
+            "target": state.get("target", ""),
+            "runtime_profile": state.get("runtime_profile", ""),
+            "runtime_pipeline": state.get("runtime_pipeline", ""),
+        })
         print(json.dumps(result_json, indent=2, ensure_ascii=False))
         return 1
     finally:
@@ -578,6 +673,11 @@ def cmd_check_status(args: argparse.Namespace) -> int:
             exit_code=exit_code,
             output=output_text,
         )
+        found_artifacts, _ = _scan_artifacts(state.get("work_dir", ""), state.get("role", ""))
+        runtime_gate = _run_runtime_gate(state, found_artifacts)
+        if state["status"] == "completed" and runtime_gate.get("status") == "fail":
+            state["status"] = "failed"
+            state["error"] = f"Runtime gate failed: {runtime_gate}"
         _write_state(dispatch_id, state)
         _update_keepalive(_count_active_dispatches())
 
@@ -641,6 +741,11 @@ def cmd_collect_result(args: argparse.Namespace) -> int:
     work_dir = state.get("work_dir", "")
     role = state.get("role", "")
     found_artifacts, missing_names = _scan_artifacts(work_dir, role) if work_dir else ([], [])
+    runtime_gate = _run_runtime_gate(state, found_artifacts) if state.get("status") == "completed" else {"status": "not_applicable"}
+    if state.get("status") == "completed" and runtime_gate.get("status") == "fail":
+        state["status"] = "failed"
+        state["error"] = f"Runtime gate failed: {runtime_gate}"
+        _write_state(dispatch_id, state)
 
     result = _make_result(
         state,
@@ -650,6 +755,22 @@ def cmd_collect_result(args: argparse.Namespace) -> int:
         error=state.get("error", ""),
         token_usage=token_usage,
     )
+    result["runtime_gate"] = runtime_gate
+    _append_dispatch_log(work_dir, {
+        "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "dispatch_id": dispatch_id,
+        "role": state.get("role", ""),
+        "backend": state.get("backend", ""),
+        "model": state.get("model", ""),
+        "status": state.get("status", ""),
+        "duration_sec": state.get("duration_sec", 0),
+        "target": state.get("target", ""),
+        "runtime_profile": state.get("runtime_profile", ""),
+        "runtime_pipeline": state.get("runtime_pipeline", ""),
+        "artifacts": found_artifacts,
+        "missing_artifacts": missing_names,
+        "runtime_gate_status": runtime_gate.get("status"),
+    })
     print(json.dumps(result, indent=2, ensure_ascii=False))
     return 0
 
@@ -728,6 +849,8 @@ def main() -> int:
     run.add_argument("--work-dir", help="Working directory for the backend")
     run.add_argument("--target", help="Target identifier")
     run.add_argument("--profile", help="Runtime profile override")
+    run.add_argument("--pipeline", help="Active pipeline name for policy overrides")
+    run.add_argument("--report-dir", help="Report directory for this session")
 
     # check-status
     cs = sub.add_parser("check-status", help="Check async dispatch status")

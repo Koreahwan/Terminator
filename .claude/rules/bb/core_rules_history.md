@@ -64,5 +64,5 @@ Referenced from `bb_pipeline_v13.md` "BB Core Rules". These are the version adde
 
 ## v15 (2026-04-26)
 
-- **Explore Parallel**: Explore Lane ×N 타겟 병렬 실행 (max 3). 각 타겟 `targets/<target>/` 독립 디렉토리, 공유 상태 없음. 최고 finding만 Prove Lane 진입. `terminator.sh bounty-explore targets.json` 자율 모드 추가. 상세: `.claude/rules/bb/explore_parallel.md`
+- **Explore Parallel retired**: 별도 explore-only CLI는 제거. `target_discovery`로 후보를 고른 뒤 `bounty` 파이프라인에서 raw endpoint inventory + `vuln_assistant` triage를 수행.
 - **Phase 4 Parallel READ**: critic + architect + codex:adversarial-review 3자 병렬 spawn (동일 artifact READ-only). KILL-trumps-all merge — ANY KILL 즉시 폐기, ALL PASS → dedup merge → reporter fix. 게이트 기준 변경 없음, 실행 구조만 직렬→병렬

@@ -4,17 +4,7 @@ Unspecified model = inherits parent (claude-opus-4-6[1m]) = 3-5x token waste. Pi
 
 ### Agent Model Assignment (MANDATORY — no spawn without model)
 
-Canonical list of all 30 agents in `.claude/agents/`. Each file MUST declare `model:` in its YAML frontmatter. `scripts/audit_mcp_config.sh` check G enforces this and flags any agent missing the declaration.
-
-#### CTF pipeline
-
-| Agent | Model | Reason |
-|-------|-------|--------|
-| reverser | sonnet | Structure analysis, pattern matching |
-| trigger | sonnet | Crash search, execution-based |
-| solver | claude-opus-4-6[1m] | Complex inverse computation |
-| chain | claude-opus-4-6[1m] | Multi-stage exploit design |
-| ctf-solver | sonnet | Trivial CTF end-to-end single-agent solve |
+Canonical list of active agents in `.claude/agents/`. Each file MUST declare `model:` in its YAML frontmatter. `scripts/audit_mcp_config.sh` check G enforces this and flags any agent missing the declaration.
 
 #### Bug Bounty pipeline
 
@@ -34,15 +24,6 @@ Canonical list of all 30 agents in `.claude/agents/`. Each file MUST declare `mo
 | triager-sim | sonnet/claude-opus-4-6[1m] | Gate 1=sonnet, Gate 2+report-review=claude-opus-4-6[1m] (review task) |
 | submission-review | claude-opus-4-6[1m] | Final 3-perspective review panel (Phase 5.5) — review task |
 
-#### Firmware pipeline
-
-| Agent | Model | Reason |
-|-------|-------|--------|
-| fw-profiler | sonnet | Read profile artifacts, choose smallest safe next-stage subset |
-| fw-inventory | sonnet | Validate firmware inventory, decide re-run necessity |
-| fw-surface | sonnet | Map attack surface, build evidence bundles |
-| fw-validator | sonnet | Enforce validator policy, gate unsupported confirmed findings |
-
 #### Mobile pipeline
 
 | Agent | Model | Reason |
@@ -54,25 +35,21 @@ Canonical list of all 30 agents in `.claude/agents/`. Each file MUST declare `mo
 | Agent | Model | Reason |
 |-------|-------|--------|
 | ai-recon | sonnet | LLM endpoint mapping, model fingerprinting, tool enumeration |
-| robo-scanner | sonnet | ROS topology, node enumeration, firmware extraction |
-| sc-scanner | sonnet | SBOM generation, dependency tree, namespace conflicts |
 
 #### Cross-pipeline
 
 | Agent | Model | Reason |
 |-------|-------|--------|
 | critic | claude-opus-4-6[1m] | Cross-verification, logic error detection |
-| verifier | sonnet | Execution + verification, simple judgment |
 | reporter | sonnet | Documentation |
-| cve-manager | sonnet | CVE eligibility, GHSA/MITRE submission prep |
 
 ---
 
-### Total: 30 agents
+### Total: 20 agents
 
 ### Notes
 
-- **Filename vs agent name**: Six agent files use underscore filenames (`fw_inventory.md`, `fw_profiler.md`, `fw_surface.md`, `fw_validator.md`, `target_evaluator.md`, `triager_sim.md`) but their `name:` fields use dash (`fw-inventory`, etc). Subagent lookup uses `name:` — the `-` form is canonical. Underscore filenames are retained for Python artifact/coordination history compatibility.
+- **Filename vs agent name**: Two agent files use underscore filenames (`target_evaluator.md`, `triager_sim.md`) but their `name:` fields use dash (`target-evaluator`, `triager-sim`). Subagent lookup uses `name:` — the `-` form is canonical.
 
 - **Model choice rationale**:
   - `claude-opus-4-6[1m]` (**pinned** with 1M context): complex reasoning (exploit design, deep audit, cross-verification, multi-step review). **Why pinned**: Opus 4.6 with 1M context window — cybersecurity-specific evals 최적. Pin prevents accidental regression when Anthropic rotates the `opus` alias.

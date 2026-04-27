@@ -18,8 +18,8 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from tools.submission_quality_compare import score_slop
 
-PIPELINES_DAG = ["target_discovery", "ctf_pwn", "ctf_rev", "bounty", "firmware", "ai_security", "robotics", "supplychain"]
-PIPELINES_TERMINATOR = ["ctf", "bounty", "firmware", "ai-security", "robotics", "supplychain"]
+PIPELINES_DAG = ["target_discovery", "bounty", "ai_security", "client-pitch"]
+PIPELINES_TERMINATOR = ["bounty", "ai-security", "client-pitch"]
 PROFILES = ["claude-only", "gpt-only", "scope-first-hybrid"]
 
 OVERCLAIM_PATTERNS = [

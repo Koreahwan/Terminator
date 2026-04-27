@@ -85,17 +85,13 @@ targets/<target_c>/vulnerability_candidates.md  → 후보 K개, 최고 confiden
 
 **나머지 타겟**: `explore_candidates.md`에 아카이브 (향후 재탐색 가능).
 
-## Execution — Autonomous Mode (terminator.sh bounty-explore)
+## Execution — Retired Mode
 
-```bash
-./terminator.sh bounty-explore targets.json
-# targets.json:
-# [
-#   {"target": "https://...", "scope": "*.example.com", "platform": "bugcrowd"},
-#   {"target": "https://...", "scope": "*.other.com",   "platform": "huntr"},
-#   {"target": "https://...", "scope": "api.third.com",  "platform": "ywh"}
-# ]
-```
+The standalone explore-only CLI mode has been retired. Use `target_discovery`
+to shortlist programs, then run `./terminator.sh bounty <target> <scope>` for
+the selected target. The active bounty flow now preserves raw endpoint inventory
+and uses `tools.vuln_assistant` for risk triage instead of a separate explore
+mode.
 
 - Phase -1 verify-target 전부 통과한 타겟만 explore 진입
 - 각 타겟 별도 Claude session (nohup background)

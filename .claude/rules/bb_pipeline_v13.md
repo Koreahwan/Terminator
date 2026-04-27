@@ -19,10 +19,8 @@ EXPLORE LANE (×N parallel, max 3)                         PROVE LANE (best find
 │ Phase 1.5: workflow-auditor + web-tester│   │           architect ├─ parallel READ  │
 │ ★ Gate 1→2: coverage + workflow check   │   │           codex  ┘  KILL-trumps-all  │
 │                                         │   │ Phase 4.5:triager-sim (report)       │
-│ v15: N targets run Phase 0-1.5 in       │   │ Phase 5:  reporter (finalize)        │
-│ parallel. Best finding enters Prove.    │   │ Phase 6:  TeamDelete                 │
-│ Detail: .claude/rules/bb/              │   └──────────────────────────────────────┘
-│         explore_parallel.md             │
+│ v16: vuln_assistant triages raw         │   │ Phase 5:  reporter (finalize)        │
+│ endpoints before manual testing.        │   │ Phase 6:  TeamDelete                 │
 └─────────────────────────────────────────┘
 ```
 

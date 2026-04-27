@@ -14,6 +14,13 @@ Referenced from `bb_pipeline_v13.md` Phase 0 / Explore Lane. target-discovery �
 | HackerOne | hackerone.com | hackerone.py | Largest platform, all categories |
 | Immunefi | immunefi.com | immunefi.py | **BANNED** — skip entirely |
 
+## Tier 1.5 — Custom Parser (국내 플랫폼)
+
+| Platform | URL | Handler | Specialty |
+|----------|-----|---------|-----------|
+| PatchDay | patchday.io | patchday.py | 국내 대표 (티오리 운영). Naver Whale, NCSOFT, Genians 등 |
+| FindTheGap | findthegap.co.kr | findthegap.py | 삼성SDS 출신. 삼성/LG/네이버/한화비전 파트너 |
+
 ## Tier 2 — Generic Parser (detect_platform + generic fallback + raw_bundle)
 
 | Platform | URL Pattern | Key | Specialty | Notes |
@@ -49,6 +56,7 @@ Referenced from `bb_pipeline_v13.md` Phase 0 / Explore Lane. target-discovery �
 ## Anti-Hallucination Rules (IRON — applies to ALL tiers)
 
 1. **Tier 1**: program_fetcher handler + raw_bundle + verbatim-check 3중 보호
+1.5. **Tier 1.5** (국내): verify-target 커스텀 파서 있음. scope 페치는 generic handler (HOLD) + raw_bundle 필수. 한국어 페이지이므로 scope 요약 번역 절대 금지 — 원문 그대로
 2. **Tier 2**: generic handler (confidence 0.4 HOLD) + raw_bundle 필수. **절대 scope/OOS 요약 금지** — raw_bundle.md의 verbatim substring만 신뢰
 3. **Tier 3**: 발견 용도만. 실제 scope는 반드시 원본 프로그램 페이지에서 fetch-program으로 추출
 4. **Tier 4**: github_md handler 또는 generic 사용. 직접 프로그램 페이지에서 verbatim 추출

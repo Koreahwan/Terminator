@@ -1,6 +1,6 @@
 # Bug Bounty + CVE Submissions — Canonical Tracker
 
-**Last updated**: 2026-04-25 (Intigriti HRS passed pre-triage -> full reproduction)
+**Last updated**: 2026-04-27 (YWH Tchap VARIANT-002 submitted #771404)
 **Source of truth**: this file (markdown) + `docs/submissions.json` (dashboard feed)
 **Sync command**: `/bounty-status-sync` (updates both)
 
@@ -13,6 +13,7 @@ now keep **lessons/patterns only**; live status lives here.
 
 | Platform | Target | Title | Sev | Bounty | Status | Submitted | Last Check | Note |
 |---|---|---|---|---|---|---|---|---|
+| YesWeHack | Tchap (DINUM) | TchapRoomLinkAccess missing encrypted-room guard (#771404) | High (7.9) | est €1.5K–3K | Submitted | 2026-04-27 | 2026-04-27 | E2 evidence, admin PL=100 prerequisite |
 | huntr | llamaindex | OpenCypher Injection (CAND-01) | High | est $750–900 | Pending | 2026-04-06 | 2026-04-18 | ⚠ historical-match WARN: 27 same-program rejected (sandbox/deser duplicate 패턴), 12+일 pending → duplicate close risk 상승 |
 | huntr | onnx | sampleSize OOM (dc57e727) | Medium | est $125 (up to $450) | Pending | 2026-04-10 | 2026-04-18 | ⚠ historical-match WARN: 14 same-program rejected (path traversal/RCE duplicate), 8일 pending |
 | huntr | kubeflow | seaweedfs-iam (bbc04031) | High | est $750 | Pending | 2026-04-10 | 2026-04-18 | Cross-repo entry-point strategy |

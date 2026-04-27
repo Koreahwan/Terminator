@@ -94,6 +94,11 @@ FAILOVER_TO="${TERMINATOR_FAILOVER_TO:-codex}"
 if [ -n "$REQUESTED_FAILOVER_TO" ]; then
   FAILOVER_TO="$REQUESTED_FAILOVER_TO"
 fi
+if [ "$BACKEND" = "hybrid" ] && [ -z "$REQUESTED_FAILOVER_TO" ] && [ -z "${TERMINATOR_FAILOVER_TO:-}" ]; then
+  # Hybrid means role-split execution; Codex is assigned by runtime_policy, not
+  # merely held as a spare continuation backend.
+  FAILOVER_TO="none"
+fi
 RUNTIME_PROFILE="${REQUESTED_RUNTIME_PROFILE:-${TERMINATOR_RUNTIME_PROFILE:-}}"
 if [ "$RUNTIME_PROFILE" = "hybrid" ]; then
   RUNTIME_PROFILE="scope-first-hybrid"
@@ -758,6 +763,13 @@ plan = {
         'artifact_scope_hash_required': $_SCOPE_FIRST_ENABLED,
         'dry_run_gate_status': 'would_require_scope_contract' if $_SCOPE_FIRST_ENABLED else 'not_applicable'
     },
+    'hybrid_role_split': {
+        'enabled': $_SCOPE_FIRST_ENABLED,
+        'completion_requires_runtime_dispatch_log': $_SCOPE_FIRST_ENABLED,
+        'codex_roles': ['scout', 'analyst', 'source-auditor', 'exploiter', 'critic', 'triager-sim'] if $_SCOPE_FIRST_ENABLED else [],
+        'claude_roles': ['scope-auditor', 'reporter', 'submission-review'] if $_SCOPE_FIRST_ENABLED else [],
+        'debate_required_roles': ['exploiter', 'critic', 'triager-sim'] if $_SCOPE_FIRST_ENABLED else []
+    },
     'steps': [
         'phase_0_target_evaluator',
         'phase_0_scope_contract_create',
@@ -795,6 +807,7 @@ print(json.dumps(plan, indent=2))
         echo "  Timeout: ${TIMEOUT}s (0=none)"
         if [ "$EFFECTIVE_PROFILE" = "scope-first-hybrid" ]; then
           echo "  Scope gate: scope_contract required before Phase 1; safety_wrapper required for live actions"
+          echo "  Role split: runtime_dispatch log required; Codex handles scout/analyst/exploiter/critic/triager-sim"
         fi
         echo "  Would run: python3 tools/backend_runner.py run --backend $PRIMARY_BACKEND ..."
       fi
@@ -865,7 +878,11 @@ print(json.dumps(plan, indent=2))
         fi
       }
       if [ "$EFFECTIVE_PROFILE" = "scope-first-hybrid" ]; then
-        python3 "$SCRIPT_DIR/tools/scope_contract.py" create "$TARGET_DIR" --allow-hold 2>/dev/null || true
+        python3 "$SCRIPT_DIR/tools/scope_contract.py" create "$TARGET_DIR" --allow-hold
+        if [ ! -f "$TARGET_DIR/scope_contract.json" ]; then
+          log_error "SCOPE GATE FAIL: scope_contract.json not created — hybrid role dispatch must fail closed."
+          exit $EXIT_ERROR
+        fi
         echo "[*] Scope-first Phase 0: scope_contract.json ready"
       else
         echo "[*] Scope-first Phase 0: bundle.md ready (non-hybrid — no scope_contract)"
@@ -980,6 +997,8 @@ if p:
       }
       trap _cleanup SIGTERM SIGINT SIGHUP
 
+      TERMINATOR_TARGET_DIR=\"$TARGET_DIR\" \
+      TERMINATOR_ACTIVE_PIPELINE=\"bounty\" \
       python3 -u \"$SCRIPT_DIR/tools/backend_runner.py\" run \
         --backend \"$PRIMARY_BACKEND\" \
         --failover-to \"${FAILOVER_BACKEND:-none}\" \
@@ -990,6 +1009,7 @@ if p:
         --model \"$EFFECTIVE_MODEL\" \
         --mode bounty \
         --target \"$TARGET\" \
+        --target-dir \"$TARGET_DIR\" \
         --scope \"$SCOPE\" \
         --session-id \"$SESSION_ID\" \
         --timeout \"$TIMEOUT\" \

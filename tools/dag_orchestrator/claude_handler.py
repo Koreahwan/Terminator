@@ -31,12 +31,7 @@ class BackendAgentHandler:
 
     ROLE_MODELS = {
         "claude": {
-            "reverser": "sonnet",
-            "trigger": "sonnet",
-            "solver": CLAUDE_OPUS_1M,
-            "chain": CLAUDE_OPUS_1M,
             "critic": CLAUDE_OPUS_1M,
-            "verifier": "sonnet",
             "reporter": "sonnet",
             "scout": "sonnet",
             "analyst": "sonnet",

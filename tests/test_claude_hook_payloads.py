@@ -54,16 +54,16 @@ def test_knowledge_inject_supports_task_payload(tmp_path: Path) -> None:
             "session_id": session_id,
             "cwd": str(PROJECT_ROOT),
             "tool_input": {
-                "subagent_type": "reverser",
-                "prompt": "Review the binary and report the attack map.",
-                "team_name": "ctf-demo",
+                "subagent_type": "scout",
+                "prompt": "Review the target surface and report the endpoint map.",
+                "team_name": "bounty-demo",
             },
         },
         tmp_path,
     )
 
     assert "systemMessage" in response
-    assert "reverser" in response["systemMessage"]
+    assert "scout" in response["systemMessage"]
 
     session_dir = _session_dir(tmp_path, session_id)
     assert session_dir.exists()

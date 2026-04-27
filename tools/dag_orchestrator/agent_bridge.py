@@ -41,12 +41,7 @@ def _warn_db_once(message: str) -> None:
 
 # Expected artifacts per agent role
 ROLE_ARTIFACTS = {
-    "reverser": ["reversal_map.md"],
-    "trigger": ["trigger_report.md", "trigger_poc.py"],
-    "chain": ["chain_report.md", "solve.py"],
-    "solver": ["solve.py"],
     "critic": ["critic_review.md"],
-    "verifier": ["verification_report.md"],
     "reporter": [],  # writes to knowledge/challenges/
     "scout": ["recon_report.json", "recon_notes.md"],
     "analyst": ["vulnerability_candidates.md"],

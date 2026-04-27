@@ -22,8 +22,8 @@ from typing import Any, Callable
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 ORIGINAL_ROOT = PROJECT_ROOT.parent / "Terminator"
 PROFILES = {"claude-only", "gpt-only", "scope-first-hybrid"}
-DAG_PIPELINES = {"target_discovery", "ctf_pwn", "ctf_rev", "bounty", "firmware", "ai_security", "robotics", "supplychain"}
-TERMINATOR_PIPELINES = {"ctf", "bounty", "firmware", "ai-security", "robotics", "supplychain"}
+DAG_PIPELINES = {"target_discovery", "bounty", "ai_security", "client-pitch"}
+TERMINATOR_PIPELINES = {"bounty", "ai-security", "client-pitch"}
 BASELINE_PACKAGES = {
     "proconnect-identite",
     "qwant",

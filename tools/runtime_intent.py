@@ -39,7 +39,7 @@ def choose_runtime(text: str) -> RuntimeChoice:
         return RuntimeChoice("codex", "none", "gpt-only", "codex requested")
     if wants_claude and not wants_codex and "fallback" not in normalized and "failover" not in normalized:
         return RuntimeChoice("claude", "none", "claude-only", "claude requested")
-    return RuntimeChoice("hybrid", "auto", "scope-first-hybrid", "default scope-first hybrid")
+    return RuntimeChoice("hybrid", "none", "scope-first-hybrid", "default scope-first hybrid role split")
 
 
 def detect_intent(text: str) -> str:
