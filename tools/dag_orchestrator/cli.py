@@ -3,10 +3,10 @@
 DAG Orchestrator CLI
 
 Usage:
-    python3 tools/dag_orchestrator/cli.py run --pipeline ctf_pwn --target challenge_name
+    python3 tools/dag_orchestrator/cli.py run --pipeline bounty --target example
     python3 tools/dag_orchestrator/cli.py run --pipeline bounty --target example.com
     python3 tools/dag_orchestrator/cli.py list
-    python3 tools/dag_orchestrator/cli.py visualize --pipeline ctf_pwn --target demo
+    python3 tools/dag_orchestrator/cli.py visualize --pipeline client-pitch --target demo
 """
 
 import argparse
@@ -56,10 +56,10 @@ def cmd_list(args):
     print("Available pipelines:")
     descriptions = {
         "target_discovery": "Bug bounty target discovery: target_discovery→target_evaluator→critic→reporter",
-        "ctf_pwn": "CTF Pwn 6-agent: reverser→trigger→chain→critic→verifier→reporter",
-        "ctf_rev": "CTF Reversing/Crypto 4-agent: reverser→solver→critic→verifier→reporter",
-        "bounty":  "Bug Bounty v3 8-agent: target_evaluator→scout+analyst→exploiter→reporter→...",
-        "firmware":"Firmware 5-agent: reverser→cve+secret+code scanners→exploiter→reporter",
+        "bounty":  "Bug bounty: scope→recon→vuln assistant→validation→report",
+        "client-pitch": "Passive client pitch: surface→risk signals→proposal",
+        "ai_security": "AI/LLM security: ai recon→analysis→validation→report",
+        "ai-security": "AI/LLM security: ai recon→analysis→validation→report",
     }
     for name in sorted(PIPELINES.keys()):
         print(f"  {name:<12} -- {descriptions.get(name, '')}")

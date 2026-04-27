@@ -540,22 +540,6 @@ When `domain=` is specified, ADD these questions to the standard destruction tes
 - Section A addition: **DETERMINISM** — PoC must show success rate (e.g., "8/10 runs produced safety bypass"). Single run = STRENGTHEN (need statistical evidence).
 - Section B addition: Common AI triager objection — "This is a known limitation of the model, not a vulnerability" → need counter-evidence showing exploitable impact beyond model limitation.
 
-### domain=robotics — ROS/Robotics Finding Evaluation (CVE track)
-
-**Mode 1 Modified Questions (CVE context — no bounty program):**
-- Q2 replaces SCOPE CHECK with: **CVE ELIGIBILITY** — Does the finding qualify for CVE assignment? Requires: (a) affects released product version, (b) not already assigned a CVE, (c) has security impact.
-- Q6 (ROBO): **PHYSICAL SAFETY IMPACT** — Does the vulnerability affect physical safety (motor control, sensor manipulation, emergency stop bypass)? If YES → severity floor = High. If NO → standard CVSS only.
-- Q7 (ROBO): **SIMULATOR vs REAL** — Was the finding validated in Gazebo/simulator only? Simulator-only = E2 evidence at best. Real hardware = E1.
-
-**Mode 2 Additional Checks:**
-- Section A addition: **ENVIRONMENT REALITY** — Was PoC tested in simulator or real hardware? Simulator-only evidence needs explicit acknowledgment. Real hardware evidence is stronger but both acceptable for CVE.
-- Section C addition: **CVE CVSS** — Use CNA (GitHub, MITRE) CVSS guidelines, not bounty platform interpretation. Network-accessible ROS = AV:A (Adjacent), not AV:N unless internet-exposed.
-
-### domain=supplychain — Supply Chain Finding Evaluation
-
-**Mode 1 Additional Questions:**
-- Q6 (SC): **EXISTENCE vs EXPLOITATION** — Namespace conflict existence alone ≠ exploitable vulnerability. Must demonstrate: (a) internal package is used in production, (b) registry resolution would prefer attacker's package, (c) code execution path exists. Existence-only = E3 (log to explore_candidates.md, not exploiter).
-- Q7 (SC): **ACTIVE vs PASSIVE** — Is the build pipeline vulnerability actively exploitable by external attacker? Or does it require maintainer/contributor access? PR-required = significantly lower severity.
 
 **Mode 2 Additional Checks:**
 - Section A addition: **NO UPLOAD VERIFICATION** — Did the PoC actually upload a package to a public registry? If YES → methodology violation, not a valid PoC. Proof must be existence check + config analysis, not actual exploitation.

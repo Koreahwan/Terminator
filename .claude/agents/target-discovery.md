@@ -61,7 +61,7 @@ Return candidate records containing:
   "decision": "GO|CONDITIONAL_GO|NO_GO",
   "score": 0,
   "scope_risk": "low|medium|high",
-  "recommended_pipeline": "bounty|supplychain|ai_security|source_review",
+  "recommended_pipeline": "bounty|ai_security|client_pitch|source_review",
   "best_hypotheses": ["specific vuln class"],
   "allowed_actions": ["passive program fetch", "source review"],
   "blocked_actions": ["live submit", "destructive testing"],

@@ -446,29 +446,11 @@ War correspondent embedded in a hacking operation — you witnessed the entire b
 After writing a report to `knowledge/challenges/` or `knowledge/techniques/`:
 ```bash
 bash tools/graphrag-security/incremental_index.sh <report_path> <type>
-# type: ctf_writeup | technique | bugbounty_report
+# type: technique | bugbounty_report | client_pitch | ai_security_report
 ```
 If incremental_index.sh fails, log warning and continue.
 
-## Domain-Specific Report Formats (activated by domain= or CVE advisory mode)
-
-### CVE Advisory Format (robotics pipeline, supplychain CVE track)
-When the pipeline outputs to CVE instead of bounty submission:
-- **No bugcrowd_form.md** — Generate `cve_advisory.md` instead
-- **CVE advisory structure**:
-  1. **Title**: `[Product] [Vulnerability Type] in [Component]`
-  2. **CVE ID**: (TBD — assigned by CNA)
-  3. **CVSS 3.1 Vector + Score**
-  4. **CWE ID**: Most specific applicable CWE
-  5. **Affected Versions**: Exact version range with git tags
-  6. **Description**: Technical description (observational language)
-  7. **PoC**: Minimal reproduction steps
-  8. **Impact**: What an attacker can achieve
-  9. **Remediation**: Suggested fix
-  10. **Timeline**: Discovery date, vendor notification, public disclosure
-  11. **Credit**: "Kyunghwan Byun"
-  12. **References**: Related CVEs, advisories, commit hashes
-- **Handoff to cve-manager**: After critic review, hand off `cve_advisory.md` + PoC artifacts to cve-manager agent for GHSA/MITRE submission
+## Domain-Specific Report Formats
 
 ### domain=ai — AI/LLM Bug Bounty Report
 - Include model type/version in all findings
@@ -476,20 +458,6 @@ When the pipeline outputs to CVE instead of bounty submission:
 - Prompt injection PoC = include exact prompt + exact model response
 - Reference OWASP LLM Top 10 category for each finding
 
-### domain=robotics — Robotics/ROS CVE Report
-- Use CVE Advisory Format above (this is always CVE track, not bounty)
-- ROS-specific CWE mappings: CWE-287 (auth bypass), CWE-290 (node spoofing), CWE-78 (command injection via topic), CWE-502 (unsafe deserialization), CWE-798 (hardcoded credentials)
-- Include ROS version (ROS1/ROS2), affected node names, topic/service paths
-- Physical safety impact: explicitly state if vulnerability affects motor control, sensor integrity, or emergency stop — this elevates severity
-- Affected versions: include firmware version + ROS package version + git tag
-- PoC evidence: reference rosbag recordings, pcap captures, Gazebo simulation logs
-- If simulator-only PoC: explicitly state "Validated in Gazebo simulation; real hardware testing requires manufacturer coordination"
-
-### domain=supplychain — Supply Chain Report
-- SBOM reference in appendix
-- Dependency confusion = include registry search evidence + .npmrc/.pip.conf analysis
-- Obfuscate private package names (use `[INTERNAL-PKG-001]` aliases)
-- Build pipeline = include exact CI config snippet with vulnerable line highlighted
 
 ## IRON RULES Recap
 **REMEMBER**: (1) No PoC = no report. (2) AI Slop score must be 2 or below — every sentence needs specific technical detail. (3) VRT determines priority, not CVSS. (4) bugcrowd_form.md is mandatory for every bug bounty report (skip for CVE advisory mode).

@@ -14,18 +14,14 @@ from typing import Any
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 PROFILES = ["claude-only", "gpt-only", "scope-first-hybrid"]
-PIPELINES = ["ctf", "bounty", "firmware", "ai-security", "robotics", "supplychain"]
+PIPELINES = ["bounty", "ai-security", "client-pitch"]
 PROFILE_BACKEND = {"claude-only": "claude", "gpt-only": "codex", "scope-first-hybrid": "hybrid"}
 
 
 def ensure_fixtures(out_dir: Path) -> dict[str, Path]:
     fixture_dir = out_dir / "terminator_dry_run_fixtures"
-    ctf_dir = fixture_dir / "ctf_smoke"
-    ctf_dir.mkdir(parents=True, exist_ok=True)
-    (ctf_dir / "README.txt").write_text("dry-run CTF fixture, no exploit target\n", encoding="utf-8")
-    firmware = fixture_dir / "firmware_smoke.bin"
-    firmware.write_bytes(b"TERMINATOR_DRY_RUN_FIRMWARE_FIXTURE\n")
-    return {"ctf": ctf_dir, "firmware": firmware}
+    fixture_dir.mkdir(parents=True, exist_ok=True)
+    return {}
 
 
 def command_for(pipeline: str, profile: str, fixtures: dict[str, Path]) -> list[str]:
@@ -40,20 +36,14 @@ def command_for(pipeline: str, profile: str, fixtures: dict[str, Path]) -> list[
         "--runtime-profile",
         profile,
     ]
-    if pipeline in {"ctf", "bounty"}:
+    if pipeline in {"bounty", "client-pitch"}:
         base.insert(1, "--json")
-    if pipeline == "ctf":
-        return base + ["ctf", str(fixtures["ctf"])]
     if pipeline == "bounty":
         return base + ["bounty", "https://hackerone.com/discourse", "https://hackerone.com/discourse"]
-    if pipeline == "firmware":
-        return base + ["firmware", str(fixtures["firmware"])]
     if pipeline == "ai-security":
         return base + ["ai-security", "https://example.invalid/model", "public replay scope"]
-    if pipeline == "robotics":
-        return base + ["robotics", "replay://rosbag/local", "mock-ros"]
-    if pipeline == "supplychain":
-        return base + ["supplychain", "https://github.com/pallets/flask", "pip"]
+    if pipeline == "client-pitch":
+        return base + ["client-pitch", "https://example.invalid"]
     raise ValueError(f"unknown pipeline: {pipeline}")
 
 

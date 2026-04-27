@@ -380,7 +380,6 @@ Write checkpoint.json: `{"agent":"<name>","status":"in_progress|completed|error"
 - **Mobile**: `knowledge/techniques/mobile_testing_mastg.md`
 - **AD**: `knowledge/techniques/ad_exploitation_reference.md`
 - **Kernel**: `~/tools/linux-kernel-exploitation/`
-- **Web CTF**: `knowledge/techniques/web_ctf_techniques.md`
 - **Systems**: `knowledge/techniques/systems_security_refs.md`
 - **Protocol Vulns**: `knowledge/protocol-vulns-index/categories/`
 
@@ -399,24 +398,6 @@ When analyzing AI/LLM targets (from ai-recon output):
 - **Vulnerability classes (priority order)**: Indirect Prompt Injection > Agent Hijacking > Memory Poisoning > Data Exfiltration > System Prompt Extraction > Insecure Output Handling
 - **Input**: `model_profile.json`, `ai_endpoint_map.md`, `tool_surface_map.md`
 - **Output**: `ai_vulnerability_candidates.md`, `ai_attack_chains.md`
-
-### domain=robotics — ROS/Robotics Vulnerability Analysis
-When analyzing robotics targets (from robo-scanner output):
-- **Physical safety impact in severity** — Parameter tampering affecting motors/actuators = Critical
-- **ROS auth is usually absent** — Focus on auth bypass, node spoofing, command injection via topics
-- **CVE-oriented analysis** — No bounty program typically; findings feed into CVE submission
-- **Vulnerability classes (priority order)**: ROS Auth Bypass > Node Spoofing > Command Injection via Topic > Unsafe Deserialization > Parameter Tampering > Hardcoded Credentials
-- **Input**: `ros_topology.json`, `robo_endpoint_map.md`, `network_analysis.md`
-- **Output**: `robo_vulnerability_candidates.md`, `robo_attack_chains.md`
-
-### domain=supplychain — Supply Chain Vulnerability Analysis
-When analyzing supply chain targets (from sc-scanner output):
-- **Dependency confusion = highest priority** — Internal pkg name collision with public registry
-- **Build pipeline RCE** — CI/CD script injection, artifact poisoning
-- **Version pinning check** — Unpinned = exploitable
-- **Vulnerability classes (priority order)**: Dependency Confusion > Build Pipeline RCE > Typosquatting > Package Script Execution > Registry Scope Misconfiguration > Stale/Abandoned Package
-- **Input**: `sbom.json`, `sc_endpoint_map.md`, `namespace_conflicts.md`
-- **Output**: `sc_vulnerability_candidates.md`, `sc_attack_chains.md`
 
 ## IRON RULES Recap
 

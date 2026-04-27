@@ -12,7 +12,7 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_OUT_ROOT = PROJECT_ROOT / "reports" / "runtime-eval"
-PIPELINES = ["target_discovery", "ctf_pwn", "ctf_rev", "bounty", "firmware", "ai_security", "robotics", "supplychain"]
+PIPELINES = ["target_discovery", "bounty", "ai_security", "client-pitch"]
 PROFILES = ["claude-only", "gpt-only", "scope-first-hybrid"]
 PROFILE_BACKEND = {"claude-only": "claude", "gpt-only": "codex", "scope-first-hybrid": "hybrid"}
 DEEP_HYBRID_ROLES = {
@@ -20,11 +20,9 @@ DEEP_HYBRID_ROLES = {
     "architect",
     "chain",
     "critic",
-    "ctf-solver",
     "defi-auditor",
     "exploiter",
     "patch-hunter",
-    "solver",
     "source-auditor",
     "submission-review",
     "triager-sim",

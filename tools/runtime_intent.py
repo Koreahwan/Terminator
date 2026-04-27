@@ -44,6 +44,10 @@ def choose_runtime(text: str) -> RuntimeChoice:
 
 def detect_intent(text: str) -> str:
     normalized = text.lower()
+    if any(token in normalized for token in ("client-pitch", "client pitch", "upwork", "영업", "컨택", "제안서", "pitch")):
+        return "client-pitch"
+    if any(token in normalized for token in ("ai-security", "llm", "ai security", "prompt injection", "rag", "agent", "에이아이", "llm")):
+        return "ai-security"
     target_words = ("타겟", "target", "program", "프로그램")
     find_words = ("찾", "find", "discover", "discovery", "추천", "고르", "선정")
     run_words = ("돌", "run", "실행", "start", "launch")
@@ -91,7 +95,7 @@ def resolve(text: str, *, timestamp: str | None = None, dry_run: bool = False) -
         )
         notes.append("target discovery uses passive public program data")
         notes.append("bounty follow-up is passive-live-safe-dry-run")
-    elif intent == "bounty" and urls:
+    elif intent in {"bounty", "client-pitch", "ai-security"} and urls:
         command = [
             "./terminator.sh",
             "--backend",
@@ -103,7 +107,7 @@ def resolve(text: str, *, timestamp: str | None = None, dry_run: bool = False) -
         ]
         if dry_run:
             command.append("--dry-run")
-        command.extend(["bounty", urls[0]])
+        command.extend([intent, urls[0]])
         commands.append(command)
     else:
         notes.append("intent unclear; ask for target URL or say '타겟 찾고 돌리자'")

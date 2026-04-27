@@ -79,6 +79,14 @@ OBSERVATIONAL_VIOLATIONS = [
     r"\bundoubtedly\b",
 ]
 
+CLIENT_PITCH_PROHIBITED = [
+    r"\bconfirmed vulnerability\b",
+    r"\bexploit succeeded\b",
+    r"\bdata exposed\b",
+    r"\battacker can definitely\b",
+    r"\bsubmission[- ]ready\b",
+]
+
 PASSIVE_VOICE_PATTERN = re.compile(
     r"\b(is|are|was|were|be|been|being)\s+(being\s+)?"
     r"(found|discovered|identified|noted|observed|considered|seen|regarded|"
@@ -526,7 +534,39 @@ def score_ai_slop(text: str) -> tuple[int, list[Fix]]:
 # Main scorer
 # ---------------------------------------------------------------------------
 
-def score_report(report_path: str, poc_dir: str | None = None, threshold: int = DEFAULT_THRESHOLD) -> ScoreResult:
+def score_client_pitch_boundaries(text: str) -> tuple[int, list[Fix]]:
+    """Score passive-only client pitch language and required sales artifacts."""
+    score = 100
+    fixes: list[Fix] = []
+    for pattern in CLIENT_PITCH_PROHIBITED:
+        if re.search(pattern, text, re.I):
+            score -= 25
+            fixes.append(Fix(
+                "Client pitch body",
+                "triage_readability",
+                f"Client pitch uses prohibited confirmed-finding language: {pattern}",
+                "Rewrite as a risk signal or recommended assessment area, not a proven vulnerability",
+                "critical",
+            ))
+    required = [
+        ("risk signal", r"(?i)risk signal|candidate|needs verification|requires.*review"),
+        ("recommended scope", r"(?i)recommended.*scope|proposed assessment|assessment scope"),
+        ("no destructive testing", r"(?i)no destructive testing|passive|authorization"),
+    ]
+    for label, pattern in required:
+        if not re.search(pattern, text):
+            score -= 15
+            fixes.append(Fix(
+                "Client pitch body",
+                "impact_clarity",
+                f"Missing client-pitch marker: {label}",
+                f"Add a concise {label} statement",
+                "high",
+            ))
+    return max(0, score), fixes
+
+
+def score_report(report_path: str, poc_dir: str | None = None, threshold: int = DEFAULT_THRESHOLD, mode: str = "bounty") -> ScoreResult:
     path = Path(report_path)
     if not path.exists():
         print(f"Error: Report not found: {report_path}", file=sys.stderr)
@@ -538,18 +578,30 @@ def score_report(report_path: str, poc_dir: str | None = None, threshold: int = 
     result = ScoreResult(threshold=threshold)
     all_fixes: list[Fix] = []
 
-    # Score each dimension
-    result.evidence_completeness, fixes = score_evidence_completeness(text, poc_path)
-    all_fixes.extend(fixes)
+    # Score each dimension. Client-pitch is passive sales material, so it must
+    # not be punished for missing exploit evidence; it is scored on boundary
+    # language instead.
+    if mode == "client-pitch":
+        result.evidence_completeness = 100
+        result.reproducibility = 100
+        boundary_score, fixes = score_client_pitch_boundaries(text)
+        result.impact_clarity = boundary_score
+        result.triage_readability = boundary_score
+        all_fixes.extend(fixes)
+    else:
+        result.evidence_completeness, fixes = score_evidence_completeness(text, poc_path)
+        all_fixes.extend(fixes)
 
-    result.impact_clarity, fixes = score_impact_clarity(text)
-    all_fixes.extend(fixes)
+        result.impact_clarity, fixes = score_impact_clarity(text)
+        all_fixes.extend(fixes)
 
-    result.reproducibility, fixes = score_reproducibility(text)
-    all_fixes.extend(fixes)
+    if mode != "client-pitch":
+        result.reproducibility, fixes = score_reproducibility(text)
+        all_fixes.extend(fixes)
 
-    result.triage_readability, fixes = score_triage_readability(text)
-    all_fixes.extend(fixes)
+    if mode != "client-pitch":
+        result.triage_readability, fixes = score_triage_readability(text)
+        all_fixes.extend(fixes)
 
     result.ai_slop, fixes = score_ai_slop(text)
     all_fixes.extend(fixes)
@@ -604,9 +656,11 @@ def main():
     parser.add_argument("--threshold", type=int, default=DEFAULT_THRESHOLD,
                         help=f"Pass threshold (default: {DEFAULT_THRESHOLD})")
     parser.add_argument("--json", action="store_true", help="Output as JSON")
+    parser.add_argument("--mode", choices=["bounty", "client-pitch"], default="bounty",
+                        help="Report mode (default: bounty)")
     args = parser.parse_args()
 
-    result = score_report(args.report, args.poc_dir, args.threshold)
+    result = score_report(args.report, args.poc_dir, args.threshold, args.mode)
 
     if args.json:
         print(json.dumps(asdict(result), indent=2, ensure_ascii=False))

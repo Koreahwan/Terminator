@@ -214,6 +214,27 @@ FALSE POSITIVE PATTERNS:
 - 200 with PUBLIC profile data only = NOT a finding (unless private fields included)"""
 
 
+CLIENT_PITCH_BOUNDARY = """## CLIENT-PITCH BOUNDARY
+
+Client-pitch artifacts are sales/risk-indication materials, not penetration-test
+reports. Before authorization, you MUST NOT claim:
+- "confirmed vulnerability"
+- "exploit succeeded"
+- "data exposed"
+- "attacker can definitely"
+- "submission ready"
+
+Allowed language:
+- "externally observable risk signal"
+- "requires authorized access-control review"
+- "recommended assessment area"
+- "candidate"
+- "needs verification"
+
+RULE: A client-pitch document may describe why a surface is worth testing, but
+must not imply a vulnerability was proven."""
+
+
 # ---------------------------------------------------------------------------
 # Speculative Language Detection
 # ---------------------------------------------------------------------------
@@ -354,6 +375,13 @@ CONTEXT_MAP: Dict[str, List[str]] = {
         "CONFIDENCE_SCORE",
         "OPERATIONAL_HUMILITY",
     ],
+    # Client pitch: passive risk indications for sales/outreach
+    "client_pitch": [
+        "ANTI_HALLUCINATION",
+        "ANTI_SEVERITY_INFLATION",
+        "OPERATIONAL_HUMILITY",
+        "CLIENT_PITCH_BOUNDARY",
+    ],
     # General exploit/solve.py review (critic reviewing chain/solver output)
     "exploit_review": [
         "ANTI_HALLUCINATION",
@@ -374,6 +402,7 @@ _PROMPT_REGISTRY: Dict[str, str] = {
     "OPERATIONAL_HUMILITY": OPERATIONAL_HUMILITY,
     "FRONTEND_BACKEND_CORRELATION": FRONTEND_BACKEND_CORRELATION,
     "ACCESS_CONTROL_INTELLIGENCE": ACCESS_CONTROL_INTELLIGENCE,
+    "CLIENT_PITCH_BOUNDARY": CLIENT_PITCH_BOUNDARY,
 }
 
 
@@ -381,8 +410,8 @@ def get_prompts(context: str) -> str:
     """Get composed anti-hallucination prompt for a given context.
 
     Args:
-        context: One of "ctf_verification", "bb_testing", "bb_verification",
-                 "bb_reporting", "exploit_review"
+        context: One of "bb_testing", "bb_verification", "bb_reporting",
+                 "client_pitch", "exploit_review"
 
     Returns:
         Combined prompt string with all relevant directives for the context.

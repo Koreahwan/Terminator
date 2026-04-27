@@ -30,12 +30,9 @@ KALI_REPO_LINE = "deb [signed-by=/etc/apt/keyrings/kali-archive-keyring.gpg] htt
 PIPELINE_CATEGORIES = {
     "bounty": ["recon", "web", "scanning", "password", "sniffing", "exploit",
                "post_exploit", "analysis", "infra"],
-    "ctf": ["password", "forensics", "re", "exploit", "sniffing", "infra"],
-    "firmware": ["forensics", "re", "firmware", "wireless"],
+    "client-pitch": ["recon", "web", "analysis"],
     "ai_security": ["recon", "web", "scanning", "ai"],
-    "robotics": ["recon", "scanning", "wireless", "firmware"],
-    "supplychain": ["scanning", "supply_chain", "analysis"],
-    "mobile": ["mobile", "re"],
+    "ai-security": ["recon", "web", "scanning", "ai"],
 }
 
 
@@ -345,7 +342,7 @@ def main():
         Examples:
           %(prog)s check --pipeline bounty
           %(prog)s install --category password --yes
-          %(prog)s install --pipeline ctf
+          %(prog)s install --pipeline client-pitch
           %(prog)s list --missing-only
           %(prog)s repo add-kali
           %(prog)s report

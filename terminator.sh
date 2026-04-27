@@ -3,9 +3,9 @@
 # Uses Claude Code, Codex/OMX, or hybrid runtime routing with bypassPermissions
 #
 # Usage:
-#   ./terminator.sh [--json] [--timeout N] [--dry-run] [--competition-v2|--competition] ctf /path/to/challenge.zip
 #   ./terminator.sh [--json] [--timeout N] [--dry-run] bounty https://target.com "*.target.com"
-#   ./terminator.sh firmware /path/to/firmware.bin
+#   ./terminator.sh [--json] [--timeout N] [--dry-run] ai-security https://app.example.com "scope"
+#   ./terminator.sh [--json] [--timeout N] [--dry-run] client-pitch https://company.com
 #   ./terminator.sh status                         (check running sessions)
 #   ./terminator.sh logs                           (tail latest session log)
 
@@ -305,6 +305,7 @@ init_report_dir() {
 
   local suffix=0
   local candidate=""
+  mkdir -p "$SCRIPT_DIR/reports"
   while true; do
     if [ "$suffix" -eq 0 ]; then
       candidate="$SCRIPT_DIR/reports/$TIMESTAMP"
@@ -380,11 +381,8 @@ PY
       fi
       if [ -z "$session_mode" ]; then
         case "$session_name" in
-          ctf-*) session_mode="ctf" ;;
-          fw-*) session_mode="firmware" ;;
           ai-*) session_mode="ai-security" ;;
-          robo-*) session_mode="robotics" ;;
-          sc-*) session_mode="supplychain" ;;
+          pitch-*) session_mode="client-pitch" ;;
           *) session_mode="bounty" ;;
         esac
       fi
@@ -619,6 +617,9 @@ preflight_tools() {
   case "${1:-}" in
     help|status|logs|_summary|_exit_code) return 0 ;;
   esac
+  if [ "${DRY_RUN:-false}" = true ]; then
+    return 0
+  fi
   python3 "$SCRIPT_DIR/tools/tool_lifecycle.py" check --pipeline "$1" --json >/dev/null 2>&1 || {
     log_warn "Some tools for '$1' pipeline are missing. Run: python3 tools/tool_lifecycle.py install --pipeline $1"
   }
@@ -643,279 +644,10 @@ if [ -n "$ASSESSMENT_TEMPLATE" ]; then
 fi
 
 case "$MODE" in
-  ctf)
-    if [ -z "$TARGET" ]; then
-      echo "Usage: ./terminator.sh ctf /path/to/challenge[.zip]"
-      exit $EXIT_ERROR
-    fi
-
-    CHALLENGE_DIR="$(extract_if_zip "$(realpath "$TARGET")")"
-    FILES=$(ls -1 "$CHALLENGE_DIR" 2>/dev/null | head -30)
-    init_report_dir
-    PRIMARY_BACKEND="$(normalize_backend "$BACKEND")"
-    FAILOVER_BACKEND="$(resolve_failover_backend "$PRIMARY_BACKEND" "$FAILOVER_TO")"
-    EFFECTIVE_MODEL="$(backend_model "$PRIMARY_BACKEND")"
-    EFFECTIVE_PROFILE="$(runtime_profile_for_backend "$PRIMARY_BACKEND")"
-    SESSION_ID="$(build_session_id "ctf" "$CHALLENGE_DIR")"
-    PID_FILE="$PID_DIR/ctf-$(basename "$CHALLENGE_DIR").pid"
-    PID_META="$PID_DIR/ctf-$(basename "$CHALLENGE_DIR").json"
-    PROMPT_FILE="$REPORT_DIR/prompt.txt"
-    COMPETITION_PLAN_FILE="$REPORT_DIR/competition_plan.json"
-
-    if [ "$CTF_COMPETITION_V2" = true ]; then
-      python3 "$SCRIPT_DIR/tools/ctf_competition.py" plan \
-        --challenge-dir "$CHALLENGE_DIR" \
-        --report-dir "$REPORT_DIR" \
-        --prompt-out "$PROMPT_FILE" \
-        --plan-out "$COMPETITION_PLAN_FILE" >/dev/null
-    else
-      cat > "$PROMPT_FILE" <<PROMPT
-You are Terminator Team Lead. Use Claude Code Agent Teams to solve this CTF challenge.
-
-Challenge directory: $CHALLENGE_DIR
-Files found: $FILES
-Report directory: $REPORT_DIR
-
-MANDATORY: Read .claude/rules-ctf/_ctf_pipeline.md and follow it. Use custom agent types (NOT general-purpose).
-
-STEP 1: Create team
-- TeamCreate('terminator-ctf')
-
-STEP 2: Pre-check (do this yourself before spawning agents)
-- file and strings on binaries, checksec
-- Determine problem type: pwn / reversing / crypto
-
-STEP 3: Spawn pipeline agents (Task tool, team_name='terminator-ctf', mode=bypassPermissions)
-
-For PWN:
-  @reverser (subagent_type=reverser, model=sonnet) → reversal_map.md
-  @trigger (subagent_type=trigger, model=sonnet) → trigger_report.md [if crash needed]
-  @chain (subagent_type=chain, model=claude-opus-4-6[1m]) → solve.py
-  @critic (subagent_type=critic, model=claude-opus-4-6[1m]) → critic_review.md
-  @verifier (subagent_type=verifier, model=sonnet) → FLAG_FOUND
-  @reporter (subagent_type=reporter, model=sonnet) → writeup
-
-For REVERSING/CRYPTO:
-  @reverser (subagent_type=reverser, model=sonnet) → reversal_map.md
-  @solver (subagent_type=solver, model=claude-opus-4-6[1m]) → solve.py
-  @critic (subagent_type=critic, model=claude-opus-4-6[1m]) → critic_review.md
-  @verifier (subagent_type=verifier, model=sonnet) → FLAG_FOUND
-  @reporter (subagent_type=reporter, model=sonnet) → writeup
-
-Pass each agent's output to the next via structured HANDOFF.
-Save solve.py to $CHALLENGE_DIR/solve.py
-Save writeup to $REPORT_DIR/writeup.md
-
-STEP 4: Collect results
-- Verify FLAG_FOUND by running solve.py yourself
-- Update knowledge/index.md
-- TeamDelete
-
-Flag formats: DH{...}, FLAG{...}, flag{...}, CTF{...}, GoN{...}, CYAI{...}
-PROMPT
-    fi
-
-    if [ "$DRY_RUN" = true ]; then
-      if [ "$JSON_OUTPUT" = true ]; then
-        if [ "$CTF_COMPETITION_V2" = true ] && [ -f "$COMPETITION_PLAN_FILE" ]; then
-          python3 - <<PY
-import json
-from tools.ctf_competition import build_competition_dry_run_payload
-print(json.dumps(build_competition_dry_run_payload(
-    challenge_dir='$CHALLENGE_DIR',
-    backend='$PRIMARY_BACKEND',
-    failover_to='$FAILOVER_BACKEND',
-    model='$EFFECTIVE_MODEL',
-    report_dir='$REPORT_DIR',
-    timeout=$TIMEOUT,
-    session_id='$SESSION_ID',
-    plan_path='$COMPETITION_PLAN_FILE',
-), indent=2))
-PY
-        else
-          python3 -c "
-import json
-plan = {
-    'dry_run': True,
-    'mode': 'ctf',
-    'target': '$CHALLENGE_DIR',
-    'backend': '$PRIMARY_BACKEND',
-    'failover_to': '$FAILOVER_BACKEND',
-    'runtime_profile': '$EFFECTIVE_PROFILE',
-    'model': '$EFFECTIVE_MODEL',
-    'report_dir': '$REPORT_DIR',
-    'timeout': $TIMEOUT,
-    'session_id': '$SESSION_ID',
-    'steps': [
-        'extract_if_zip',
-        'spawn_reverser_agent',
-        'spawn_chain_agent',
-        'spawn_verifier_agent',
-        'spawn_reporter_agent',
-        'generate_summary'
-    ]
-}
-print(json.dumps(plan, indent=2))
-"
-        fi
-      else
-        if [ "$CTF_COMPETITION_V2" = true ] && [ -f "$COMPETITION_PLAN_FILE" ]; then
-          COMPETITION_LANE="$(python3 -c "import json; print(json.load(open('$COMPETITION_PLAN_FILE')).get('lane','unknown'))" 2>/dev/null || echo "unknown")"
-          COMPETITION_ADAPTER="$(python3 -c "import json; print(json.load(open('$COMPETITION_PLAN_FILE')).get('adapter','unknown'))" 2>/dev/null || echo "unknown")"
-          COMPETITION_RETRY="$(python3 -c "import json; print(json.load(open('$COMPETITION_PLAN_FILE')).get('retry_budget',1))" 2>/dev/null || echo "1")"
-          echo "[DRY-RUN] CTF competition-v2 mode"
-          echo "  Challenge: $CHALLENGE_DIR"
-          echo "  Files:     $FILES"
-          echo "  Lane:      $COMPETITION_LANE"
-          echo "  Adapter:   $COMPETITION_ADAPTER"
-          echo "  Retries:   $COMPETITION_RETRY"
-          echo "  Backend:   $PRIMARY_BACKEND"
-          echo "  Runtime:   $EFFECTIVE_PROFILE"
-          echo "  Spare:     ${FAILOVER_BACKEND:-none} (Claude quota/context/API interruption only)"
-          echo "  Model:     $EFFECTIVE_MODEL"
-          echo "  Session:   $SESSION_ID"
-          echo "  Report:    $REPORT_DIR"
-          echo "  Timeout:   ${TIMEOUT}s (0=none)"
-          echo "  Would run: python3 tools/backend_runner.py run --backend $PRIMARY_BACKEND ..."
-        else
-          echo "[DRY-RUN] CTF mode"
-        echo "  Challenge: $CHALLENGE_DIR"
-        echo "  Files:     $FILES"
-        echo "  Backend:   $PRIMARY_BACKEND"
-        echo "  Runtime:   $EFFECTIVE_PROFILE"
-        echo "  Spare:     ${FAILOVER_BACKEND:-none} (Claude quota/context/API interruption only)"
-        echo "  Model:     $EFFECTIVE_MODEL"
-        echo "  Session:   $SESSION_ID"
-        echo "  Report:    $REPORT_DIR"
-        echo "  Timeout:   ${TIMEOUT}s (0=none)"
-        echo "  Would run: python3 tools/backend_runner.py run --backend $PRIMARY_BACKEND ..."
-        fi
-      fi
-      exit $EXIT_CLEAN
-    fi
-
-    if [ "$JSON_OUTPUT" = false ]; then
-      COMPETITION_LANE=""
-      if [ "$CTF_COMPETITION_V2" = true ] && [ -f "$COMPETITION_PLAN_FILE" ]; then
-        COMPETITION_LANE="$(python3 -c "import json; print(json.load(open('$COMPETITION_PLAN_FILE')).get('lane','unknown'))" 2>/dev/null || echo "unknown")"
-      fi
-      echo "╔══════════════════════════════════════════╗"
-      echo "║        TERMINATOR - CTF Mode             ║"
-      echo "╠══════════════════════════════════════════╣"
-      echo "║ Challenge: $(basename "$CHALLENGE_DIR")"
-      echo "║ Files:     $FILES"
-      if [ -n "$COMPETITION_LANE" ]; then
-        echo "║ Profile:   competition-v2/$COMPETITION_LANE"
-      fi
-      echo "║ Backend:   $PRIMARY_BACKEND"
-      echo "║ Runtime:   $EFFECTIVE_PROFILE"
-      echo "║ Spare:     ${FAILOVER_BACKEND:-none}"
-      echo "║ Model:     $EFFECTIVE_MODEL"
-      echo "║ Report:    $REPORT_DIR"
-      echo "║ Log:       $REPORT_DIR/session.log"
-      echo "╠══════════════════════════════════════════╣"
-      echo "║ Running in background...                 ║"
-      echo "║ Monitor:  tail -f $REPORT_DIR/session.log"
-      echo "║ Status:   ./terminator.sh status         ║"
-      echo "╚══════════════════════════════════════════╝"
-    fi
-
-    START_TS="$(date +%s)"
-
-    # Run in background with nohup
-    nohup bash -c "
-      START_TS=$START_TS
-
-      # Cleanup on crash/signal
-      _cleanup() {
-        echo \"[SIGNAL] Session interrupted at \$(date)\" >> \"$REPORT_DIR/session.log\" 2>/dev/null || true
-        rm -f \"$PID_FILE\" \"$PID_META\"
-        exit 1
-      }
-      trap _cleanup SIGTERM SIGINT SIGHUP
-
-      python3 -u \"$SCRIPT_DIR/tools/backend_runner.py\" run \
-        --backend \"$PRIMARY_BACKEND\" \
-        --failover-to \"${FAILOVER_BACKEND:-none}\" \
-        --runtime-profile \"$EFFECTIVE_PROFILE\" \
-        --prompt-file \"$PROMPT_FILE\" \
-        --work-dir \"$SCRIPT_DIR\" \
-        --report-dir \"$REPORT_DIR\" \
-        --model \"$EFFECTIVE_MODEL\" \
-        --mode ctf \
-        --target \"$CHALLENGE_DIR\" \
-        --session-id \"$SESSION_ID\" \
-        --timeout \"$TIMEOUT\" \
-        --result-file \"$REPORT_DIR/runtime_result.json\" 2>&1 | stdbuf -oL tee \"$REPORT_DIR/session.log\"
-      RUNTIME_EXIT=\${PIPESTATUS[0]}
-
-      # Post-processing
-      echo '' >> \"$REPORT_DIR/session.log\"
-      echo '=== SESSION COMPLETE ===' >> \"$REPORT_DIR/session.log\"
-      echo \"Timestamp: \$(date)\" >> \"$REPORT_DIR/session.log\"
-
-      # Extract flags
-      FLAGS=\$(python3 - <<PY
-import json
-from pathlib import Path
-from tools.ctf_competition import extract_ctf_flags
-log_path = Path("$REPORT_DIR/session.log")
-text = log_path.read_text(encoding="utf-8", errors="ignore") if log_path.exists() else ""
-flags = extract_ctf_flags(text, challenge_dir="$CHALLENGE_DIR")
-print("\\n".join(flags))
-PY
-)
-      if [ -n \"\${FLAGS:-}\" ]; then
-        echo \"FLAGS FOUND:\" >> \"$REPORT_DIR/session.log\"
-        echo \"\$FLAGS\" >> \"$REPORT_DIR/session.log\"
-        echo \"\$FLAGS\" > \"$REPORT_DIR/flags.txt\"
-      else
-        echo 'NO FLAGS FOUND' >> \"$REPORT_DIR/session.log\"
-      fi
-
-      # Determine exit code based on findings
-      FINAL_EXIT=\$(bash $SCRIPT_DIR/terminator.sh _exit_code $REPORT_DIR 2>/dev/null || echo 0)
-      echo \"\$FINAL_EXIT\" > \"$REPORT_DIR/exit_code\"
-
-      # Determine status
-      SESSION_STATUS='completed'
-      if [ \"\$RUNTIME_EXIT\" -eq 124 ] 2>/dev/null; then
-        SESSION_STATUS='timeout'
-      elif [ \"\$RUNTIME_EXIT\" -ne 0 ] 2>/dev/null; then
-        SESSION_STATUS='failed'
-      fi
-
-      # Generate summary.json
-      bash $SCRIPT_DIR/terminator.sh _summary $REPORT_DIR ctf '$CHALLENGE_DIR' \$START_TS \$FINAL_EXIT \$SESSION_STATUS 2>/dev/null || true
-
-      # Write completion marker for --wait detection
-      echo \"\$SESSION_STATUS\" > \"$REPORT_DIR/.completed\"
-
-      rm -f \"$PID_FILE\"
-      rm -f \"$PID_META\"
-    " > "$LOG_FILE" 2>&1 &
-
-    BGPID=$!
-    echo "$BGPID" > "$PID_FILE"
-    write_pid_meta "$PID_META" "$BGPID" "ctf-$(basename "$CHALLENGE_DIR")" "ctf" "$CHALLENGE_DIR" "$PRIMARY_BACKEND" "${FAILOVER_BACKEND:-}" "$SESSION_ID" "$REPORT_DIR" "$PARALLEL_GROUP_ID"
-    echo "$TIMESTAMP mode=ctf backend=$PRIMARY_BACKEND failover=${FAILOVER_BACKEND:-none} session=$SESSION_ID pid=$BGPID report=$REPORT_DIR target=$CHALLENGE_DIR group=${PARALLEL_GROUP_ID:-none}" >> "$SCRIPT_DIR/.terminator.history"
-
-    if [ "$JSON_OUTPUT" = true ]; then
-      echo "$REPORT_DIR/summary.json"
-    else
-      echo ""
-      echo "[*] PID: $BGPID"
-      echo "[*] Session: $SESSION_ID"
-      echo "[*] To monitor: tail -f $REPORT_DIR/session.log"
-    fi
-
-    if [ "$WAIT_FOR_COMPLETION" = true ]; then
-      echo "[*] --wait: blocking until session completes..."
-      while kill -0 "$BGPID" 2>/dev/null; do sleep 15; done
-      echo ""; echo "=== SESSION RESULT: ctf-$(basename "$CHALLENGE_DIR") ==="
-      cat "$REPORT_DIR/.completed" 2>/dev/null || echo "unknown"
-      echo "---"; tail -80 "$REPORT_DIR/session.log" 2>/dev/null; echo "=== END ==="
-    fi
+  ctf|firmware|robotics|supplychain|bounty-explore)
+    echo "[!] Unsupported mode: $MODE"
+    echo "[*] Terminator is now focused on bounty, ai-security, and client-pitch."
+    exit $EXIT_ERROR
     ;;
 
   bounty)
@@ -1034,6 +766,8 @@ plan = {
         'phase_0_2_bb_preflight_rules',
         'phase_0_5_automated_tool_scan',
         'phase_1_scout_analyst_threat_modeler_patch_hunter',
+        'phase_1_2_vuln_assistant_risk_triage',
+        'raw_endpoint_review_queue',
         'phase_1_5_workflow_auditor_web_tester',
         'gate_1_2_coverage_workflow_check',
         'kill_gate_1_triager_sim_finding_viability',
@@ -1158,6 +892,24 @@ Report directory: __REPORT_DIR__
 Follow bb_pipeline_v13.md exactly. All rules (test accounts, gates, evidence tiers,
 AI detection, Phase 5.7 live scope check, Phase 5.5b platform safety) are defined there.
 
+## PRODUCT FOCUS — Bounty + Client Pitch Risk Engine
+
+After scout produces endpoint_map.md/recon_report.json/recon_notes.md, run:
+
+python3 -m tools.vuln_assistant analyze \
+  --mode bounty \
+  --domain web \
+  --endpoint-map __TARGET_DIR__/endpoint_map.md \
+  --input __TARGET_DIR__/recon_report.json \
+  --input __TARGET_DIR__/recon_notes.md \
+  --out __TARGET_DIR__/vuln_assistant
+
+Use __TARGET_DIR__/vuln_assistant/high_value_targets.md and
+__TARGET_DIR__/vuln_assistant/raw_endpoint_review.md before analyst prioritization.
+Do not discard raw endpoints: low-score items may still contain legacy APIs,
+undocumented workflows, or hidden business logic. Treat vuln_assistant outputs as
+candidates until evidence and negative controls exist.
+
 ## SESSION-SPECIFIC RULES (not in pipeline docs):
 
 ### Existing Artifacts:
@@ -1212,43 +964,6 @@ if p:
     # Append platform context to prompt
     if [ -n "$PLATFORM_INFO" ]; then
       printf "\n\nPLATFORM CONTEXT:\n%s\nRead the submission template file before writing any report.\n" "$PLATFORM_INFO" >> "$PROMPT_FILE"
-    fi
-
-    # Explore-only mode: restrict to Phase 0-1.5, skip Prove Lane
-    if [ "${TERMINATOR_EXPLORE_ONLY:-0}" = "1" ]; then
-      cat >> "$PROMPT_FILE" <<'EXPLORE_APPEND'
-
-## EXPLORE-ONLY MODE (bounty-explore parallel)
-
-This session runs ONLY the Explore Lane (Phase 0 through Phase 1.5).
-Do NOT enter the Prove Lane (Phase 2+). Do NOT spawn exploiter.
-
-After Phase 1.5 completes (or earlier if NO-GO):
-1. Write `explore_summary.json` to __TARGET_DIR__/:
-   {
-     "target": "<url>",
-     "status": "explore_complete|no_go|abandoned",
-     "no_go_reason": "<if applicable>",
-     "top_findings": [
-       {
-         "name": "<finding name>",
-         "confidence": <1-10>,
-         "severity_estimate": "critical|high|medium|low",
-         "evidence_tier_estimate": "E1|E2|E3|E4",
-         "gate1_prediction": "GO|CONDITIONAL|KILL",
-         "one_line": "<one sentence description>"
-       }
-     ],
-     "coverage_pct": <0-100>,
-     "artifacts": ["endpoint_map.md", "vulnerability_candidates.md", ...],
-     "elapsed_minutes": <N>
-   }
-2. Write checkpoint.json with status="completed"
-3. Exit. Do NOT proceed to Gate 1 or Phase 2.
-
-Time-box: 2 hours max for explore. No HIGH+ signal at 1.5hr → write summary and exit.
-EXPLORE_APPEND
-      sed -i "s|__TARGET_DIR__|$TARGET_DIR|g" "$PROMPT_FILE"
     fi
 
     nohup bash -c "
@@ -1339,567 +1054,72 @@ EXPLORE_APPEND
     fi
     ;;
 
-  bounty-explore)
-    TARGETS_FILE="$TARGET"
-    if [ -z "$TARGETS_FILE" ]; then
-      echo "Usage: ./terminator.sh bounty-explore targets.json"
-      echo ""
-      echo "targets.json format:"
-      echo '  [{"target":"https://...","scope":"*.example.com","platform":"bugcrowd"}, ...]'
-      exit $EXIT_ERROR
-    fi
-    if [ ! -f "$TARGETS_FILE" ]; then
-      echo "[!] File not found: $TARGETS_FILE"
+  client-pitch)
+    if [ -z "$TARGET" ]; then
+      echo "Usage: ./terminator.sh client-pitch https://company.com"
       exit $EXIT_ERROR
     fi
 
+    SCOPE="${SCOPE:-$TARGET}"
     init_report_dir
-    EXPLORE_GROUP="explore-$TIMESTAMP"
-    EXPLORE_MAX="${TERMINATOR_EXPLORE_MAX:-3}"
-
-    echo "╔══════════════════════════════════════════╗"
-    echo "║   TERMINATOR - Explore Parallel Mode      ║"
-    echo "╠══════════════════════════════════════════╣"
-    echo "║ Group:     $EXPLORE_GROUP"
-    echo "║ Max slots: $EXPLORE_MAX"
-    echo "║ Report:    $REPORT_DIR"
-    echo "╚══════════════════════════════════════════╝"
-
-    # Parse targets JSON → TSV (target, scope, platform)
-    python3 - <<'PY' "$TARGETS_FILE" > "$REPORT_DIR/explore_targets.tsv"
-import json, sys
-from pathlib import Path
-data = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
-if isinstance(data, dict):
-    data = data.get("targets", [])
-for item in data:
-    print("\t".join([
-        str(item.get("target", "")),
-        str(item.get("scope", item.get("target", ""))),
-        str(item.get("platform", "unknown")),
-    ]))
-PY
+    PRIMARY_BACKEND="$(normalize_backend "$BACKEND")"
+    EFFECTIVE_MODEL="$(backend_model "$PRIMARY_BACKEND")"
+    EFFECTIVE_PROFILE="$(runtime_profile_for_backend "$PRIMARY_BACKEND")"
+    SESSION_ID="$(build_session_id "client-pitch" "$TARGET")"
+    TARGET_NAME="$(echo "$TARGET" | sed 's|https\?://||;s|/$||;s|/.*||;s|\.|-|g')"
+    [ -z "$TARGET_NAME" ] && TARGET_NAME="client"
+    TARGET_DIR="$SCRIPT_DIR/targets/pitch-$TARGET_NAME"
 
     if [ "$DRY_RUN" = true ]; then
-      echo "[DRY-RUN] Explore targets:"
-      cat "$REPORT_DIR/explore_targets.tsv"
+      if [ "$JSON_OUTPUT" = true ]; then
+        python3 -c "
+import json
+print(json.dumps({
+  'dry_run': True,
+  'mode': 'client-pitch',
+  'target': '$TARGET',
+  'scope': '$SCOPE',
+  'backend': '$PRIMARY_BACKEND',
+  'runtime_profile': '$EFFECTIVE_PROFILE',
+  'model': '$EFFECTIVE_MODEL',
+  'report_dir': '$REPORT_DIR',
+  'target_dir': '$TARGET_DIR',
+  'session_id': '$SESSION_ID',
+  'steps': [
+    'passive_surface_seed',
+    'vuln_assistant_risk_triage',
+    'raw_endpoint_review_queue',
+    'external_risk_summary',
+    'security_assessment_pitch',
+    'recommended_test_scope'
+  ],
+  'safety': 'passive_only_no_confirmed_vulnerability_language'
+}, indent=2))
+"
+      else
+        echo "[DRY-RUN] Client Pitch mode"
+        echo "  Target:  $TARGET"
+        echo "  Backend: $PRIMARY_BACKEND"
+        echo "  Runtime: $EFFECTIVE_PROFILE"
+        echo "  Model:   $EFFECTIVE_MODEL"
+        echo "  Session: $SESSION_ID"
+        echo "  Report:  $REPORT_DIR"
+        echo "  Policy:  passive-only risk signals; no confirmed vulnerability claims"
+        echo "  Would run: python3 -m tools.vuln_assistant analyze --mode client-pitch ..."
+      fi
       exit $EXIT_CLEAN
     fi
 
-    # Phase -1: verify-target for each (sequential — fast, seconds each)
-    VERIFIED_TARGETS="$REPORT_DIR/verified_targets.tsv"
-    : > "$VERIFIED_TARGETS"
-    echo "[*] Phase -1: Verifying targets..."
-    while IFS=$'\t' read -r t_url t_scope t_platform; do
-      [ -n "$t_url" ] || continue
-      _vp="$t_platform"
-      [ "$_vp" = "unknown" ] && _vp="huntr"
-      set +e
-      python3 "$SCRIPT_DIR/tools/bb_preflight.py" verify-target "$_vp" "$t_url" 2>/dev/null
-      _vx=$?
-      set -e
-      if [ "$_vx" -eq 0 ] || [ "$_vx" -eq 3 ]; then
-        printf '%s\t%s\t%s\n' "$t_url" "$t_scope" "$t_platform" >> "$VERIFIED_TARGETS"
-        echo "  [GO]   $t_url"
-      else
-        echo "  [SKIP] $t_url (verify-target exit $_vx)"
-      fi
-    done < "$REPORT_DIR/explore_targets.tsv"
-
-    VERIFIED_COUNT="$(wc -l < "$VERIFIED_TARGETS" | tr -d ' ')"
-    if [ "$VERIFIED_COUNT" -eq 0 ]; then
-      echo "[!] No targets passed verification."
-      exit $EXIT_ERROR
-    fi
-    echo "[*] $VERIFIED_COUNT target(s) verified. Launching explore sessions (max $EXPLORE_MAX parallel)..."
-
-    # Launch explore-only bounty sessions
-    EXPLORE_PIDS=()
-    EXPLORE_DIRS=()
-    SLOT=0
-    while IFS=$'\t' read -r t_url t_scope t_platform; do
-      [ -n "$t_url" ] || continue
-
-      # Respect max parallel slots
-      while [ "$SLOT" -ge "$EXPLORE_MAX" ]; do
-        # Wait for any child to finish
-        for i in "${!EXPLORE_PIDS[@]}"; do
-          if ! kill -0 "${EXPLORE_PIDS[$i]}" 2>/dev/null; then
-            unset "EXPLORE_PIDS[$i]"
-            SLOT=$((SLOT - 1))
-          fi
-        done
-        EXPLORE_PIDS=("${EXPLORE_PIDS[@]}")
-        [ "$SLOT" -ge "$EXPLORE_MAX" ] && sleep 5
-      done
-
-      # Launch with TERMINATOR_EXPLORE_ONLY=1
-      env TERMINATOR_EXPLORE_ONLY=1 \
-        TERMINATOR_PARALLEL_GROUP_ID="$EXPLORE_GROUP" \
-        "$SCRIPT_DIR/terminator.sh" \
-        --backend "${BACKEND:-claude}" \
-        bounty "$t_url" "$t_scope" &
-      _pid=$!
-      EXPLORE_PIDS+=("$_pid")
-
-      _tname="$(echo "$t_url" | sed 's|https\?://||;s|/$||;s|/information$||;s|/details$||;s|/scope$||' | awk -F/ '{print $NF}' | sed 's|\.|-|g')"
-      [ -z "$_tname" ] && _tname="$(echo "$t_url" | sed 's|https\?://||;s|/.*||;s|\.|-|g')"
-      EXPLORE_DIRS+=("$SCRIPT_DIR/targets/$_tname")
-      SLOT=$((SLOT + 1))
-      echo "  [LAUNCH] $t_url (PID $_pid)"
-
-    done < "$VERIFIED_TARGETS"
-
-    # Wait for all explore sessions to complete
-    echo "[*] Waiting for all explore sessions..."
-    for pid in "${EXPLORE_PIDS[@]}"; do
-      wait "$pid" 2>/dev/null || true
-    done
-
-    # Collect and rank results
-    echo ""
-    echo "╔══════════════════════════════════════════╗"
-    echo "║   EXPLORE RESULTS                         ║"
-    echo "╠══════════════════════════════════════════╣"
-    for d in "${EXPLORE_DIRS[@]}"; do
-      if [ -f "$d/explore_summary.json" ]; then
-        python3 -c "
-import json, sys
-s = json.load(open('$d/explore_summary.json'))
-status = s.get('status','unknown')
-findings = s.get('top_findings',[])
-top = findings[0] if findings else {}
-print(f'  {s.get(\"target\",\"?\")}')
-print(f'    Status: {status} | Findings: {len(findings)} | Coverage: {s.get(\"coverage_pct\",\"?\")}'+'%')
-if top:
-    print(f'    Best: {top.get(\"name\",\"?\")} (conf={top.get(\"confidence\",\"?\")}, sev={top.get(\"severity_estimate\",\"?\")}, tier={top.get(\"evidence_tier_estimate\",\"?\")})')
-" 2>/dev/null || echo "  $d — explore_summary.json parse error"
-      else
-        echo "  $(basename "$d") — no explore_summary.json (session may have failed)"
-      fi
-    done
-    echo "╚══════════════════════════════════════════╝"
-    echo ""
-    echo "[*] To run full pipeline on a target:"
-    echo "    ./terminator.sh bounty <target_url> [scope]"
-    ;;
-
-  firmware)
-    if [ -z "$TARGET" ] || [ ! -f "$TARGET" ]; then
-      echo "Usage: ./terminator.sh firmware /path/to/firmware.bin"
-      exit 1
-    fi
-
-    TARGET_PATH="$(realpath "$TARGET")"
-    PID_FILE="$PID_DIR/fw-$(basename "$TARGET_PATH" | sed 's/\./-/g').pid"
-    PID_META="$PID_DIR/fw-$(basename "$TARGET_PATH" | sed 's/\./-/g').json"
-    FIRMWARE_PROFILE="${TERMINATOR_FIRMWARE_PROFILE:-analysis}"
-    PRIMARY_BACKEND="$(normalize_backend "$BACKEND")"
-    FAILOVER_BACKEND="$(resolve_failover_backend "$PRIMARY_BACKEND" "$FAILOVER_TO")"
-    EFFECTIVE_MODEL="$(backend_model "$PRIMARY_BACKEND")"
-    EFFECTIVE_PROFILE="$(runtime_profile_for_backend "$PRIMARY_BACKEND")"
-    SESSION_ID="$(build_session_id "firmware" "$TARGET_PATH")"
-
-    if [ "$FIRMWARE_PROFILE" != "analysis" ] && [ "$FIRMWARE_PROFILE" != "exploit" ]; then
-      echo "[!] Invalid TERMINATOR_FIRMWARE_PROFILE='$FIRMWARE_PROFILE'. Allowed values: analysis, exploit."
-      exit 1
-    fi
-
-    if [ "$DRY_RUN" = true ]; then
-      echo "[DRY-RUN] Firmware mode"
-      echo "  Firmware: $TARGET_PATH"
-      echo "  Profile:  $FIRMWARE_PROFILE"
-      echo "  Backend:  $PRIMARY_BACKEND"
-      echo "  Runtime:  $EFFECTIVE_PROFILE"
-      echo "  Spare:    ${FAILOVER_BACKEND:-none}"
-      echo "  Model:    $EFFECTIVE_MODEL"
-      echo "  Pipeline: firmware (profiler → inventory → surface → validator)"
-      echo "  Safety:   no AIEdge execution; authorization gate not consumed"
-      echo "  Would run: AIEdge initial subset, then backend_runner with --backend $PRIMARY_BACKEND"
-      exit 0
-    fi
-
-    if [ "${TERMINATOR_ACK_AUTHORIZATION:-}" != "1" ]; then
-      echo "[!] Firmware mode blocked: set TERMINATOR_ACK_AUTHORIZATION=1 to confirm explicit authorization."
-      exit 1
-    fi
-
-    EXPLOIT_GATE_JSON=""
-    PROMPT_EXPLOIT_GATE_BLOCK="- Analysis profile: no exploit stages."
-    if [ "$FIRMWARE_PROFILE" = "exploit" ]; then
-      if [ -z "${TERMINATOR_EXPLOIT_FLAG:-}" ] || [ -z "${TERMINATOR_EXPLOIT_ATTESTATION:-}" ] || [ -z "${TERMINATOR_EXPLOIT_SCOPE:-}" ]; then
-        echo "[!] Firmware exploit profile blocked: set TERMINATOR_EXPLOIT_FLAG, TERMINATOR_EXPLOIT_ATTESTATION, and TERMINATOR_EXPLOIT_SCOPE."
-        exit 1
-      fi
-
-      EXPLOIT_GATE_JSON=$(cat <<EOF
-,
-  "exploit_gate": {
-    "flag": "${TERMINATOR_EXPLOIT_FLAG}",
-    "attestation": "${TERMINATOR_EXPLOIT_ATTESTATION}",
-    "scope": "${TERMINATOR_EXPLOIT_SCOPE}"
-  }
-EOF
-)
-
-      PROMPT_EXPLOIT_GATE_BLOCK=$(cat <<EOF
-- Exploit profile: exploit stages are allowed within declared scope, with evidence bundles.
-- Exploit authorization is lab-only and explicit for this run:
-  - TERMINATOR_EXPLOIT_FLAG=${TERMINATOR_EXPLOIT_FLAG}
-  - TERMINATOR_EXPLOIT_ATTESTATION=${TERMINATOR_EXPLOIT_ATTESTATION}
-  - TERMINATOR_EXPLOIT_SCOPE=${TERMINATOR_EXPLOIT_SCOPE}
-- Do not exceed stated scope. Treat this as authorized laboratory work only.
-EOF
-)
-    fi
-
-    init_report_dir
-    cat > "$REPORT_DIR/firmware_handoff.json" <<EOF
-{
-  "mode": "firmware",
-  "profile": "$FIRMWARE_PROFILE",
-  "status": "pending",
-  "policy": {
-    "max_reruns_per_stage": 2,
-    "max_total_stage_attempts": 10,
-    "max_wallclock_per_run": 3600
-  },
-  "bundles": [],
-  "stop_reason": ""${EXPLOIT_GATE_JSON},
-  "aiedge": {
-    "run_dir": "",
-    "run_id": "",
-    "stages_executed": []
-  }
-}
-EOF
-    : > "$REPORT_DIR/firmware_summary.md"
-    : > "$REPORT_DIR/session.log"
-    AIEDGE_HANDOFF_ADAPTER="$SCRIPT_DIR/aiedge_handoff_adapter.py"
-
-    AIEDGE_RUN_DIR=""
-    AIEDGE_RUN_ID=""
-    AIEDGE_HOFF_STATUS="pending"
-    AIEDGE_STOP_REASON=""
-
-    INITIAL_STAGE_SUBSET="tooling,carving,firmware_profile,inventory"
-    echo "[*] Running initial AIEdge stages: $INITIAL_STAGE_SUBSET" >> "$REPORT_DIR/session.log"
-    set +e
-    SCOUT_DIR="${SCOUT_DIR:-$HOME/SCOUT}"
-    AIEDGE_CMD_OUTPUT="$(cd "$SCOUT_DIR" && PYTHONPATH="$SCOUT_DIR/src" python3 -m aiedge analyze "$TARGET_PATH" --case-id terminator-firmware --ack-authorization --no-llm --stages "$INITIAL_STAGE_SUBSET" 2>&1)"
-    AIEDGE_CMD_STATUS=$?
-    set -e
-    if [ -n "$AIEDGE_CMD_OUTPUT" ]; then
-      printf '%s\n' "$AIEDGE_CMD_OUTPUT" >> "$REPORT_DIR/session.log"
-    fi
-
-    AIEDGE_RUN_DIR="$(AIEDGE_OUTPUT="$AIEDGE_CMD_OUTPUT" python3 - <<'PY'
-import os
-import re
-from pathlib import Path
-
-output = os.environ.get("AIEDGE_OUTPUT", "")
-lines = [line.strip() for line in output.splitlines() if line.strip()]
-candidates = []
-
-for line in lines:
-    lowered = line.lower()
-    if "run_dir" in lowered:
-        match = re.search(r"(/[^\s]+)", line)
-        if match:
-            candidates.append(match.group(1).rstrip(".,:;\"'"))
-    elif line.startswith("/"):
-        candidates.append(line.rstrip(".,:;\"'"))
-
-for candidate in reversed(candidates):
-    run_dir = Path(candidate)
-    if run_dir.is_dir() and (run_dir / "manifest.json").is_file():
-        print(str(run_dir.resolve()))
-        break
-PY
-)"
-
-    if [ "$AIEDGE_CMD_STATUS" -eq 0 ] && [ -n "$AIEDGE_RUN_DIR" ]; then
-      AIEDGE_RUN_ID="$(python3 - <<'PY' "$AIEDGE_RUN_DIR"
-import json
-import sys
-
-manifest_path = sys.argv[1] + "/manifest.json"
-try:
-    with open(manifest_path, "r", encoding="utf-8") as fh:
-        manifest = json.load(fh)
-except Exception:
-    print("")
-    raise SystemExit(0)
-
-run_id = manifest.get("run_id", "")
-if isinstance(run_id, str):
-    print(run_id)
-else:
-    print("")
-PY
-)"
-
-      if [ -z "$AIEDGE_RUN_ID" ]; then
-        AIEDGE_HOFF_STATUS="failed"
-        AIEDGE_STOP_REASON="Initial AIEdge firmware subset run missing run_id in manifest.json"
-      fi
-    else
-      AIEDGE_HOFF_STATUS="failed"
-      AIEDGE_STOP_REASON="Initial AIEdge firmware subset run failed (exit $AIEDGE_CMD_STATUS): ${AIEDGE_CMD_OUTPUT//$'\n'/ | }"
-      if [ -z "$AIEDGE_RUN_DIR" ]; then
-        AIEDGE_STOP_REASON="$AIEDGE_STOP_REASON; run_dir not found"
-      fi
-    fi
-
-    python3 - <<'PY' "$REPORT_DIR/firmware_handoff.json" "$AIEDGE_HOFF_STATUS" "$AIEDGE_STOP_REASON" "$AIEDGE_RUN_DIR" "$AIEDGE_RUN_ID" "$INITIAL_STAGE_SUBSET"
-import json
-import sys
-from pathlib import Path
-
-handoff_path = sys.argv[1]
-status = sys.argv[2]
-stop_reason = sys.argv[3]
-run_dir = sys.argv[4]
-run_id = sys.argv[5]
-initial_stages_csv = sys.argv[6]
-initial_stages = [stage.strip() for stage in initial_stages_csv.split(",") if stage.strip()]
-
-with open(handoff_path, "r", encoding="utf-8") as fh:
-    handoff = json.load(fh)
-
-handoff["status"] = status
-handoff["stop_reason"] = stop_reason
-handoff["aiedge"]["run_dir"] = run_dir
-handoff["aiedge"]["run_id"] = run_id
-handoff["aiedge"]["stages_executed"] = initial_stages if run_dir else []
-
-candidate_artifacts = [
-    "stages/tooling/stage.json",
-    "stages/tooling/attempts/attempt-1/stage.json",
-    "stages/carving/stage.json",
-    "stages/carving/attempts/attempt-1/stage.json",
-    "stages/firmware_profile/stage.json",
-    "stages/firmware_profile/attempts/attempt-1/stage.json",
-    "stages/firmware_profile/firmware_profile.json",
-    "stages/inventory/stage.json",
-    "stages/inventory/attempts/attempt-1/stage.json",
-    "stages/inventory/inventory.json",
-    "report/report.json",
-]
-
-if run_dir:
-    resolved_run_dir = Path(run_dir)
-    bundle_artifacts = [
-        artifact
-        for artifact in candidate_artifacts
-        if (resolved_run_dir / artifact).is_file()
-    ]
-else:
-    bundle_artifacts = []
-
-handoff.setdefault("bundles", []).append(
-    {
-        "claim": "Initial AIEdge firmware subset executed to seed evidence handoff.",
-        "artifacts": bundle_artifacts,
-        "confidence": "low",
-        "limitations": [
-            "Bundle reflects only initial subset coverage before rerun expansion.",
-            "Confidence placeholder requires analyst review.",
-        ],
-        "next_stage_request": {
-            "stages": [],
-            "why": "Placeholder; follow fw_profiler routing from firmware_profile.json before scheduling reruns.",
-        },
-    }
-)
-
-with open(handoff_path, "w", encoding="utf-8") as fh:
-    json.dump(handoff, fh, indent=2)
-    fh.write("\n")
-PY
-
-    START_TS="$(date +%s)"
-
-    echo "╔══════════════════════════════════════════╗"
-    echo "║      TERMINATOR - Firmware Mode          ║"
-    echo "╠══════════════════════════════════════════╣"
-    echo "║ Firmware: $TARGET_PATH"
-    echo "║ Profile:  $FIRMWARE_PROFILE"
-    echo "║ Backend:  $PRIMARY_BACKEND"
-    echo "║ Runtime:  $EFFECTIVE_PROFILE"
-    echo "║ Spare:    ${FAILOVER_BACKEND:-none}"
-    echo "║ Model:    $EFFECTIVE_MODEL"
-    echo "║ Report:   $REPORT_DIR"
-    echo "║ Log:      $REPORT_DIR/session.log"
-    echo "╠══════════════════════════════════════════╣"
-    echo "║ Running in background...                 ║"
-    echo "║ Monitor:  tail -f $REPORT_DIR/session.log"
-    echo "║ Status:   ./terminator.sh status         ║"
-    echo "╚══════════════════════════════════════════╝"
-
-    cat > "$REPORT_DIR/firmware_prompt.txt" <<PROMPT
-You are Terminator Firmware Team Lead. Run a firmware analysis pipeline with stage-level control using AIEdge.
-
-Firmware target: $TARGET_PATH
-Firmware profile: $FIRMWARE_PROFILE
-Report directory: $REPORT_DIR
-SCOUT root: \${SCOUT_DIR:-\$HOME/SCOUT}
-AIEdge adapter contract: \${SCOUT_DIR:-\$HOME/SCOUT}/docs/aiedge_adapter_contract.md
-Evidence bundle contract: $SCRIPT_DIR/knowledge/contracts/firmware_evidence_bundle.md
-
-Requirements:
-1) Use subprocess CLI execution for AIEdge only (no in-process API):
-   PYTHONPATH=\${SCOUT_DIR:-\$HOME/SCOUT}/src python3 -m aiedge analyze \"$TARGET_PATH\" --ack-authorization --no-llm --stages <comma-separated-stage-subset>
-2) Initialize policy in $REPORT_DIR/firmware_handoff.json and enforce caps with these defaults:
-   - max_reruns_per_stage: 2
-   - max_total_stage_attempts: 10
-   - max_wallclock_per_run: 3600 (seconds)
-3) Use --stages subsets to iterate per stage group as needed; rerun targeted stages only when evidence is incomplete.
-    - Every rerun must cite AIEdge append-only manifest paths: stages/<stage>/attempts/attempt-<n>/stage.json
-    - To schedule stages by name on an existing run dir, use the adapter command (subprocess-only + atomic handoff update):
-      python3 $AIEDGE_HANDOFF_ADAPTER stages --handoff $REPORT_DIR/firmware_handoff.json --stages tooling,carving,firmware_profile,inventory --log-file $REPORT_DIR/session.log
-    - The adapter executes exactly: PYTHONPATH=\${SCOUT_DIR:-\$HOME/SCOUT}/src python3 -m aiedge stages <run_dir> --stages <subset>
-    - <run_dir> must come from $REPORT_DIR/firmware_handoff.json field aiedge.run_dir.
-    - Do not manually edit firmware_handoff.json for reruns; always use adapter invocations so bundles/stages_executed stay consistent.
-4) Treat stages/<stage>/stage.json manifests and report.json as source-of-truth evidence.
-   - Never infer stage state from logs.
-5) Evidence bundle output is JSON-first and must follow this shape for each stage claim:
-   {\"claim\":\"...\",\"artifacts\":[...],\"confidence\":\"high|medium|low\",\"limitations\":[...],\"next_stage_request\":{\"stages\":[...],\"why\":\"...\"}}
-6) Rerun policy is finite by design (no infinite loops):
-   - If any cap is hit, set stop_reason in firmware_handoff.json and stop further reruns.
-7) Follow the profile gate for exploit stage behavior.
-8) Redaction and compliance:
-   - Do not write secrets, credentials, access tokens, private keys, or personally identifying data to session.log, firmware_summary.md, or bundle artifacts.
-   - If sensitive values are unavoidable in source artifacts, redact before quoting and mark redaction clearly.
-9) Profile gate:
-$PROMPT_EXPLOIT_GATE_BLOCK
-10) Firmware planning roles (mandatory):
-    - Read and follow these role definitions before each planning decision:
-      - $SCRIPT_DIR/.claude/agents/fw_profiler.md
-      - $SCRIPT_DIR/.claude/agents/fw_inventory.md
-      - $SCRIPT_DIR/.claude/agents/fw_surface.md
-      - $SCRIPT_DIR/.claude/agents/fw_validator.md
-    - Use fw_profiler routing from stages/firmware_profile/firmware_profile.json:
-      - branch_plan.inventory_mode=filesystem -> prioritize inventory + surface stages over extracted filesystem.
-      - branch_plan.inventory_mode=binary_only -> prioritize binary-focused surface and graph stages.
-     - Schedule every additional subset using the adapter; do not hand-edit firmware_handoff.json.
-11) Tribunal adjudication (mandatory, JSONL + cache-aware):
-    - Materialize tribunal artifacts under $REPORT_DIR/tribunal/:
-      - analyst_candidates.jsonl
-      - critic_reviews.jsonl
-      - judged_findings.jsonl
-      - decision_trace.jsonl
-    - JSONL means one JSON object per line; keep machine-readable and deterministic.
-    - Prefilter candidates to top-N before critic/judge passes; default top_n=50 unless stricter policy already exists in handoff.
-    - Every judged finding MUST include admissible evidence refs:
-      - evidence: [{"path":"run-relative-posix","sha256":"<hex-or-empty>","locator":"json_pointer|line-range|note"}]
-    - Never write absolute host paths in tribunal artifacts; all evidence paths are run-relative POSIX.
-    - Use cache key inputs: (a) candidate objects, (b) aiedge.run_id + stage manifest sha256s if available, (c) top_n.
-    - Use helper: python3 $SCRIPT_DIR/bridge/tribunal_cache.py key --candidates-jsonl $REPORT_DIR/tribunal/analyst_candidates.jsonl --handoff $REPORT_DIR/firmware_handoff.json --top-n <N>
-    - Cache store location: $REPORT_DIR/tribunal/cache/<cache_key>.json
-    - On cache hit: reuse prior judged outputs (no regeneration), rewrite judged_findings.jsonl from cache, and record cache_hit=true in decision_trace.jsonl.
-    - On cache miss: generate critic/judge outputs, then store cache via python3 $SCRIPT_DIR/bridge/tribunal_cache.py put --report-dir $REPORT_DIR --key <cache_key> --judged-jsonl $REPORT_DIR/tribunal/judged_findings.jsonl --top-n <N> --run-id <run_id>
-    - decision_trace.jsonl must record top_n and actual judged_count.
-    - Validate artifacts before completion:
-      python3 $SCRIPT_DIR/bridge/validate_tribunal_artifacts.py --report-dir $REPORT_DIR
-    - Run validator immediately after tribunal artifacts are materialized:
-      python3 $SCRIPT_DIR/bridge/fw_validator.py --report-dir $REPORT_DIR
-    - Enforce confirmed policy fail-closed:
-      python3 $SCRIPT_DIR/bridge/validate_confirmed_policy.py --report-dir $REPORT_DIR
-      - If this fails and operator chooses to continue, run auto-downgrade + continue:
-        python3 $SCRIPT_DIR/bridge/enforce_confirmed_policy.py --report-dir $REPORT_DIR
-      - Re-run policy validator after enforcement before final output.
-
-Deliverables (must always exist at end):
-- Update $REPORT_DIR/firmware_handoff.json with minimal machine-readable fields:
-  {
-    \"mode\": \"firmware\",
-    \"profile\": \"analysis|exploit\",
-    \"status\": \"completed\" | \"failed\",
-    \"policy\": {
-      \"max_reruns_per_stage\": 2,
-      \"max_total_stage_attempts\": 10,
-      \"max_wallclock_per_run\": 3600
-    },
-    \"bundles\": [
-      {
-        \"claim\": \"...\",
-        \"artifacts\": [\"stages/<stage>/stage.json\", \"stages/<stage>/attempts/attempt-<n>/stage.json\"],
-        \"confidence\": \"high|medium|low\",
-        \"limitations\": [\"...\"],
-        \"next_stage_request\": {\"stages\": [\"...\"], \"why\": \"...\"}
-      }
-    ],
-    \"stop_reason\": \"\",
-    \"exploit_gate\": {\"flag\": \"...\", \"attestation\": \"...\", \"scope\": \"...\"},
-    \"aiedge\": {
-      \"run_dir\": \"<absolute run dir>\",
-      \"run_id\": \"<run id if present, else empty>\",
-      \"stages_executed\": [\"tooling\", \"...\"]
-    }
-  }
-- Include exploit_gate only when profile=exploit.
-- Write concise analyst-facing markdown to $REPORT_DIR/firmware_summary.md.
-- Keep concise execution notes in $REPORT_DIR/session.log.
-- Produce and validate tribunal outputs under $REPORT_DIR/tribunal/ as specified above.
-
-Execution guidance:
-- Start with a minimal subset that includes firmware profiling in order (for example: tooling,carving,firmware_profile,inventory), then expand via --stages based on manifest/report evidence.
-- Record exactly which stages were actually executed in firmware_handoff.json.
-- For each rerun decision, use one adapter invocation and ensure it appends bundle(s) with claim/artifacts/confidence/limitations/next_stage_request.
-- Route rerun subsets from firmware_profile.json (linux_fs/filesystem vs binary_only) and cite the artifact path used for the decision.
-- If any cap is reached, set stop_reason with cap name + current counters, set status=failed, and end reruns.
-- If a run fails, still write failed status with best-known run_dir/run_id and observed stages.
-PROMPT
-
-    nohup bash -c "
-      python3 -u \"$SCRIPT_DIR/tools/backend_runner.py\" run \
-        --backend \"$PRIMARY_BACKEND\" \
-        --failover-to \"${FAILOVER_BACKEND:-none}\" \
-        --runtime-profile \"$EFFECTIVE_PROFILE\" \
-        --prompt-file \"$REPORT_DIR/firmware_prompt.txt\" \
-        --work-dir \"$SCRIPT_DIR\" \
-        --report-dir \"$REPORT_DIR\" \
-        --model \"$EFFECTIVE_MODEL\" \
-        --mode firmware \
-        --target \"$TARGET_PATH\" \
-        --session-id \"$SESSION_ID\" \
-        --timeout \"$TIMEOUT\" \
-        --result-file \"$REPORT_DIR/runtime_result.json\" 2>&1 | tee \"$REPORT_DIR/session.log\"
-      RUNTIME_EXIT=\${PIPESTATUS[0]}
-
-      echo '=== SESSION COMPLETE ===' >> \"$REPORT_DIR/session.log\"
-      FINAL_EXIT=\$(bash $SCRIPT_DIR/terminator.sh _exit_code $REPORT_DIR 2>/dev/null || echo 0)
-      echo \"\$FINAL_EXIT\" > \"$REPORT_DIR/exit_code\"
-
-      SESSION_STATUS='completed'
-      if [ \"\$RUNTIME_EXIT\" -eq 124 ] 2>/dev/null; then
-        SESSION_STATUS='timeout'
-      elif [ \"\$RUNTIME_EXIT\" -ne 0 ] 2>/dev/null; then
-        SESSION_STATUS='failed'
-      fi
-
-      bash $SCRIPT_DIR/terminator.sh _summary $REPORT_DIR firmware '$TARGET_PATH' $START_TS \$FINAL_EXIT \$SESSION_STATUS 2>/dev/null || true
-      echo \"\$SESSION_STATUS\" > \"$REPORT_DIR/.completed\"
-      rm -f \"$PID_FILE\"
-      rm -f \"$PID_META\"
-    " > "$LOG_FILE" 2>&1 &
-
-    BGPID=$!
-    echo "$BGPID" > "$PID_FILE"
-    write_pid_meta "$PID_META" "$BGPID" "fw-$(basename "$TARGET_PATH" | sed 's/\./-/g')" "firmware" "$TARGET_PATH" "$PRIMARY_BACKEND" "${FAILOVER_BACKEND:-}" "$SESSION_ID" "$REPORT_DIR" "$PARALLEL_GROUP_ID"
-    echo "$TIMESTAMP mode=firmware backend=$PRIMARY_BACKEND failover=${FAILOVER_BACKEND:-none} session=$SESSION_ID pid=$BGPID report=$REPORT_DIR target=$TARGET_PATH group=${PARALLEL_GROUP_ID:-none}" >> "$SCRIPT_DIR/.terminator.history"
-    echo ""
-    echo "[*] PID: $BGPID"
-    echo "[*] Session: $SESSION_ID"
-    echo "[*] To monitor: tail -f $REPORT_DIR/session.log"
-    if [ "$WAIT_FOR_COMPLETION" = true ]; then
-      echo "[*] --wait: blocking until session completes..."
-      while kill -0 "$BGPID" 2>/dev/null; do sleep 15; done
-      echo ""; echo "=== SESSION RESULT: fw-$(basename "$TARGET_PATH") ==="; cat "$REPORT_DIR/.completed" 2>/dev/null || echo "unknown"
-      echo "---"; tail -80 "$REPORT_DIR/session.log" 2>/dev/null; echo "=== END ==="
-    fi
+    mkdir -p "$TARGET_DIR"
+    SEED_FILE="$TARGET_DIR/client_pitch_seed.txt"
+    printf '%s\n' "$TARGET" > "$SEED_FILE"
+    python3 -m tools.vuln_assistant analyze \
+      --mode client-pitch \
+      --domain web \
+      --input "$SEED_FILE" \
+      --out "$TARGET_DIR/vuln_assistant" | tee "$REPORT_DIR/session.log"
+    generate_summary "$REPORT_DIR" "client-pitch" "$TARGET" "$(date +%s)" "$EXIT_CLEAN" "completed" >/dev/null 2>&1 || true
+    echo "[*] Client pitch artifacts: $TARGET_DIR/vuln_assistant"
     ;;
 
   ai-security)
@@ -2008,285 +1228,6 @@ PROMPT
     fi
     ;;
 
-  robotics)
-    if [ -z "$TARGET" ]; then
-      echo "Usage: ./terminator.sh robotics <ros-master-uri-or-ip> [robot-model]"
-      exit $EXIT_ERROR
-    fi
-
-    SCOPE="${SCOPE:-$TARGET}"
-    init_report_dir
-    PRIMARY_BACKEND="$(normalize_backend "$BACKEND")"
-    FAILOVER_BACKEND="$(resolve_failover_backend "$PRIMARY_BACKEND" "$FAILOVER_TO")"
-    EFFECTIVE_MODEL="$(backend_model "$PRIMARY_BACKEND")"
-    EFFECTIVE_PROFILE="$(runtime_profile_for_backend "$PRIMARY_BACKEND")"
-    SESSION_ID="$(build_session_id "robotics" "$TARGET")"
-    _TMP_NAME="$(echo "$TARGET" | sed 's|:|-|g;s|\.|-|g;s|/|-|g')"
-    TARGET_DIR="$SCRIPT_DIR/targets/robo-${_TMP_NAME}"
-    PID_FILE="$PID_DIR/robo-${_TMP_NAME}.pid"
-    PID_META="$PID_DIR/robo-${_TMP_NAME}.json"
-
-    if [ "$DRY_RUN" = true ]; then
-      echo "[DRY-RUN] Robotics/ROS Security mode"
-      echo "  Target:  $TARGET"
-      echo "  Robot:   $SCOPE"
-      echo "  Backend: $PRIMARY_BACKEND"
-      echo "  Runtime: $EFFECTIVE_PROFILE"
-      echo "  Pipeline: robotics (CVE track: no bounty gates)"
-      echo "  Steps: target_evaluator → robo_scanner+analyst → exploiter → reporter(CVE) → critic → cve_manager"
-      echo "  Time-box: ~6.5hr"
-      exit $EXIT_CLEAN
-    fi
-
-    START_TS="$(date +%s)"
-    PROMPT_FILE="$REPORT_DIR/prompt.txt"
-    cat > "$PROMPT_FILE" <<PROMPT
-You are Terminator Team Lead running Robotics/ROS Security Pipeline (CVE track).
-
-Target: $TARGET
-Robot Model: $SCOPE
-Target directory: $TARGET_DIR
-Report directory: $REPORT_DIR
-Domain: robotics
-
-Follow the robotics pipeline from pipelines.py (CVE track — no bounty gates).
-Use --domain robotics for all bb_preflight.py calls.
-Use domain=robotics in all agent descriptions.
-Reporter outputs CVE advisory format. Final handoff to cve-manager.
-Simulator-first for all PoC. Real hardware ONLY with explicit approval.
-Docker fallback for ROS2: docker run --rm --network host ros:humble
-
-AUTONOMOUS COMPLETION RULES: Run full pipeline end-to-end.
-Time-Box: Phase 0: 30min | Phase 0.5: 30min | Phase 1: 1.5hr | Phase 1.5: 1hr | Phase 2: 2hr | Phase 3-5: 1hr
-PROMPT
-
-    if [ "$JSON_OUTPUT" = false ]; then
-      echo "╔══════════════════════════════════════════╗"
-      echo "║  TERMINATOR - Robotics/ROS Security Mode ║"
-      echo "╠══════════════════════════════════════════╣"
-      echo "║ Target:  $TARGET"
-      echo "║ Robot:   $SCOPE"
-      echo "║ Backend: $PRIMARY_BACKEND"
-      echo "║ Runtime: $EFFECTIVE_PROFILE"
-      echo "║ Track:   CVE (GHSA/MITRE)"
-      echo "║ Report:  $REPORT_DIR"
-      echo "╚══════════════════════════════════════════╝"
-    fi
-
-    nohup bash -c "
-      START_TS=$START_TS
-      python3 -u \"$SCRIPT_DIR/tools/backend_runner.py\" run \
-        --backend \"$PRIMARY_BACKEND\" \
-        --failover-to \"${FAILOVER_BACKEND:-none}\" \
-        --runtime-profile \"$EFFECTIVE_PROFILE\" \
-        --prompt-file \"$PROMPT_FILE\" \
-        --work-dir \"$SCRIPT_DIR\" \
-        --report-dir \"$REPORT_DIR\" \
-        --model \"$EFFECTIVE_MODEL\" \
-        --mode robotics \
-        --target \"$TARGET\" \
-        --scope \"$SCOPE\" \
-        --session-id \"$SESSION_ID\" \
-        --timeout \"$TIMEOUT\" \
-        --result-file \"$REPORT_DIR/runtime_result.json\" 2>&1 | stdbuf -oL tee \"$REPORT_DIR/session.log\"
-      RUNTIME_EXIT=\${PIPESTATUS[0]}
-      echo '=== SESSION COMPLETE ===' >> \"$REPORT_DIR/session.log\"
-      FINAL_EXIT=\$(bash $SCRIPT_DIR/terminator.sh _exit_code $REPORT_DIR 2>/dev/null || echo 0)
-      echo \"\$FINAL_EXIT\" > \"$REPORT_DIR/exit_code\"
-      SESSION_STATUS='completed'
-      if [ \"\$RUNTIME_EXIT\" -eq 124 ] 2>/dev/null; then SESSION_STATUS='timeout'
-      elif [ \"\$RUNTIME_EXIT\" -ne 0 ] 2>/dev/null; then SESSION_STATUS='failed'; fi
-      bash $SCRIPT_DIR/terminator.sh _summary $REPORT_DIR robotics '$TARGET' \$START_TS \$FINAL_EXIT \$SESSION_STATUS 2>/dev/null || true
-      echo \"\$SESSION_STATUS\" > \"$REPORT_DIR/.completed\"
-      rm -f \"$PID_FILE\" \"$PID_META\"
-    " > "$LOG_FILE" 2>&1 &
-
-    BGPID=$!
-    echo "$BGPID" > "$PID_FILE"
-    write_pid_meta "$PID_META" "$BGPID" "robo-${_TMP_NAME}" "robotics" "$TARGET" "$PRIMARY_BACKEND" "${FAILOVER_BACKEND:-}" "$SESSION_ID" "$REPORT_DIR" "$PARALLEL_GROUP_ID"
-    echo "$TIMESTAMP mode=robotics backend=$PRIMARY_BACKEND session=$SESSION_ID pid=$BGPID report=$REPORT_DIR target=$TARGET" >> "$SCRIPT_DIR/.terminator.history"
-    if [ "$JSON_OUTPUT" = true ]; then echo "$REPORT_DIR/summary.json"
-    else echo ""; echo "[*] PID: $BGPID"; echo "[*] Session: $SESSION_ID"; echo "[*] To monitor: tail -f $REPORT_DIR/session.log"; fi
-    if [ "$WAIT_FOR_COMPLETION" = true ]; then
-      echo "[*] --wait: blocking until session completes..."
-      while kill -0 "$BGPID" 2>/dev/null; do sleep 15; done
-      echo ""; echo "=== SESSION RESULT: robo-${_TMP_NAME} ==="; cat "$REPORT_DIR/.completed" 2>/dev/null || echo "unknown"
-      echo "---"; tail -80 "$REPORT_DIR/session.log" 2>/dev/null; echo "=== END ==="
-    fi
-    ;;
-
-  supplychain)
-    if [ -z "$TARGET" ]; then
-      echo "Usage: ./terminator.sh supplychain https://github.com/org/repo [npm|pip|maven]"
-      exit $EXIT_ERROR
-    fi
-
-    SCOPE="${SCOPE:-auto}"
-    init_report_dir
-    PRIMARY_BACKEND="$(normalize_backend "$BACKEND")"
-    FAILOVER_BACKEND="$(resolve_failover_backend "$PRIMARY_BACKEND" "$FAILOVER_TO")"
-    EFFECTIVE_MODEL="$(backend_model "$PRIMARY_BACKEND")"
-    EFFECTIVE_PROFILE="$(runtime_profile_for_backend "$PRIMARY_BACKEND")"
-    SESSION_ID="$(build_session_id "supplychain" "$TARGET")"
-    _TMP_NAME="$(echo "$TARGET" | sed 's|https\?://github.com/||;s|/|-|g;s|\.|-|g')"
-    [ -z "$_TMP_NAME" ] && _TMP_NAME="sc-target"
-    TARGET_DIR="$SCRIPT_DIR/targets/sc-${_TMP_NAME}"
-    PID_FILE="$PID_DIR/sc-${_TMP_NAME}.pid"
-    PID_META="$PID_DIR/sc-${_TMP_NAME}.json"
-
-    if [ "$DRY_RUN" = true ]; then
-      echo "[DRY-RUN] Supply Chain Security mode"
-      echo "  Target:  $TARGET"
-      echo "  PkgMgr:  $SCOPE"
-      echo "  Backend: $PRIMARY_BACKEND"
-      echo "  Runtime: $EFFECTIVE_PROFILE"
-      echo "  Pipeline: supplychain (bounty/CVE auto-detect)"
-      echo "  Steps: target_evaluator → sc_scanner+analyst → [Gate 1 if bounty] → exploiter → [Gate 2 if bounty] → reporter → critic → [triager/cve_manager]"
-      echo "  Time-box: ~4.5hr"
-      exit $EXIT_CLEAN
-    fi
-
-    START_TS="$(date +%s)"
-    PROMPT_FILE="$REPORT_DIR/prompt.txt"
-    cat > "$PROMPT_FILE" <<PROMPT
-You are Terminator Team Lead running Supply Chain Security Pipeline.
-
-Target: $TARGET
-Package Manager: $SCOPE
-Target directory: $TARGET_DIR
-Report directory: $REPORT_DIR
-Domain: supplychain
-
-Follow the supplychain pipeline from pipelines.py.
-Phase 0 target-evaluator determines bounty_mode (bounty program exists → bounty track, else → CVE track).
-Use --domain supplychain for all bb_preflight.py calls.
-Use domain=supplychain in all agent descriptions.
-NEVER upload packages to any registry. Namespace conflict = existence check only.
-Private package names must be obfuscated in reports.
-
-AUTONOMOUS COMPLETION RULES: Run full pipeline end-to-end.
-Time-Box: Phase 0: 20min | Phase 0.5: 20min | Phase 1: 1hr | Phase 1.5: 30min | Phase 2: 1.5hr | Phase 3-5: 1hr
-No findings at 1hr → ABANDON.
-PROMPT
-
-    if [ "$JSON_OUTPUT" = false ]; then
-      echo "╔══════════════════════════════════════════╗"
-      echo "║  TERMINATOR - Supply Chain Security Mode ║"
-      echo "╠══════════════════════════════════════════╣"
-      echo "║ Target:  $TARGET"
-      echo "║ PkgMgr:  $SCOPE"
-      echo "║ Backend: $PRIMARY_BACKEND"
-      echo "║ Runtime: $EFFECTIVE_PROFILE"
-      echo "║ Track:   auto-detect (bounty/CVE)"
-      echo "║ Report:  $REPORT_DIR"
-      echo "╚══════════════════════════════════════════╝"
-    fi
-
-    nohup bash -c "
-      START_TS=$START_TS
-      python3 -u \"$SCRIPT_DIR/tools/backend_runner.py\" run \
-        --backend \"$PRIMARY_BACKEND\" \
-        --failover-to \"${FAILOVER_BACKEND:-none}\" \
-        --runtime-profile \"$EFFECTIVE_PROFILE\" \
-        --prompt-file \"$PROMPT_FILE\" \
-        --work-dir \"$SCRIPT_DIR\" \
-        --report-dir \"$REPORT_DIR\" \
-        --model \"$EFFECTIVE_MODEL\" \
-        --mode supplychain \
-        --target \"$TARGET\" \
-        --scope \"$SCOPE\" \
-        --session-id \"$SESSION_ID\" \
-        --timeout \"$TIMEOUT\" \
-        --result-file \"$REPORT_DIR/runtime_result.json\" 2>&1 | stdbuf -oL tee \"$REPORT_DIR/session.log\"
-      RUNTIME_EXIT=\${PIPESTATUS[0]}
-      echo '=== SESSION COMPLETE ===' >> \"$REPORT_DIR/session.log\"
-      FINAL_EXIT=\$(bash $SCRIPT_DIR/terminator.sh _exit_code $REPORT_DIR 2>/dev/null || echo 0)
-      echo \"\$FINAL_EXIT\" > \"$REPORT_DIR/exit_code\"
-      SESSION_STATUS='completed'
-      if [ \"\$RUNTIME_EXIT\" -eq 124 ] 2>/dev/null; then SESSION_STATUS='timeout'
-      elif [ \"\$RUNTIME_EXIT\" -ne 0 ] 2>/dev/null; then SESSION_STATUS='failed'; fi
-      bash $SCRIPT_DIR/terminator.sh _summary $REPORT_DIR supplychain '$TARGET' \$START_TS \$FINAL_EXIT \$SESSION_STATUS 2>/dev/null || true
-      echo \"\$SESSION_STATUS\" > \"$REPORT_DIR/.completed\"
-      rm -f \"$PID_FILE\" \"$PID_META\"
-    " > "$LOG_FILE" 2>&1 &
-
-    BGPID=$!
-    echo "$BGPID" > "$PID_FILE"
-    write_pid_meta "$PID_META" "$BGPID" "sc-${_TMP_NAME}" "supplychain" "$TARGET" "$PRIMARY_BACKEND" "${FAILOVER_BACKEND:-}" "$SESSION_ID" "$REPORT_DIR" "$PARALLEL_GROUP_ID"
-    echo "$TIMESTAMP mode=supplychain backend=$PRIMARY_BACKEND session=$SESSION_ID pid=$BGPID report=$REPORT_DIR target=$TARGET" >> "$SCRIPT_DIR/.terminator.history"
-    if [ "$JSON_OUTPUT" = true ]; then echo "$REPORT_DIR/summary.json"
-    else echo ""; echo "[*] PID: $BGPID"; echo "[*] Session: $SESSION_ID"; echo "[*] To monitor: tail -f $REPORT_DIR/session.log"; fi
-    if [ "$WAIT_FOR_COMPLETION" = true ]; then
-      echo "[*] --wait: blocking until session completes..."
-      while kill -0 "$BGPID" 2>/dev/null; do sleep 15; done
-      echo ""; echo "=== SESSION RESULT: sc-${_TMP_NAME} ==="; cat "$REPORT_DIR/.completed" 2>/dev/null || echo "unknown"
-      echo "---"; tail -80 "$REPORT_DIR/session.log" 2>/dev/null; echo "=== END ==="
-    fi
-    ;;
-
-  _parallel_targets)
-    GROUP_ID="${PARALLEL_GROUP_ID:-group-$TIMESTAMP}"
-    SPEC_SOURCE="$PARALLEL_TARGETS"
-    if [ -z "$SPEC_SOURCE" ]; then
-      echo "[!] --parallel-targets requires a JSON file path or inline JSON array"
-      exit $EXIT_ERROR
-    fi
-    init_report_dir
-
-    python3 - <<'PY' "$SPEC_SOURCE" > "$REPORT_DIR/parallel_targets.tsv"
-import json
-import os
-import sys
-from pathlib import Path
-
-source = sys.argv[1]
-raw = Path(source).read_text(encoding="utf-8") if Path(source).exists() else source
-data = json.loads(raw)
-if isinstance(data, dict):
-    data = data.get("targets", [])
-for item in data:
-    print(
-        "\t".join(
-            [
-                str(item.get("mode", "")),
-                str(item.get("target", "")),
-                str(item.get("scope", "")),
-                str(item.get("backend", "")),
-                str(item.get("failover_to", "")),
-            ]
-        )
-    )
-PY
-
-    if [ "$DRY_RUN" = true ]; then
-      echo "[DRY-RUN] Parallel target group: $GROUP_ID"
-      cat "$REPORT_DIR/parallel_targets.tsv"
-      exit 0
-    fi
-
-    while IFS=$'\t' read -r item_mode item_target item_scope item_backend item_failover; do
-      [ -n "$item_mode" ] || continue
-      while [ "$(count_running_sessions)" -ge "$MAX_CONCURRENT" ]; do
-        sleep 2
-      done
-      launch_cmd=(env TERMINATOR_PARALLEL_GROUP_ID="$GROUP_ID" "$SCRIPT_DIR/terminator.sh")
-      if [ "$JSON_OUTPUT" = true ]; then
-        launch_cmd+=(--json)
-      fi
-      if [ "$TIMEOUT" -gt 0 ] 2>/dev/null; then
-        launch_cmd+=(--timeout "$TIMEOUT")
-      fi
-      launch_cmd+=(--backend "${item_backend:-$BACKEND}" --failover-to "${item_failover:-$FAILOVER_TO}" "$item_mode" "$item_target")
-      if [ -n "$item_scope" ]; then
-        launch_cmd+=("$item_scope")
-      fi
-      "${launch_cmd[@]}"
-    done < "$REPORT_DIR/parallel_targets.tsv"
-
-    echo "[*] Parallel target group started: $GROUP_ID"
-    echo "[*] Max concurrent sessions: $MAX_CONCURRENT"
-    ;;
-
   # Internal subcommands (used by nohup post-processing blocks)
   _running_count)
     count_running_sessions
@@ -2392,10 +1333,9 @@ PY
     echo "Terminator - Autonomous Security Agent"
     echo ""
     echo "Usage:"
-    echo "  ./terminator.sh [OPTIONS] ctf /path/to/challenge[.zip]    Solve a CTF challenge"
     echo "  ./terminator.sh [OPTIONS] bounty <url> [scope]             Bug bounty assessment"
-  echo "  ./terminator.sh [OPTIONS] bounty-explore targets.json       Parallel explore (max 3)"
-    echo "  ./terminator.sh [OPTIONS] firmware /path/to/firmware.bin   Firmware pipeline"
+    echo "  ./terminator.sh [OPTIONS] ai-security <url> [scope]        AI/LLM security assessment"
+    echo "  ./terminator.sh [OPTIONS] client-pitch <url>               Passive client pitch pack"
     echo "  ./terminator.sh status                                      Check running session"
     echo "  ./terminator.sh logs                                        Tail latest session log"
     echo ""
@@ -2403,7 +1343,6 @@ PY
     echo "  --json                  Suppress banner; print summary.json path on completion"
     echo "  --timeout N             Abort session after N seconds (0 = no limit)"
     echo "  --dry-run               Print execution plan without running a backend"
-    echo "  --competition-v2        Enable the isolated competition-focused CTF lane (--competition alias)"
     echo "  --resume-session ID     Reuse an existing coordination session id"
     echo "  --backend NAME          Runtime launcher: claude|codex|hybrid|auto"
     echo "  --runtime-profile NAME  Runtime profile: claude-only|gpt-only|scope-first-hybrid"
@@ -2422,7 +1361,7 @@ PY
     echo "  scope-first-hybrid routes selected roles to Codex and enforces scope/safety gates."
     echo ""
     echo "Exit Codes:"
-    echo "  0   Clean (no findings or CTF solved)"
+    echo "  0   Clean (no findings or pitch generated)"
     echo "  1   Critical severity finding"
     echo "  2   High severity finding"
     echo "  3   Medium severity finding"
@@ -2432,9 +1371,7 @@ PY
     echo "  session.log            Full session transcript"
     echo "  summary.json           Machine-readable session summary"
     echo "  exit_code              Numeric exit code based on findings"
-    echo "  firmware_handoff.json  Firmware machine-readable handoff"
-    echo "  firmware_summary.md    Firmware analysis summary"
-    echo "  writeup.md             Challenge writeup"
-    echo "  flags.txt              Extracted flags (if found)"
+    echo "  high_value_targets.md  Risk-ranked targets when vuln_assistant is used"
+    echo "  security_assessment_pitch.md  Client pitch artifact"
     ;;
 esac
