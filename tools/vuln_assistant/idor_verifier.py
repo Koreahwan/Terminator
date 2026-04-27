@@ -219,14 +219,22 @@ def verify_candidate(
         verdict = "inconclusive"
         signal = "redirect_observed"
         reasons = ["cross-account response redirected; manual review required"]
-    elif looks_like_same_response_class(fp_b, fp_a_cross) and looks_like_same_response_class(fp_a, fp_b_cross):
-        verdict = "needs_manual_confirmation"
-        signal = "possible_idor"
-        reasons = ["read-only cross-account check produced success-like response fingerprints similar to owner baselines"]
     else:
-        verdict = "inconclusive"
-        signal = "different_response_class"
-        reasons = ["cross-account response fingerprints differed from owner baselines"]
+        a_to_b_success = looks_like_same_response_class(fp_b, fp_a_cross)
+        b_to_a_success = looks_like_same_response_class(fp_a, fp_b_cross)
+        if a_to_b_success and b_to_a_success:
+            verdict = "needs_manual_confirmation"
+            signal = "possible_idor"
+            reasons = ["read-only cross-account check produced success-like response fingerprints similar to owner baselines"]
+        elif a_to_b_success or b_to_a_success:
+            verdict = "needs_manual_confirmation"
+            signal = "possible_asymmetric_idor"
+            direction = "A-to-B" if a_to_b_success else "B-to-A"
+            reasons = [f"read-only cross-account check produced a success-like response fingerprint in one direction ({direction})"]
+        else:
+            verdict = "inconclusive"
+            signal = "different_response_class"
+            reasons = ["cross-account response fingerprints differed from owner baselines"]
 
     return IdorVerificationResult(
         candidate_endpoint=endpoint,

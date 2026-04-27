@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from integrations.burp_bridge_server import append_jsonl, is_allowed_url, redact_headers, sanitize_observation
+from integrations.burp_bridge_server import append_jsonl, is_allowed_url, redact_headers, redact_url_query, sanitize_observation
 
 
 def test_scope_filter_handles_exact_hostname_and_userinfo_tricks() -> None:
@@ -55,6 +55,15 @@ def test_sanitize_observation_writes_metadata_only(tmp_path: Path) -> None:
     assert "Bearer secret" not in written
     assert "sid=secret" not in written
     assert json.loads(written)["url"].startswith("https://api.example.com")
+
+
+def test_redacts_sensitive_query_values() -> None:
+    url = redact_url_query("https://api.example.com/callback?invoice_id=inv_1&access_token=secret&session_id=sid")
+
+    assert "invoice_id=inv_1" in url
+    assert "secret" not in url
+    assert "sid" not in url
+    assert "%5BREDACTED%5D" in url
 
 
 def test_rejects_out_of_scope_host() -> None:

@@ -9,7 +9,7 @@ import re
 import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Any
-from urllib.parse import parse_qsl, urlsplit
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from .models import SurfaceItem
 from .raw_inventory import dedupe_preserve
@@ -18,6 +18,22 @@ URL_RE = re.compile(r"https?://[^\s\"'<>|]+", re.I)
 PATH_RE = re.compile(r"(?<![\w])/(?:api/)?[A-Za-z0-9._~!$&'()*+,;=:@/%?-]+")
 PATH_PARAM_RE = re.compile(r"\{([A-Za-z_][A-Za-z0-9_]*)\}|:([A-Za-z_][A-Za-z0-9_]*)")
 METHODS = {"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"}
+SENSITIVE_QUERY_MARKERS = (
+    "access_token",
+    "auth",
+    "bearer",
+    "code",
+    "cookie",
+    "csrf",
+    "jwt",
+    "key",
+    "password",
+    "refresh_token",
+    "secret",
+    "session",
+    "sid",
+    "token",
+)
 
 
 def _params_from_url(url: str) -> list[str]:
@@ -46,6 +62,27 @@ def _path_from_url(url: str) -> str:
         return url
 
 
+def _sanitize_url_metadata(url: str) -> str:
+    try:
+        parts = urlsplit(url)
+    except ValueError:
+        return url
+    if not parts.query:
+        return url
+    sanitized_pairs = []
+    changed = False
+    for key, value in parse_qsl(parts.query, keep_blank_values=True):
+        lowered = key.lower()
+        if any(marker in lowered for marker in SENSITIVE_QUERY_MARKERS):
+            sanitized_pairs.append((key, "[REDACTED]"))
+            changed = True
+        else:
+            sanitized_pairs.append((key, value))
+    if not changed:
+        return url
+    return urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(sanitized_pairs), parts.fragment))
+
+
 def _item_from_url(url: str, *, source: str, rank: int = 0, method: str = "GET") -> SurfaceItem:
     return SurfaceItem(method=method.upper(), url=url, path=_path_from_url(url), params=_params_from_url(url), source=source, raw_rank=rank)
 
@@ -58,7 +95,9 @@ def load_inputs(paths: list[Path], *, endpoint_map: Path | None = None) -> list[
         if not path.exists():
             continue
         lowered = path.name.lower()
-        if lowered.endswith(".json") or lowered.endswith(".har"):
+        if lowered.endswith(".jsonl"):
+            items.extend(parse_jsonl_file(path))
+        elif lowered.endswith(".json") or lowered.endswith(".har"):
             items.extend(parse_json_file(path))
         elif lowered.endswith(".xml"):
             items.extend(parse_burp_xml(path))
@@ -146,6 +185,50 @@ def parse_json_file(path: Path) -> list[SurfaceItem]:
     items: list[SurfaceItem] = []
     _walk_json(data, items, source=path.stem)
     return items
+
+
+def parse_jsonl_file(path: Path) -> list[SurfaceItem]:
+    items: list[SurfaceItem] = []
+    for idx, line in enumerate(path.read_text(encoding="utf-8", errors="replace").splitlines(), start=1):
+        stripped = line.strip()
+        if not stripped:
+            continue
+        try:
+            record = json.loads(stripped)
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(record, dict):
+            continue
+        item = _surface_from_burp_stream_record(record, raw_rank=idx)
+        if item is not None:
+            items.append(item)
+    return items
+
+
+def _surface_from_burp_stream_record(record: dict[str, Any], *, raw_rank: int) -> SurfaceItem | None:
+    source = str(record.get("source") or "")
+    url = record.get("url")
+    if source.lower() != "burp" or not isinstance(url, str) or not url.startswith(("http://", "https://")):
+        return None
+    method = str(record.get("method") or "GET").upper()
+    if method not in METHODS:
+        method = "GET"
+    sanitized_url = _sanitize_url_metadata(url)
+    status_code = record.get("status_code")
+    request_headers = record.get("request_headers") if isinstance(record.get("request_headers"), dict) else {}
+    response_headers = record.get("response_headers") if isinstance(record.get("response_headers"), dict) else {}
+    content_type = str(record.get("content_type") or response_headers.get("Content-Type") or response_headers.get("content-type") or "")
+    item = _item_from_url(sanitized_url, source="burp_stream", rank=raw_rank, method=method)
+    item.status_code = int(status_code) if type(status_code) is int else None
+    item.headers = {str(k): str(v) for k, v in request_headers.items()}
+    item.raw = {
+        "body_saved": bool(record.get("body_saved")) is True,
+        "body_length": record.get("body_length") if type(record.get("body_length")) is int else None,
+        "content_type": content_type,
+        "response_headers": {str(k): str(v) for k, v in response_headers.items()},
+        "timestamp": str(record.get("timestamp") or ""),
+    }
+    return item
 
 
 def _looks_like_attack_surface(data: Any) -> bool:

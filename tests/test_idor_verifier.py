@@ -90,6 +90,22 @@ def test_returns_needs_manual_confirmation_without_storing_bodies_or_secrets() -
     assert "amount" in data  # schema key only, not raw body value
 
 
+def test_returns_needs_manual_confirmation_for_asymmetric_success_like_cross_check() -> None:
+    def requester(method: str, url: str, headers: dict[str, str]) -> HttpObservation:
+        is_a = "account-a" in headers["Authorization"]
+        is_b = "account-b" in headers["Authorization"]
+        is_a_object = "inv_test_a_001" in url
+        is_b_object = "inv_test_b_001" in url
+        if (is_a and is_a_object) or (is_b and is_b_object) or (is_a and is_b_object):
+            return HttpObservation(200, {"Content-Type": "application/json"}, b'{"id":"x","amount":1}')
+        return HttpObservation(403, {"Content-Type": "application/json"}, b'{"error":"forbidden"}')
+
+    result = verify_candidate(_candidate(), owned_objects=OWNED, auth_a=AUTH_A, auth_b=AUTH_B, allowed_scope_hosts={"api.example.com"}, mode="bounty", requester=requester, delay_seconds=0)
+
+    assert result.verdict == "needs_manual_confirmation"
+    assert result.signal_type == "possible_asymmetric_idor"
+
+
 def test_idor_verify_cli_refuses_client_pitch(tmp_path: Path) -> None:
     candidates = tmp_path / "idor_candidates.json"
     owned = tmp_path / "owned.json"

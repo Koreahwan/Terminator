@@ -110,6 +110,37 @@ def test_attack_surface_input_uses_raw_inventory_only(tmp_path: Path) -> None:
     assert items[0].url.startswith("https://api.example.com")
 
 
+def test_burp_stream_jsonl_preserves_method_and_redacts_url_secrets(tmp_path: Path) -> None:
+    stream = tmp_path / "burp_stream.jsonl"
+    stream.write_text(
+        json.dumps(
+            {
+                "source": "burp",
+                "method": "POST",
+                "url": "https://api.example.com/invoices?invoice_id=inv_1&access_token=secret-token",
+                "status_code": 200,
+                "request_headers": {"Authorization": "[REDACTED]", "Accept": "application/json"},
+                "response_headers": {"Content-Type": "application/json"},
+                "body_saved": False,
+                "body_length": 123,
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    items = load_inputs([stream])
+    candidates = build_idor_candidates(items)
+
+    assert len(items) == 1
+    assert items[0].method == "POST"
+    assert items[0].source == "burp_stream"
+    assert "secret-token" not in items[0].url
+    assert "%5BREDACTED%5D" in items[0].url
+    assert candidates[0].eligible_for_read_only_verification is False
+    assert candidates[0].manual_review_only is True
+
+
 def test_idor_passive_cli_writes_outputs(tmp_path: Path) -> None:
     urls = tmp_path / "urls.txt"
     urls.write_text("GET https://api.example.com/invoices?invoice_id=inv_123\n", encoding="utf-8")

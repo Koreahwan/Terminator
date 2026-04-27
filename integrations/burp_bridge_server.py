@@ -13,7 +13,7 @@ from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlsplit
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 SENSITIVE_HEADERS = {
     "authorization",
@@ -27,6 +27,22 @@ SENSITIVE_HEADERS = {
 }
 SESSION_HEADER_MARKERS = ("session", "token", "secret", "csrf", "xsrf", "auth")
 DEFAULT_MAX_PAYLOAD_BYTES = 64 * 1024
+SENSITIVE_QUERY_MARKERS = (
+    "access_token",
+    "auth",
+    "bearer",
+    "code",
+    "cookie",
+    "csrf",
+    "jwt",
+    "key",
+    "password",
+    "refresh_token",
+    "secret",
+    "session",
+    "sid",
+    "token",
+)
 
 
 def redact_headers(headers: Any) -> dict[str, str]:
@@ -52,6 +68,27 @@ def is_allowed_url(url: str, allowed_hosts: set[str]) -> bool:
     return bool(host) and host in normalized
 
 
+def redact_url_query(url: str) -> str:
+    try:
+        parts = urlsplit(url)
+    except ValueError:
+        return url
+    if not parts.query:
+        return url
+    pairs = []
+    changed = False
+    for key, value in parse_qsl(parts.query, keep_blank_values=True):
+        lowered = key.lower()
+        if any(marker in lowered for marker in SENSITIVE_QUERY_MARKERS):
+            pairs.append((key, "[REDACTED]"))
+            changed = True
+        else:
+            pairs.append((key, value))
+    if not changed:
+        return url
+    return urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(pairs), parts.fragment))
+
+
 def sanitize_observation(payload: dict[str, Any], *, allowed_hosts: set[str]) -> tuple[int, dict[str, Any]]:
     url = str(payload.get("url") or "")
     if not is_allowed_url(url, allowed_hosts):
@@ -62,7 +99,7 @@ def sanitize_observation(payload: dict[str, Any], *, allowed_hosts: set[str]) ->
     observation = {
         "source": "burp",
         "method": method,
-        "url": url,
+        "url": redact_url_query(url),
         "status_code": int(status_code) if type(status_code) is int else None,
         "request_headers": redact_headers(payload.get("request_headers") or {}),
         "response_headers": redact_headers(payload.get("response_headers") or {}),
