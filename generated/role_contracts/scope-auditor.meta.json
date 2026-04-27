@@ -1,8 +1,8 @@
 {
   "role": "scope-auditor",
   "source_file": ".claude/agents/scope-auditor.md",
-  "source_hash": "d10e8dfb8c3b6b48",
-  "source_size_chars": 1674,
+  "source_hash": "09c77142da7b1ec2",
+  "source_size_chars": 1701,
   "contract_size_chars": 1422,
   "contract_size_bytes": 1424,
   "budget_bytes": 8000,
@@ -19,5 +19,5 @@
     "Required Checks"
   ],
   "dropped_sections": [],
-  "generated_at": "2026-04-25T14:11:40Z"
+  "generated_at": "2026-04-27T12:56:30Z"
 }

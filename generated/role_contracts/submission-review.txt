@@ -1,6 +1,6 @@
 # submission-review — Compact Contract
-# Source: .claude/agents/submission-review.md (hash: 91f083526118df33)
-# Generated: 2026-04-25 14:11:40 UTC
+# Source: .claude/agents/submission-review.md (hash: 043a070e0d4a06aa)
+# Generated: 2026-04-27 12:56:30 UTC
 
 # Submission Review Agent (Phase 5.5)
 

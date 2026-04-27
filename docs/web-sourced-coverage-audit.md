@@ -207,7 +207,7 @@ The live Immunefi page at time of audit (2026-04-17) contained 52 extractable it
 | "Varies" items (72) — correctly NOT blocked | 72 | 100% |
 | **Combined meaningful coverage (P5 that matter in practice)** | **~100/154 = 65%** | — |
 
-The 54 uncovered P5 items are largely low-relevance in the active target set (automotive RF relay, iOS/Android binary hardening, firmware, Rosetta Flash, Telnet). None have caused real incidents. The 65% figure covers all patterns that appear in active Web2/DeFi programs.
+The 54 uncovered P5 items are largely low-relevance in the active target set (automotive RF relay, iOS/Android binary hardening, embedded-device edge cases, Rosetta Flash, Telnet). None have caused real incidents. The 65% figure covers all patterns that appear in active Web2/DeFi programs.
 
 ---
 

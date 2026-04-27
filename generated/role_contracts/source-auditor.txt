@@ -1,6 +1,6 @@
 # source-auditor — Compact Contract
 # Source: .claude/agents/source-auditor.md (hash: 73503d9998af4275)
-# Generated: 2026-04-25 14:11:40 UTC
+# Generated: 2026-04-27 12:56:30 UTC
 
 # Source Auditor Agent
 ## Personality

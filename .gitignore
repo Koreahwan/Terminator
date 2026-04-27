@@ -56,14 +56,12 @@ tools/awesome_hacking_*_urls*.txt
 tools/awesome_hacking_retry_jina.txt
 tools/wave2_*.txt
 
-# --- Challenge artifacts (temporary, overwritten per challenge) ---
-challenges/
-ctf/
-solve.py
-reversal_map.md
-trigger_report.md
-trigger_poc.py
-chain_report.md
+# --- Security assessment artifacts (temporary, overwritten per run) ---
+endpoint_map.md
+high_value_targets.md
+raw_endpoint_review.md
+manual_test_queue.md
+safe_pocs.md
 critic_review.md
 
 # --- Legacy code (not part of v3 architecture) ---

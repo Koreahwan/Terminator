@@ -1,6 +1,6 @@
 # architect — Compact Contract
 # Source: .claude/agents/architect.md (hash: bc7ab7878d802f6a)
-# Generated: 2026-04-25 14:11:38 UTC
+# Generated: 2026-04-27 12:56:30 UTC
 
 # Architect Agent
 

@@ -1,6 +1,6 @@
 # analyst — Compact Contract
-# Source: .claude/agents/analyst.md (hash: d4435b36949dedaa)
-# Generated: 2026-04-25 14:11:37 UTC
+# Source: .claude/agents/analyst.md (hash: 5467e8c6d7335289)
+# Generated: 2026-04-27 12:56:29 UTC
 
 # Analyst — Vulnerability Analysis Agent
 ## IRON RULES (NEVER VIOLATE)

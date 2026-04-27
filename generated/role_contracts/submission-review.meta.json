@@ -1,8 +1,8 @@
 {
   "role": "submission-review",
   "source_file": ".claude/agents/submission-review.md",
-  "source_hash": "91f083526118df33",
-  "source_size_chars": 5606,
+  "source_hash": "043a070e0d4a06aa",
+  "source_size_chars": 5618,
   "contract_size_chars": 4207,
   "contract_size_bytes": 4235,
   "budget_bytes": 8000,
@@ -27,5 +27,5 @@
     "Completion Criteria"
   ],
   "dropped_sections": [],
-  "generated_at": "2026-04-25T14:11:40Z"
+  "generated_at": "2026-04-27T12:56:30Z"
 }

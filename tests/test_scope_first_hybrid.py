@@ -170,7 +170,7 @@ def test_runtime_gate_requires_debate_artifact(tmp_path: Path) -> None:
                 "schema_version": "debate-gate/1",
                 "verdict": "REPORTABLE",
                 "inputs": {
-                    "gpt_proposal": {"evidence_refs": ["gdb.log"], "poc_plan": "run solve.py"},
+                    "gpt_proposal": {"evidence_refs": ["http_trace.log"], "poc_plan": "run safe_poc.py"},
                     "claude_objection": {"scope_objection": "none"},
                 },
             }

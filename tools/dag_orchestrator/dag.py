@@ -24,7 +24,7 @@ class NodeStatus(Enum):
 class AgentNode:
     """Represents a single agent node in the DAG."""
     name: str
-    role: str                         # reverser, trigger, chain, etc.
+    role: str                         # scout, analyst, reporter, etc.
     model: str = "sonnet"             # claude model alias
     description: str = ""
     handler: Optional[Callable] = None  # actual execution function

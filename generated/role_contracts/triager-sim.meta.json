@@ -1,10 +1,10 @@
 {
   "role": "triager-sim",
   "source_file": ".claude/agents/triager_sim.md",
-  "source_hash": "749ede410d1a7f36",
-  "source_size_chars": 27169,
-  "contract_size_chars": 7860,
-  "contract_size_bytes": 7990,
+  "source_hash": "d33228668db27083",
+  "source_size_chars": 25582,
+  "contract_size_chars": 7863,
+  "contract_size_bytes": 7993,
   "budget_bytes": 8000,
   "within_budget": true,
   "budget_usage_pct": 99.9,
@@ -64,14 +64,12 @@
     "Completion Criteria",
     "Rules",
     "Domain-Specific Question Extensions (activated by domain= in Orchestrator prompt)",
-    "domain=ai — AI/LLM Finding Evaluation",
-    "domain=robotics — ROS/Robotics Finding Evaluation (CVE track)",
-    "domain=supplychain — Supply Chain Finding Evaluation"
+    "domain=ai — AI/LLM Finding Evaluation"
   ],
   "dropped_sections": [
     "Few-Shot Examples",
     "Structured Reasoning (MANDATORY for verdict decision)",
     "IRON RULES Recap"
   ],
-  "generated_at": "2026-04-25T14:11:41Z"
+  "generated_at": "2026-04-27T12:56:30Z"
 }

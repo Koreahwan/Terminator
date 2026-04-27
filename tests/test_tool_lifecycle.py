@@ -13,7 +13,7 @@ from tools.toolspec.registry import ToolRegistry, ToolSpec, ToolKind
 
 def test_registry_loads_tools_full():
     r = ToolRegistry(registry_path=PROJECT_ROOT / "tools" / "toolspec" / "tools_full.yaml")
-    assert len(r) >= 110, f"Expected >= 110 tools, got {len(r)}"
+    assert len(r) >= 70, f"Expected >= 70 retained tools, got {len(r)}"
 
 
 def test_registry_backwards_compat():

@@ -1,8 +1,8 @@
 {
   "role": "scout",
   "source_file": ".claude/agents/scout.md",
-  "source_hash": "ba8aa0cbbc26fc69",
-  "source_size_chars": 18419,
+  "source_hash": "bdfac5a4e04cd6dd",
+  "source_size_chars": 18708,
   "contract_size_chars": 7842,
   "contract_size_bytes": 7992,
   "budget_bytes": 8000,
@@ -57,5 +57,5 @@
     "Structured Reasoning (MANDATORY at every decision point)",
     "IRON RULES Recap"
   ],
-  "generated_at": "2026-04-25T14:11:40Z"
+  "generated_at": "2026-04-27T12:56:30Z"
 }

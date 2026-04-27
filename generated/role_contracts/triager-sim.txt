@@ -1,6 +1,6 @@
 # triager-sim — Compact Contract
-# Source: .claude/agents/triager_sim.md (hash: 749ede410d1a7f36)
-# Generated: 2026-04-25 14:11:41 UTC
+# Source: .claude/agents/triager_sim.md (hash: d33228668db27083)
+# Generated: 2026-04-27 12:56:30 UTC
 
 # Triager Simulator Agent
 ## Operating Modes
@@ -84,6 +84,7 @@ Tier 3-4 = automatic KILL.
 ### Step 5: AI Slop Detection
 AI-generated reports are 40%+ of submissions. Triagers actively scan for:
 - No evidence of actually testing against the target
+python3 tools/areuai_bridge.py analyze <report.md>
 | "should work" | Unverified claim | Replace with tested evidence |
 | "seems to" / "appears to" | No evidence | Add concrete test result |
 | "comprehensive" / "robust" | AI filler | Replace with specific scope/mechanism |
@@ -99,5 +100,4 @@ Read the report as the VENDOR would:
 - PoC reproduces in 1 step, output unambiguous
 -> **VERDICT: SUBMIT**
 ### Example: STRENGTHEN
-**Report**: "Stored XSS via profile name field"
 [TRUNCATED: compact contract exceeded budget; source agent file remains authoritative.]

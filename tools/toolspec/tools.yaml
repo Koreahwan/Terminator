@@ -1,142 +1,166 @@
 tools:
-  - tool_id: knowledge-fts-smart-search
-    name: Knowledge FTS Smart Search
-    kind: query
-    entrypoint: "mcp:knowledge-fts:smart_search"
-    description: "Progressive query relaxation search across 280K+ knowledge docs. Auto-relaxes AND→OR→top-terms when exact match fails. PREFERRED default — use this first for any knowledge lookup. 2-3 keywords max."
-    read_only: true
-    timeout: 30
-    parallel_class: independent
-    tags: [knowledge, search, fts, bm25]
-    agent_roles: [all]
-
-  - tool_id: knowledge-fts-technique-search
-    name: Technique Search
-    kind: query
-    entrypoint: "mcp:knowledge-fts:technique_search"
-    description: "Search attack techniques, CTF writeups, exploitation primitives. Auto-expands abbreviations (UAF, IDOR, RCE, SSRF, TOCTOU, XXE, SSTI). Use for vulnerability-type-specific technique lookup."
-    read_only: true
-    timeout: 30
-    parallel_class: independent
-    tags: [knowledge, technique, attack]
-    agent_roles: [reverser, chain, solver, analyst, exploiter]
-
-  - tool_id: knowledge-fts-exploit-search
-    name: Exploit Search
-    kind: query
-    entrypoint: "mcp:knowledge-fts:exploit_search"
-    description: "Search ExploitDB 47K + Nuclei 12K + PoC-in-GitHub 8K + Trickest-CVE 155K + web_articles 3.4K. Use CVE number or service name. Check existing PoC existence before writing from scratch."
-    read_only: true
-    timeout: 30
-    parallel_class: independent
-    tags: [exploit, cve, poc]
-    agent_roles: [analyst, exploiter, scout, patch-hunter]
-
-  - tool_id: knowledge-fts-challenge-search
-    name: Challenge Search
-    kind: query
-    entrypoint: "mcp:knowledge-fts:challenge_search"
-    description: "Search past CTF challenge solutions and writeups"
-    read_only: true
-    timeout: 30
-    tags: [ctf, challenge, writeup]
-    agent_roles: [reverser, solver, chain, ctf-solver]
-
-  - tool_id: context-digest
-    name: Context Digest Generator
-    kind: analysis
-    entrypoint: "python3 tools/context_digest.py"
-    description: "Generate structured knowledge digest from input"
-    read_only: true
-    timeout: 60
-    tags: [digest, context, summary]
-    agent_roles: [all]
-
-  - tool_id: secall-session-recall
-    name: seCall Session Recall
-    kind: query
-    entrypoint: "python3 tools/secall_bridge.py recall"
-    description: "Search prior Claude/Codex/Gemini/ChatGPT agent sessions indexed by external seCall. Use for past decisions, handoffs, debugging context, and agent conversation memory. Not a security corpus search; use knowledge-fts for vulnerability research."
-    read_only: true
-    timeout: 30
-    parallel_class: independent
-    tags: [memory, sessions, recall, ai-agents]
-    agent_roles: [all]
-
-  - tool_id: secall-status
-    name: seCall Status
-    kind: query
-    entrypoint: "python3 tools/secall_bridge.py status"
-    description: "Check external seCall installation, config path, vault path, DB path, and indexed session health."
-    read_only: true
-    timeout: 15
-    parallel_class: independent
-    tags: [memory, sessions, health]
-    agent_roles: [all]
-
-  - tool_id: secall-session-ingest
-    name: seCall Session Ingest
-    kind: mutation
-    entrypoint: "python3 tools/secall_bridge.py ingest --auto"
-    description: "Ingest local AI agent session logs into the project-local seCall index. Writes only ignored .secall local state by default."
-    read_only: false
-    side_effects: [writes_local_secall_state]
-    produces_artifacts: [.secall/index.sqlite, .secall/vault]
-    timeout: 120
-    parallel_class: exclusive
-    tags: [memory, sessions, ingest]
-    agent_roles: [all]
-
-  - tool_id: flag-detect
-    name: Flag Detector
-    kind: analysis
-    entrypoint: "python3 tools/flag_detector.py"
-    description: "Detect CTF flag patterns in text"
-    read_only: true
-    timeout: 10
-    tags: [flag, ctf, detection]
-    agent_roles: [verifier, ctf-solver]
-
-  - tool_id: bb-preflight-rules-check
-    name: BB Rules Check
-    kind: analysis
-    entrypoint: "python3 tools/bb_preflight.py rules-check"
-    description: "Validate program_rules_summary.md has all 5 required sections. MANDATORY before agent spawn — FAIL blocks all Phase 1+ agents. Run after bb_preflight init."
-    read_only: true
-    timeout: 30
-    parallel_class: independent
-    tags: [bounty, preflight, validation]
-    agent_roles: [scout, analyst, target-evaluator]
-
-  - tool_id: bb-preflight-coverage-check
-    name: BB Coverage Check
-    kind: analysis
-    entrypoint: "python3 tools/bb_preflight.py coverage-check"
-    description: "Calculate risk-weighted endpoint coverage (HIGH endpoints count 2x). Threshold: 80%. MANDATORY at Phase 1→2 gate. FAIL triggers additional analyst rounds."
-    read_only: true
-    timeout: 30
-    parallel_class: independent
-    tags: [bounty, coverage, gate]
-    agent_roles: [scout, analyst]
-
-  - tool_id: bb-preflight-kill-gate-1
-    name: Kill Gate 1
-    kind: analysis
-    entrypoint: "python3 tools/bb_preflight.py kill-gate-1"
-    description: "5-question destruction test before exploiter spawn. KILL = finding discarded, no exploiter. MANDATORY — no exploiter spawn without Gate 1 pass."
-    read_only: true
-    timeout: 30
-    parallel_class: independent
-    tags: [bounty, gate, triage]
-    agent_roles: [triager-sim]
-
-  - tool_id: artifact-register
-    name: Artifact Register
-    kind: mutation
-    entrypoint: "python3 tools/coordination_cli.py register-artifact"
-    description: "Register produced artifact in coordination store"
-    read_only: false
-    side_effects: [writes_coordination]
-    timeout: 10
-    tags: [coordination, artifact]
-    agent_roles: [all]
+- tool_id: knowledge-fts-smart-search
+  name: Knowledge FTS Smart Search
+  kind: query
+  entrypoint: mcp:knowledge-fts:smart_search
+  description: Progressive query relaxation search across 280K+ knowledge docs. Auto-relaxes
+    AND→OR→top-terms when exact match fails. PREFERRED default — use this first for
+    any knowledge lookup. 2-3 keywords max.
+  read_only: true
+  timeout: 30
+  parallel_class: independent
+  tags:
+  - knowledge
+  - search
+  - fts
+  - bm25
+  agent_roles:
+  - all
+- tool_id: knowledge-fts-exploit-search
+  name: Exploit Search
+  kind: query
+  entrypoint: mcp:knowledge-fts:exploit_search
+  description: Search ExploitDB 47K + Nuclei 12K + PoC-in-GitHub 8K + Trickest-CVE
+    155K + web_articles 3.4K. Use CVE number or service name. Check existing PoC existence
+    before writing from scratch.
+  read_only: true
+  timeout: 30
+  parallel_class: independent
+  tags:
+  - exploit
+  - cve
+  - poc
+  agent_roles:
+  - analyst
+  - exploiter
+  - scout
+  - patch-hunter
+- tool_id: context-digest
+  name: Context Digest Generator
+  kind: analysis
+  entrypoint: python3 tools/context_digest.py
+  description: Generate structured knowledge digest from input
+  read_only: true
+  timeout: 60
+  tags:
+  - digest
+  - context
+  - summary
+  agent_roles:
+  - all
+- tool_id: secall-session-recall
+  name: seCall Session Recall
+  kind: query
+  entrypoint: python3 tools/secall_bridge.py recall
+  description: Search prior Claude/Codex/Gemini/ChatGPT agent sessions indexed by
+    external seCall. Use for past decisions, handoffs, debugging context, and agent
+    conversation memory. Not a security corpus search; use knowledge-fts for vulnerability
+    research.
+  read_only: true
+  timeout: 30
+  parallel_class: independent
+  tags:
+  - memory
+  - sessions
+  - recall
+  - ai-agents
+  agent_roles:
+  - all
+- tool_id: secall-status
+  name: seCall Status
+  kind: query
+  entrypoint: python3 tools/secall_bridge.py status
+  description: Check external seCall installation, config path, vault path, DB path,
+    and indexed session health.
+  read_only: true
+  timeout: 15
+  parallel_class: independent
+  tags:
+  - memory
+  - sessions
+  - health
+  agent_roles:
+  - all
+- tool_id: secall-session-ingest
+  name: seCall Session Ingest
+  kind: mutation
+  entrypoint: python3 tools/secall_bridge.py ingest --auto
+  description: Ingest local AI agent session logs into the project-local seCall index.
+    Writes only ignored .secall local state by default.
+  read_only: false
+  side_effects:
+  - writes_local_secall_state
+  produces_artifacts:
+  - .secall/index.sqlite
+  - .secall/vault
+  timeout: 120
+  parallel_class: exclusive
+  tags:
+  - memory
+  - sessions
+  - ingest
+  agent_roles:
+  - all
+- tool_id: bb-preflight-rules-check
+  name: BB Rules Check
+  kind: analysis
+  entrypoint: python3 tools/bb_preflight.py rules-check
+  description: Validate program_rules_summary.md has all 5 required sections. MANDATORY
+    before agent spawn — FAIL blocks all Phase 1+ agents. Run after bb_preflight init.
+  read_only: true
+  timeout: 30
+  parallel_class: independent
+  tags:
+  - bounty
+  - preflight
+  - validation
+  agent_roles:
+  - scout
+  - analyst
+  - target-evaluator
+- tool_id: bb-preflight-coverage-check
+  name: BB Coverage Check
+  kind: analysis
+  entrypoint: python3 tools/bb_preflight.py coverage-check
+  description: 'Calculate risk-weighted endpoint coverage (HIGH endpoints count 2x).
+    Threshold: 80%. MANDATORY at Phase 1→2 gate. FAIL triggers additional analyst
+    rounds.'
+  read_only: true
+  timeout: 30
+  parallel_class: independent
+  tags:
+  - bounty
+  - coverage
+  - gate
+  agent_roles:
+  - scout
+  - analyst
+- tool_id: bb-preflight-kill-gate-1
+  name: Kill Gate 1
+  kind: analysis
+  entrypoint: python3 tools/bb_preflight.py kill-gate-1
+  description: 5-question destruction test before exploiter spawn. KILL = finding
+    discarded, no exploiter. MANDATORY — no exploiter spawn without Gate 1 pass.
+  read_only: true
+  timeout: 30
+  parallel_class: independent
+  tags:
+  - bounty
+  - gate
+  - triage
+  agent_roles:
+  - triager-sim
+- tool_id: artifact-register
+  name: Artifact Register
+  kind: mutation
+  entrypoint: python3 tools/coordination_cli.py register-artifact
+  description: Register produced artifact in coordination store
+  read_only: false
+  side_effects:
+  - writes_coordination
+  timeout: 10
+  tags:
+  - coordination
+  - artifact
+  agent_roles:
+  - all

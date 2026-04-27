@@ -1,8 +1,8 @@
 {
   "role": "mobile-analyst",
   "source_file": ".claude/agents/mobile-analyst.md",
-  "source_hash": "b8c6bade789f3fff",
-  "source_size_chars": 19868,
+  "source_hash": "1fb84e02d0a9f7a1",
+  "source_size_chars": 19934,
   "contract_size_chars": 6787,
   "contract_size_bytes": 6879,
   "budget_bytes": 8000,
@@ -112,5 +112,5 @@
     "Completion Criteria (MANDATORY)"
   ],
   "dropped_sections": [],
-  "generated_at": "2026-04-25T14:11:39Z"
+  "generated_at": "2026-04-27T12:56:30Z"
 }

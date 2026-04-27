@@ -1,8 +1,8 @@
 {
   "role": "web-tester",
   "source_file": ".claude/agents/web-tester.md",
-  "source_hash": "410bba9144162b9f",
-  "source_size_chars": 22248,
+  "source_hash": "5375be14a2f37e6c",
+  "source_size_chars": 22515,
   "contract_size_chars": 7962,
   "contract_size_bytes": 7995,
   "budget_bytes": 8000,
@@ -103,5 +103,5 @@
     "Knowledge Graph"
   ],
   "dropped_sections": [],
-  "generated_at": "2026-04-25T14:11:41Z"
+  "generated_at": "2026-04-27T12:56:31Z"
 }

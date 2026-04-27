@@ -24,14 +24,14 @@ All agents MUST maintain checkpoint.json at the start and throughout execution.
 **On Start:**
 ```json
 {
-  "agent": "reverser",
+  "agent": "scout",
   "status": "in_progress",
   "phase": 1,
-  "phase_name": "Binary Structure Analysis",
+  "phase_name": "Endpoint Inventory",
   "completed": [],
-  "in_progress": "Loading binary and extracting metadata",
+  "in_progress": "Collecting and normalizing endpoints",
   "critical_facts": [],
-  "expected_artifacts": ["reversal_map.md"],
+  "expected_artifacts": ["endpoint_map.md", "program_context.md"],
   "produced_artifacts": [],
   "timestamp": "2026-04-03T10:30:00Z"
 }
@@ -55,8 +55,7 @@ All agents MUST maintain checkpoint.json at the start and throughout execution.
 
 ## Location Rules
 
-- **CTF challenges**: `<challenge_dir>/checkpoint.json`
-- **Bug Bounty**: `targets/<target>/checkpoint.json`
+- **Bug Bounty / Client Pitch / AI Security**: `targets/<target>/checkpoint.json` or the active report directory checkpoint.
 
 ## Orchestrator Recovery
 

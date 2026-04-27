@@ -70,24 +70,8 @@ for cp in $(find "$CWD" "$PROJECT_DIR" -maxdepth 4 -name "checkpoint*.json" -mmi
     esac
 done
 
-# --- Flag Detection ---
-if [ -n "$LAST_MSG" ]; then
-    FLAG_PATTERNS='(DH|FLAG|flag|CTF|GoN|CYAI)\{[^}]{4,}\}'
-    FOUND_FLAGS=$(echo "$LAST_MSG" | grep -oP "$FLAG_PATTERNS" 2>/dev/null || true)
-    if [ -n "$FOUND_FLAGS" ]; then
-        WARNINGS="${WARNINGS}[FLAG DETECTED] Agent $AGENT_TYPE found: $FOUND_FLAGS\n"
-        # Log to coordination store if available
-        if [ -f "$PROJECT_DIR/tools/coordination_cli.py" ]; then
-            python3 "$PROJECT_DIR/tools/coordination_cli.py" event \
-                --session "$(python3 "$PROJECT_DIR/tools/coordination_cli.py" derive-session 2>/dev/null || echo 'unknown')" \
-                --kind "flag_detected" \
-                --payload "{\"agent\":\"$AGENT_TYPE\",\"flags\":\"$FOUND_FLAGS\"}" 2>/dev/null || true
-        fi
-    fi
-fi
-
 # --- Auto-checkpoint for agents that stopped without one ---
-WORK_AGENTS="chain|solver|exploiter|analyst|reverser|trigger|verifier|reporter"
+WORK_AGENTS="target-discovery|target_evaluator|target-evaluator|scout|recon-scanner|analyst|threat-modeler|workflow-auditor|web-tester|source-auditor|patch-hunter|ai-recon|exploiter|critic|triager-sim|triager_sim|reporter|scope-auditor|submission-review"
 if [[ "$AGENT_TYPE" =~ ^($WORK_AGENTS)$ ]] && [ -z "$CHECKPOINT_FOUND" ]; then
     if [ -f "$PROJECT_DIR/tools/coordination_cli.py" ]; then
         python3 "$PROJECT_DIR/tools/coordination_cli.py" checkpoint \

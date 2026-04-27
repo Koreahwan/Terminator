@@ -144,9 +144,9 @@ def test_leader_state_and_handoff_flow(tmp_path: Path) -> None:
 def test_skill_discovery_and_relevance(tmp_path: Path, monkeypatch) -> None:
     project_root = tmp_path / "project"
     project_root.mkdir()
-    local_skill = project_root / ".claude" / "skills" / "ctf"
+    local_skill = project_root / ".claude" / "skills" / "bounty"
     local_skill.mkdir(parents=True)
-    (local_skill / "SKILL.md").write_text("# CTF Skill\nFast pwn workflow\n", encoding="utf-8")
+    (local_skill / "SKILL.md").write_text("# Bounty Skill\nFast API access-control workflow\n", encoding="utf-8")
 
     fake_home = tmp_path / "home"
     codex_skill = fake_home / ".codex" / "skills" / "planner"
@@ -163,9 +163,9 @@ def test_skill_discovery_and_relevance(tmp_path: Path, monkeypatch) -> None:
 
     assert catalog["count"] == 2
 
-    matches = store.relevant_skills("sess-4", "need ctf pwn planner", limit=5)
+    matches = store.relevant_skills("sess-4", "need bounty api planner", limit=5)
     names = {item["name"] for item in matches}
-    assert "ctf" in names
+    assert "bounty" in names
     assert "planner" in names
 
     manifest_path = project_root / "coordination" / "sessions" / "sess-4" / "session_manifest.json"

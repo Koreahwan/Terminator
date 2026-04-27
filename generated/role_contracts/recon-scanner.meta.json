@@ -1,13 +1,13 @@
 {
   "role": "recon-scanner",
   "source_file": ".claude/agents/recon-scanner.md",
-  "source_hash": "4d7e4b74490f95e9",
-  "source_size_chars": 23435,
-  "contract_size_chars": 5473,
-  "contract_size_bytes": 5503,
+  "source_hash": "ffb5ef572e01f88e",
+  "source_size_chars": 23847,
+  "contract_size_chars": 5594,
+  "contract_size_bytes": 5624,
   "budget_bytes": 8000,
   "within_budget": true,
-  "budget_usage_pct": 68.8,
+  "budget_usage_pct": 70.3,
   "truncated_to_budget": true,
   "preserved_sections": [
     "Checkpoint Protocol (MANDATORY)"
@@ -90,5 +90,5 @@
     "Completion Criteria (MANDATORY)"
   ],
   "dropped_sections": [],
-  "generated_at": "2026-04-25T14:11:39Z"
+  "generated_at": "2026-04-27T12:56:30Z"
 }

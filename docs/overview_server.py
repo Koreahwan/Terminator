@@ -241,7 +241,6 @@ WATCH_TARGETS = [
     ".claude/agents",
     ".claude/skills",
     ".claude/rules",
-    ".claude/rules-ctf",
     ".claude/hooks",
     ".github/workflows",
     ".mcp.json",

@@ -1,6 +1,6 @@
 # scope-auditor — Compact Contract
-# Source: .claude/agents/scope-auditor.md (hash: d10e8dfb8c3b6b48)
-# Generated: 2026-04-25 14:11:40 UTC
+# Source: .claude/agents/scope-auditor.md (hash: 09c77142da7b1ec2)
+# Generated: 2026-04-27 12:56:30 UTC
 
 # Scope Auditor Agent
 

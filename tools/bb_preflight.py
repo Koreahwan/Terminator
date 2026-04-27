@@ -3237,7 +3237,7 @@ def evidence_tier_check(submission_dir: str, json_output: bool = False) -> int:
     }
 
     # Check for PoC scripts
-    poc_patterns = ["poc_*.py", "exploit_*.py", "solve.py", "poc_*.sh", "test_*.py"]
+    poc_patterns = ["poc_*.py", "safe_poc*.py", "exploit_*.py", "poc_*.sh", "test_*.py"]
     for pattern in poc_patterns:
         if list(sub.glob(pattern)):
             signals["has_poc_script"] = True

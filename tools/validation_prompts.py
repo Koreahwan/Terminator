@@ -2,12 +2,12 @@
 """
 Terminator - Anti-Hallucination Validation Prompts
 
-Composable anti-hallucination prompts adapted for Terminator's multi-pipeline
-security agent system (CTF + Bug Bounty). Enforces evidence-based reasoning,
+Composable anti-hallucination prompts adapted for Terminator's retained
+bounty, client-pitch, and AI-security pipelines. Enforces evidence-based reasoning,
 prevents speculative claims, and calibrates severity to demonstrated impact.
 
 Inspired by NeuroSploit v3's anti-hallucination architecture, adapted for
-Terminator's critic/verifier/triager_sim agent pipeline.
+Terminator's critic and triager_sim review pipeline.
 
 Usage:
     # Get composed prompt for a context
@@ -44,7 +44,7 @@ ANTI_HALLUCINATION = """## ANTI-HALLUCINATION DIRECTIVE
 AI reasoning NEVER constitutes proof. You MUST NOT:
 - Infer a vulnerability exists based on theoretical analysis alone.
 - Claim "likely vulnerable" without concrete evidence from actual execution output.
-- Fabricate evidence not present in actual tool output, server response, or binary behavior.
+- Fabricate evidence not present in actual tool output, server response, source quote, or business workflow observation.
 - Report findings based on what "could happen" rather than what DID happen.
 - Treat pattern recognition as confirmation (seeing a function name != proving it is reachable).
 
@@ -52,8 +52,8 @@ RULE: If you cannot point to a specific string, value, address, behavioral chang
 output that proves the claim, the finding is INVALID. Your confidence in your own reasoning
 is NOT evidence. Only observable, reproducible outputs are evidence.
 
-For CTF: GDB output, r2 disassembly, actual exploit output = evidence. "The offset should be" = not evidence.
-For Bug Bounty: HTTP response body, captured headers, timing measurements = evidence. "The endpoint appears to" = not evidence."""
+For Bug Bounty: HTTP response body, captured headers, timing measurements, source code quotes, and safe workflow observations = evidence. "The endpoint appears to" = not evidence.
+For Client Pitch: passive exposure indicators are sales signals only. They are not confirmed vulnerabilities."""
 
 
 PROOF_OF_EXECUTION = """## PROOF OF EXECUTION (PoE) REQUIREMENTS
@@ -71,12 +71,6 @@ No proof = No finding. Every confirmed claim MUST have execution evidence:
 - CSRF: State-changing action verified (not just missing token).
 - Open Redirect: Location header points to attacker domain in 3xx response.
 
-### Binary/CTF PoE:
-- Buffer Overflow: Controlled register values shown in GDB (RIP/EIP overwritten with known pattern).
-- Info Leak: Actual leaked address captured and used in subsequent computation.
-- ROP Chain: Each gadget address verified to exist in binary/libc via r2/ROPgadget.
-- Heap Exploit: Allocation state verified in GDB, not assumed from code reading.
-
 ### Smart Contract PoE:
 - Fund Loss: Foundry fork test showing balance change with specific block number.
 - Access Control: Transaction from unauthorized address succeeds (cast send + receipt).
@@ -92,11 +86,6 @@ Skipping negative controls invalidates any finding. For every potential finding:
 2. Send an EMPTY value. Record the response.
 3. Compare: If the "attack" response is identical to benign/empty (same status, similar body length, same behavior),
    the observed behavior is NOT caused by your payload. It is generic application behavior.
-
-### Binary/CTF:
-1. Send normal/expected input. Record program behavior.
-2. Send attack input. Record program behavior.
-3. Difference must be specifically attributable to the attack input, not random behavior or ASLR.
 
 ### Smart Contract:
 1. Call with normal parameters. Record state change.
@@ -119,12 +108,6 @@ Severity inflation destroys credibility. Match severity to DEMONSTRATED impact:
 - CORS misconfiguration without credential access != High (Low/Medium)
 - Self-XSS != a vulnerability (attacker types in own browser)
 - Open redirect alone != High (phishing vector -> Medium)
-
-### CTF Severity (applies to confidence in exploit reliability):
-- "Offset should be X" without GDB verification = LOW confidence
-- Gadget found by grep but not verified in actual execution context = MEDIUM confidence
-- One successful local execution = MEDIUM confidence (ASLR, environment differences)
-- 3+ consistent local executions = HIGH confidence
 
 ### Smart Contract Severity:
 - Code path exists but config is zero/disabled in production = Low (latent bug, not exploitable)
@@ -159,7 +142,7 @@ Every finding receives a confidence score. Apply HONESTLY:
   50-69: NEEDS VERIFICATION — do not approve without additional evidence
   < 50: REJECT — insufficient evidence, finding is not substantiated
 
-RULE: Score < 70 = REJECT for bug bounty submissions. Score < 50 = REJECT for CTF verification."""
+RULE: Score < 70 = REJECT for bug bounty submissions. Client-pitch items below 70 must remain passive risk indicators."""
 
 
 OPERATIONAL_HUMILITY = """## OPERATIONAL HUMILITY
@@ -340,14 +323,6 @@ def compute_confidence(
 
 # Map context -> list of prompt constants to include
 CONTEXT_MAP: Dict[str, List[str]] = {
-    # CTF: verifier checking solve.py before remote execution
-    "ctf_verification": [
-        "ANTI_HALLUCINATION",
-        "PROOF_OF_EXECUTION",
-        "NEGATIVE_CONTROLS",
-        "CONFIDENCE_SCORE",
-        "OPERATIONAL_HUMILITY",
-    ],
     # Bug Bounty: active testing phase
     "bb_testing": [
         "ANTI_HALLUCINATION",
@@ -357,7 +332,7 @@ CONTEXT_MAP: Dict[str, List[str]] = {
         "ACCESS_CONTROL_INTELLIGENCE",
         "OPERATIONAL_HUMILITY",
     ],
-    # Bug Bounty: critic/verifier reviewing findings
+    # Bug Bounty: critic/triager reviewing findings
     "bb_verification": [
         "ANTI_HALLUCINATION",
         "PROOF_OF_EXECUTION",
@@ -382,7 +357,7 @@ CONTEXT_MAP: Dict[str, List[str]] = {
         "OPERATIONAL_HUMILITY",
         "CLIENT_PITCH_BOUNDARY",
     ],
-    # General exploit/solve.py review (critic reviewing chain/solver output)
+    # General exploit/PoC review
     "exploit_review": [
         "ANTI_HALLUCINATION",
         "PROOF_OF_EXECUTION",

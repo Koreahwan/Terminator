@@ -1,6 +1,6 @@
 # threat-modeler — Compact Contract
 # Source: .claude/agents/threat-modeler.md (hash: 26934288ad189608)
-# Generated: 2026-04-25 14:11:41 UTC
+# Generated: 2026-04-27 12:56:30 UTC
 
 # Threat Modeler — Trust Boundary & Invariant Discovery Agent
 

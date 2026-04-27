@@ -55,16 +55,12 @@ COMBINED="${SUBAGENT_TYPE} ${PROMPT}"
 # Map agent type to GraphRAG query
 QUERY=""
 
-if echo "$COMBINED" | grep -qiE 'reverser|trigger|chain|solver|ctf-solver|pwn|exploit|heap|rop|overflow|canary|got|plt|ret2|shellcode|gadget'; then
-    QUERY="binary exploitation techniques, vulnerability primitives, heap exploitation, ROP chains, pwn CTF patterns, buffer overflow, format string, use-after-free"
-elif echo "$COMBINED" | grep -qiE 'analyst|scout|recon|recon-scanner|mobile-analyst|web-tester|bounty|submission|owasp|cve|sqli|xss|ssrf|injection|web'; then
+if echo "$COMBINED" | grep -qiE 'analyst|scout|recon|recon-scanner|mobile-analyst|web-tester|bounty|submission|owasp|cve|sqli|xss|ssrf|injection|web'; then
     QUERY="bug bounty findings, common rejection reasons, OOS patterns, successful submissions, CVE patterns, web vulnerability techniques, OWASP top 10"
 elif echo "$COMBINED" | grep -qiE 'exploiter|reporter|critic|target[-_]evaluator|triager[-_]sim|source-auditor|poc|proof.of.concept|exploit.dev'; then
     QUERY="exploit development techniques, PoC patterns, proof of concept quality, successful exploits, exploit chain assembly"
-elif echo "$COMBINED" | grep -qiE 'fw[-_](profiler|inventory|surface|validator)|firmware|embedded|router|cgi|nvram|httpd|upnpd|arm|mips'; then
-    QUERY="firmware analysis, CGI vulnerabilities, embedded device security, ARM binary exploitation, NVRAM injection, command injection in embedded systems"
 elif echo "$COMBINED" | grep -qiE 'crypto|cipher|hash|aes|rsa|prng|random|z3|sage'; then
-    QUERY="cryptographic vulnerabilities, cipher attacks, hash collisions, PRNG weaknesses, crypto CTF techniques"
+    QUERY="cryptographic vulnerabilities, cipher attacks, hash collisions, PRNG weaknesses, authentication token weaknesses"
 elif echo "$COMBINED" | grep -qiE 'web3|defi|smart.contract|solidity|evm|slither|foundry|immunefi'; then
     QUERY="DeFi vulnerabilities, smart contract security, EVM exploitation, reentrancy, price manipulation, flash loan attacks, Immunefi submission patterns"
 fi

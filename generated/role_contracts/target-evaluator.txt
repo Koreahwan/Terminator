@@ -1,6 +1,6 @@
 # target-evaluator — Compact Contract
 # Source: .claude/agents/target_evaluator.md (hash: 0647ac17eee51ee7)
-# Generated: 2026-04-25 14:11:41 UTC
+# Generated: 2026-04-27 12:56:30 UTC
 
 # Target Evaluator Agent
 ## IRON RULES (NEVER VIOLATE)

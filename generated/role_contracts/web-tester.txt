@@ -1,6 +1,6 @@
 # web-tester — Compact Contract
-# Source: .claude/agents/web-tester.md (hash: 410bba9144162b9f)
-# Generated: 2026-04-25 14:11:41 UTC
+# Source: .claude/agents/web-tester.md (hash: 5375be14a2f37e6c)
+# Generated: 2026-04-27 12:56:31 UTC
 
 # Web Tester Agent
 ## Personality

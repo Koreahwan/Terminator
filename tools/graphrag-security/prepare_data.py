@@ -178,13 +178,13 @@ def phase1(stats: dict) -> None:
                     report_count += 1
         print(f"  targets (reports): {report_count} files")
 
-        # --- targets/*/reversal_map.md and chain_report.md ---
+        # --- retained bounty/client-pitch analysis artifacts ---
         artifact_count = 0
         for target_dir in sorted(targets_dir.iterdir()):
             if not target_dir.is_dir():
                 continue
-            for artifact_name in ["reversal_map.md", "chain_report.md",
-                                    "critic_review.md", "trigger_report.md"]:
+            for artifact_name in ["endpoint_map.md", "high_value_targets.md",
+                                    "raw_endpoint_review.md", "critic_review.md"]:
                 candidate = target_dir / artifact_name
                 if candidate.exists():
                     process_file(candidate, "analysis_artifact", stats)

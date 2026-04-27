@@ -14,51 +14,51 @@ DECISION: [action + brief rationale tying to observations]
 
 ## Examples
 
-### Example 1: Exploit Strategy Selection
+### Example 1: Access-Control Candidate Selection
 ```
 OBSERVED:
-- Binary has partial RELRO, no PIE, 4GB PIE not used
-- Stack canary present, checked via checksec
-- Leak gadgets exist in .text (confirmed by ROPgadget grep)
+- GET /api/users/{id}/invoices appears in authenticated crawl
+- Path contains an object identifier and financial-data keyword
+- Same resource family also exposes /api/users/me/invoices
 
 INFERRED:
-- Canary will block stack smash directly
-- ASLR on heap/stack, but code base fixed
-- Leak → canary overwrite is viable path
+- Object-level authorization may be required
+- This is a high-value manual IDOR/BOLA candidate
+- Business impact could include billing data exposure
 
 ASSUMED:
-- Leak gadget ROP will work (no validation yet)
-- Canary leak doesn't require bruteforce
+- The `{id}` value maps to a user-owned object
+- Two authorized test accounts can be used after scope approval
 
 RISK:
-- If leak requires multiple attempts, might timeout on remote
-- If canary check happens at exit (not return), overwrite fails
+- Endpoint may enforce ownership correctly
+- Client-pitch mode cannot actively test this
 
 DECISION:
-Attempt leak + overwrite chain. If fails, switch to heap spray / vtable overwrite.
+Queue for bounty manual verification with safe account-pair test; in client-pitch mode describe as an access-control review indicator only.
 ```
 
 ### Example 2: Vulnerability Classification
 ```
 OBSERVED:
-- User input passed to strcpy() without bounds checking
-- Function is exposed via HTTP endpoint
-- Attacker can control 200+ byte input
+- POST /api/billing/refund is present in endpoint inventory
+- Method is state-changing
+- Path contains billing/refund keywords
 
 INFERRED:
-- Stack overflow is likely exploitable (auth not required per endpoint analysis)
-- Program crash reproducible with crafted input
+- Business-logic risk is high if workflow state is not enforced
+- Automated execution is unsafe because the endpoint may move money or alter account state
 
 ASSUMED:
-- No stack canary (not confirmed yet)
-- No input validation upstream
+- Refund requires auth and valid order context
+- Program rules allow manual workflow testing only after scope confirmation
 
 RISK:
-- Input might be filtered at HTTP layer (validation framework)
-- Stack layout might differ on target vs. test env
+- Accidental state change or financial impact
+- False positive if endpoint is internal-only or properly protected
 
 DECISION:
-Spawn trigger agent to reproduce crash. If crashes → chain agent. If filters block → analyze filtering logic.
+Do not auto-run. Put in `manual_test_queue.md` with safe preconditions, negative controls, and explicit user approval requirement.
 ```
 
 ## Usage Rules
@@ -72,11 +72,11 @@ Spawn trigger agent to reproduce crash. If crashes → chain agent. If filters b
 ## Anti-Pattern (AVOID)
 
 ```
-OBSERVED: Binary runs
-INFERRED: Exploit will work
+OBSERVED: Endpoint returns 200
+INFERRED: Auth bypass exists
 ASSUMED: ???
 RISK: ???
-DECISION: Go ahead with exploit
+DECISION: Submit finding
 
 ❌ This is backwards. Decision pre-made, framework used as justification cover.
 ```
@@ -84,10 +84,10 @@ DECISION: Go ahead with exploit
 ## Correct Anti-Pattern Rewrite
 
 ```
-OBSERVED: Binary crashes on input longer than 256 bytes
-INFERRED: Stack buffer overflow likely
-ASSUMED: Canary not present (untested); exploit will work first try
-RISK: Canary present → need leak first; ROP gadgets might not chain
+OBSERVED: Endpoint returns 200 to an authenticated user
+INFERRED: Endpoint exists and current user can access at least one object
+ASSUMED: Other users' objects may be accessible (untested)
+RISK: Ownership checks may block cross-user access; client-pitch mode cannot test this
 
-DECISION: reverser → verify canary via GDB → decide chain vs leak-first strategy
+DECISION: analyst → design two-account safe verification; reporter must keep status as candidate until evidence exists
 ```

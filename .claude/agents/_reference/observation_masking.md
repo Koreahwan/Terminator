@@ -15,38 +15,38 @@ Apply masking rules to SendMessage outputs. Agents must respect token budgets wh
 ### Small Output (< 100 lines) — Inline
 
 ```
-I found 3 candidate gadgets:
-- ROP chain #1: 0x400500 → 0x400600 → 0x400700
-- Stack leak: printf @ 0x400800
-- Canary bypass: heap spray method
+I found 3 high-value endpoint candidates:
+- POST /api/billing/refund -> business logic + money movement
+- GET /api/users/{id}/invoices -> possible IDOR/BOLA
+- GET /api/v0/export -> legacy data export review
 
-Next: trigger agent to test chain.
+Next: analyst reviews access-control and workflow context.
 ```
 
 ### Medium Output (100-500 lines) — Key + File
 
 ```
-Found 47 matching gadgets across .text and .rodata:
+Found 47 endpoints across authenticated crawl and passive sources:
 
 [KEY FINDINGS]
-- ROP chain viable: pop rdi; ret (0x400512) + syscall gadget (0x400620)
-- Stack canary required: detected via checksec
-- Mitigation bypass: heap spray method (tested in similar binary)
+- 6 billing/account endpoints scored 8+
+- 9 low-score endpoints kept in raw review because they are state-changing
+- 3 endpoints returned 401/403 but expose protected resource names
 
 [FULL ANALYSIS]
-Saved to: /absolute/path/to/gadget_analysis.md
+Saved to: /absolute/path/to/high_value_targets.md
 
-Next: chain agent will reference the full gadget list.
+Next: safe test planner builds manual verification steps.
 ```
 
 ### Large Output (500+ lines) — Masking Required
 
 ```
-[Obs elided. Key: "Binary has partial RELRO (NX on stack + .got.plt writable), no PIE. Found 12 ROP gadgets including pop-rdi-ret. Leak gadget: printf @ libc+0x640. Canary detected. Recommend heap spray or fake stack chain."]
+[Obs elided. Key: "Endpoint inventory preserved 312 raw URLs. High-value queue contains billing refund, invoice access, admin invite, and legacy export candidates; raw-review queue keeps ambiguous POST /api/process and /api/v0/sync."]
 
-Full analysis: /absolute/path/to/binary_analysis.md
+Full analysis: /absolute/path/to/attack_surface.json
 
-Next: trigger agent receives path to full reversal_map.md
+Next: analyst receives high_value_targets.md and raw_endpoint_review.md
 ```
 
 **Format**: `[Obs elided. Key: "<1-2 sentence summary>"]`
@@ -55,7 +55,7 @@ Next: trigger agent receives path to full reversal_map.md
 
 - **Always use absolute paths** when referencing saved files
 - **Confirm file exists** before referencing
-- **Archive location**: Same dir as task (CTF = challenge_dir/, BB = targets/<target>/)
+- **Archive location**: Same dir as task (`targets/<target>/` or the active report directory)
 - **Naming**: descriptive + timestamp if multiple rounds
   ```
   gadget_analysis_round1.md
@@ -69,20 +69,20 @@ Always include `[KNOWLEDGE CONTEXT]` and `[OBSERVATIONS]` sections:
 
 ```
 [KNOWLEDGE CONTEXT]
-1. [ReturnToLibc] — Previous solutions use libc leak + ROP chain method
-2. [HeapExploit] — Heap spray variant for PIE bypass
+1. [IDOR/BOLA] — Object identifiers in user, order, invoice, and workspace APIs need ownership checks
+2. [BusinessLogic] — Billing, refund, invite, and role-change flows require state-machine review
 
 [OBSERVATIONS]
-[Obs elided. Key: "Binary full RELRO, canary present, 12 ROP gadgets found in .text, leak via printf @ offset +0x640."]
-Full details: /path/to/reversal_map.md (47 lines)
+[Obs elided. Key: "GET /api/users/{id}/invoices and POST /api/billing/refund are high-value candidates. /api/v0/export is raw-review due legacy version + export keyword."]
+Full details: /path/to/high_value_targets.md (47 lines)
 
 [CRITICAL FACTS]
-- Base address: 0x400000 (PIE off)
-- Canary check at __stack_chk_fail
-- Leak primitive: printf(user_input)
+- Scope: *.example.com web/API only
+- State-changing endpoints are manual review only
+- Client pitch mode can use passive indicators only
 
 [NEXT ACTION]
-trigger agent: reproduce crash with 300-byte input, locate canary pattern
+analyst: map auth, object ownership, tenant boundary, and safe verification plan
 ```
 
 ## Never Do

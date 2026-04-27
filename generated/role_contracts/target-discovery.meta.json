@@ -1,8 +1,8 @@
 {
   "role": "target-discovery",
   "source_file": ".claude/agents/target-discovery.md",
-  "source_hash": "35482d43cba66d6f",
-  "source_size_chars": 2628,
+  "source_hash": "e9f5faa2b5df4f64",
+  "source_size_chars": 2643,
   "contract_size_chars": 1946,
   "contract_size_bytes": 1948,
   "budget_bytes": 8000,
@@ -20,5 +20,5 @@
     "Output Contract"
   ],
   "dropped_sections": [],
-  "generated_at": "2026-04-25T14:11:40Z"
+  "generated_at": "2026-04-27T12:56:30Z"
 }

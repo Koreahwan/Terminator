@@ -26,10 +26,10 @@ python3 "$COORD_CLI" ensure-session \
     --lead-mode "auto" \
     --status "active" >/dev/null 2>&1 || true
 
-# 1. 활성 챌린지/타겟 디렉토리 탐색
+# 1. 활성 타겟/리포트 디렉토리 탐색
 CHECKPOINT_SUMMARY=""
 
-# CTF 챌린지 checkpoint 수집
+# Retained-mode checkpoint 수집
 for cp in $(find "$PROJECT_DIR" -maxdepth 4 -name "checkpoint.json" -newer "$PROJECT_DIR/CLAUDE.md" 2>/dev/null | head -5); do
     STATUS=$(jq -r '.status // "unknown"' "$cp" 2>/dev/null || echo "unknown")
     AGENT=$(jq -r '.agent // "unknown"' "$cp" 2>/dev/null || echo "unknown")
@@ -58,7 +58,7 @@ done
 
 # 3. 최근 산출물 파일 목록
 RECENT_ARTIFACTS=""
-for f in $(find "$CWD" -maxdepth 2 \( -name "reversal_map.md" -o -name "trigger_report.md" -o -name "chain_report.md" -o -name "solve.py" -o -name "critic_review.md" -o -name "vulnerability_candidates.md" -o -name "recon_report.json" \) -newer "$PROJECT_DIR/CLAUDE.md" 2>/dev/null | head -10); do
+for f in $(find "$CWD" -maxdepth 2 \( -name "endpoint_map.md" -o -name "high_value_targets.md" -o -name "raw_endpoint_review.md" -o -name "vulnerability_candidates.md" -o -name "safe_pocs.md" -o -name "manual_test_queue.md" -o -name "critic_review.md" -o -name "triage_verdict.md" -o -name "recon_report.json" \) -newer "$PROJECT_DIR/CLAUDE.md" 2>/dev/null | head -10); do
     RECENT_ARTIFACTS="${RECENT_ARTIFACTS}
   - ${f##*/} ($(dirname "$f" | xargs basename))"
 done

@@ -5,13 +5,14 @@
 - `tools/`는 재사용 가능한 보안 도구 모음입니다 (`knowledge_indexer.py`, `knowledge_fetcher.py`, `mitre_mapper.py`, `bb_preflight.py`, `web_chain_engine.py`, `report_scorer.py`, `report_scrubber.py`, `evidence_manifest.py`).
 - `web/`는 대시보드(FastAPI) 영역입니다 (`app.py`, `routes/`, `services/`, `static/index.html`).
 - `bridge/`는 정책 검증 보조 코드이며 테스트는 `bridge/tests/`에 둡니다.
-- `tests/benchmarks/`는 파이프라인 성능/정확도 벤치마크, `tests/wargames/`는 챌린지 픽스처를 관리합니다.
+- `tests/benchmarks/`는 파이프라인 성능/정확도 벤치마크를 관리합니다.
 - `knowledge/`, `reports/`, `targets/`는 산출물 비중이 큰 디렉터리이므로 불필요한 생성 파일 커밋을 피하세요.
 
 ## 빌드, 테스트, 개발 명령어
 - `./setup.sh --python --tools` — 기본 로컬 의존성 설치.
-- `./terminator.sh ctf /path/to/challenge.zip` — CTF 자율 실행.
-- `./terminator.sh bounty https://target.com` — 버그바운티 모드 실행.
+- `./terminator.sh bounty https://target.com` — 기본 `scope-first-hybrid` 역할 분담으로 버그바운티 모드 실행.
+- `./terminator.sh ai-security https://app.example.com "LLM agent workflow"` — AI/LLM 보안 모드 실행.
+- `./terminator.sh client-pitch https://company.com` — passive 영업 리스크 요약 생성.
 - `cd web && pip install -r requirements.txt && uvicorn app:app --reload --port 3000` — 대시보드 로컬 실행.
 - `pytest bridge/tests -q` — 정책 단위 테스트 실행.
 - `python3 tests/benchmarks/benchmark.py --all` — 벤치마크 전체 실행.

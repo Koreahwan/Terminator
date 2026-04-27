@@ -939,7 +939,7 @@ def build_parser():
     # log-run
     lr = db_sub.add_parser("log-run", help="Record an agent run")
     lr.add_argument("--session", required=True, help="Session ID")
-    lr.add_argument("--agent", required=True, help="Agent role (e.g. reverser, chain)")
+    lr.add_argument("--agent", required=True, help="Agent role (e.g. scout, analyst)")
     lr.add_argument("--target", required=True, help="Target name")
     lr.add_argument("--status", default="RUNNING", help="Run status (default: RUNNING)")
     lr.add_argument("--duration", type=int, dest="duration", help="Duration in seconds")

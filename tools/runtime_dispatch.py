@@ -303,7 +303,6 @@ ROLE_EXPECTED_ARTIFACTS: dict[str, list[str]] = {
     "target-evaluator": ["target_assessment.md", "checkpoint.json"],
     "exploiter": ["poc.py", "poc_output.txt", "strengthening_report.md", "checkpoint.json"],
     "critic": ["critic_review.md"],
-    "verifier": ["verification_report.md", "checkpoint.json"],
     "triager-sim": ["triage_verdict.md"],
 }
 

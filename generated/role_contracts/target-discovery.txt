@@ -1,6 +1,6 @@
 # target-discovery — Compact Contract
-# Source: .claude/agents/target-discovery.md (hash: 35482d43cba66d6f)
-# Generated: 2026-04-25 14:11:40 UTC
+# Source: .claude/agents/target-discovery.md (hash: e9f5faa2b5df4f64)
+# Generated: 2026-04-27 12:56:30 UTC
 
 # Target Discovery Agent
 
