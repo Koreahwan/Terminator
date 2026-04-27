@@ -339,7 +339,7 @@ evidence, URLs, code blocks, commands, numbers, hashes, file paths, and CVSS.
 Orchestrator spawns 3 agents in ONE message (parallel tool calls):
   Agent(critic,  model=opus)   → fact-check (CWE, dates, names, paths) + Feature Check + Driver/Library Match
   Agent(architect, model=opus) → consistency (report-PoC-evidence alignment)
-  Agent(codex:adversarial-review) → GPT-5.4 threat model realism / CVSS / evidence gaps / AI Slop
+  Agent(codex:adversarial-review) → GPT-5.5 threat model realism / CVSS / evidence gaps / AI Slop
 ```
 
 **KILL-trumps-all merge logic** (Orchestrator 직접 실행):

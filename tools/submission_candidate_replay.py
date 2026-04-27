@@ -417,7 +417,7 @@ def main() -> int:
     parser.add_argument("--profiles", nargs="+", default=["gpt-only"], choices=sorted(PROFILE_BACKEND))
     parser.add_argument("--packages", nargs="*", help="Specific baseline package names to replay")
     parser.add_argument("--limit", type=int, default=0)
-    parser.add_argument("--model", default="gpt-5.4")
+    parser.add_argument("--model", default="gpt-5.5")
     parser.add_argument("--claude-model", default="sonnet")
     parser.add_argument("--timeout", type=int, default=240)
     parser.add_argument("--max-files", type=int, default=8)

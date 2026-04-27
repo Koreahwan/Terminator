@@ -61,7 +61,7 @@ class BackendAgentHandler:
         value = (model or "").strip()
         lowered = value.lower()
         if not value or lowered in CODEX_SKIP_MODELS or lowered.startswith("claude"):
-            return os.environ.get("TERMINATOR_CODEX_MODEL", "gpt-5.4")
+            return os.environ.get("TERMINATOR_CODEX_MODEL", "gpt-5.5")
         return value
 
     def _policy_for_role(self, role: str) -> dict:
@@ -147,7 +147,7 @@ class BackendAgentHandler:
             backend = "claude"
         default_model = self.ROLE_MODELS.get(backend, {}).get(role)
         if not default_model:
-            default_model = "gpt-5.4" if backend == "codex" else "sonnet"
+            default_model = "gpt-5.5" if backend == "codex" else "sonnet"
         model = policy.get("model") or node.model or default_model
         if backend == "codex":
             model = self._codex_model(model)

@@ -80,7 +80,7 @@ case "${1:-help}" in
         echo ""
         echo "  review <path>              Standard Codex code review"
         echo "  adversarial <path> [focus]  Adversarial design challenge review"
-        echo "  rescue <prompt>             Delegate task to GPT-5.4"
+        echo "  rescue <prompt>             Delegate task to GPT-5.5"
         echo "  status                      Show running/completed jobs"
         echo "  result [job-id]             Get job result"
         ;;

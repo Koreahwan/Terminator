@@ -144,7 +144,7 @@ def main() -> int:
     parser.add_argument("--backend", default="codex")
     parser.add_argument("--failover-to", default="none")
     parser.add_argument("--runtime-profile", default="gpt-only")
-    parser.add_argument("--model", default="gpt-5.4")
+    parser.add_argument("--model", default="gpt-5.5")
     parser.add_argument("--expected-text", default="TERMINATOR_BACKEND_RUNNER_CODEX_OK")
     parser.add_argument("--timeout", type=int, default=120)
     parser.add_argument("--work-dir", type=Path, default=PROJECT_ROOT)

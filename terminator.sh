@@ -270,7 +270,7 @@ backend_model() {
     return
   fi
   case "$backend" in
-    codex) printf '%s\n' "${TERMINATOR_CODEX_MODEL:-gpt-5.4}" ;;
+    codex) printf '%s\n' "${TERMINATOR_CODEX_MODEL:-gpt-5.5}" ;;
     hybrid) printf '%s\n' "${TERMINATOR_HYBRID_MODEL:-${TERMINATOR_CLAUDE_MODEL:-sonnet}}" ;;
     *) printf '%s\n' "${TERMINATOR_CLAUDE_MODEL:-sonnet}" ;;
   esac
@@ -1370,7 +1370,7 @@ PY
     echo "Environment:"
     echo "  TERMINATOR_MODEL         Shared default model override"
     echo "  TERMINATOR_CLAUDE_MODEL  Claude model override (default: sonnet)"
-    echo "  TERMINATOR_CODEX_MODEL   Codex model override (default: gpt-5.4)"
+    echo "  TERMINATOR_CODEX_MODEL   Codex model override (default: gpt-5.5)"
     echo "  TERMINATOR_PRIMARY_BACKEND  claude|codex|hybrid (default: hybrid)"
     echo "  TERMINATOR_RUNTIME_PROFILE  claude-only|gpt-only|scope-first-hybrid"
     echo "  TERMINATOR_FAILOVER_TO   Spare override (claude|codex|none, default: codex)"

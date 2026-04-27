@@ -10,16 +10,16 @@ profiles:
   gpt-only:
     defaults:
       backend: codex
-      model: gpt-5.4
+      model: gpt-5.5
     roles:
       target-discovery:
         model: gpt-5.5
       reporter:
-        model: gpt-5.4-mini
+        model: gpt-5.5
       scout:
-        model: gpt-5.4-mini
+        model: gpt-5.5
       recon-scanner:
-        model: gpt-5.4-mini
+        model: gpt-5.5
 
   scope-first-hybrid:
     defaults:
@@ -36,16 +36,16 @@ profiles:
         model: gpt-5.5
       scout:
         backend: codex
-        model: gpt-5.4
+        model: gpt-5.5
       recon-scanner:
         backend: codex
-        model: gpt-5.4
+        model: gpt-5.5
       source-auditor:
         backend: codex
-        model: gpt-5.4
+        model: gpt-5.5
       analyst:
         backend: codex
-        model: gpt-5.4
+        model: gpt-5.5
       scope-auditor:
         backend: claude
         model: claude-opus-4-6[1m]
@@ -57,27 +57,27 @@ profiles:
         model: claude-opus-4-6[1m]
       exploiter:
         backend: codex
-        model: gpt-5.4
+        model: gpt-5.5
         debate_mode: gpt-propose-claude-object-gpt-respond
       critic:
         backend: codex
-        model: gpt-5.4
+        model: gpt-5.5
         debate_mode: gpt-propose-claude-object-gpt-respond
       triager-sim:
         backend: codex
-        model: gpt-5.4
+        model: gpt-5.5
         debate_mode: gpt-propose-claude-object-gpt-respond
     pipeline_roles:
       ai_security:
         ai-recon:
           backend: codex
-          model: gpt-5.4
+          model: gpt-5.5
         analyst:
           backend: codex
-          model: gpt-5.4
+          model: gpt-5.5
         triager-sim:
           backend: codex
-          model: gpt-5.4
+          model: gpt-5.5
           debate_mode: gpt-propose-claude-object-gpt-respond
         reporter:
           backend: claude

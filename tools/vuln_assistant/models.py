@@ -73,3 +73,88 @@ class FindingCandidate:
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
+
+
+@dataclass
+class ObjectReference:
+    """Object reference signal found in a request surface."""
+
+    name: str
+    location: str
+    value_present: bool = False
+    confidence: int = 0
+    reason: str = ""
+    safely_replaceable: bool = False
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass
+class IdorCandidate:
+    """Passive IDOR/BOLA candidate derived from a SurfaceItem."""
+
+    method: str
+    url: str
+    path: str
+    params: list[str]
+    source: str
+    raw_rank: int
+    status_code: int | None
+    auth_hint: str
+    object_refs: list[ObjectReference]
+    risk_score: int
+    confidence_score: int
+    status: str
+    eligible_for_read_only_verification: bool
+    manual_review_only: bool
+    reasons: list[str] = field(default_factory=list)
+    review_bucket: str = "raw_review"
+
+    def endpoint(self) -> str:
+        return self.url or self.path or "/"
+
+    def to_dict(self) -> dict[str, Any]:
+        data = asdict(self)
+        data["object_refs"] = [ref.to_dict() for ref in self.object_refs]
+        return data
+
+
+@dataclass
+class ResponseFingerprint:
+    """Response metadata suitable for comparison without body storage."""
+
+    status_code: int
+    content_type: str
+    length_bucket: str
+    body_sha256_redacted: str
+    json_shape: Any
+    auth_error_like: bool
+    redirect_location_present: bool
+    response_class: str
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass
+class IdorVerificationResult:
+    """Safe verifier outcome. It never marks findings confirmed."""
+
+    candidate_endpoint: str
+    method: str
+    object_ref: str
+    verdict: str
+    signal_type: str
+    reasons: list[str]
+    baseline_a: ResponseFingerprint | None = None
+    baseline_b: ResponseFingerprint | None = None
+    cross_a_to_b: ResponseFingerprint | None = None
+    cross_b_to_a: ResponseFingerprint | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        data = asdict(self)
+        for key in ("baseline_a", "baseline_b", "cross_a_to_b", "cross_b_to_a"):
+            value = getattr(self, key)
+            data[key] = value.to_dict() if value else None
+        return data
