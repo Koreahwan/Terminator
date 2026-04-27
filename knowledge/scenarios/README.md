@@ -10,7 +10,6 @@ scenarios/
 ├── web/           # Web/API 버그바운티 패턴
 ├── web3/          # Smart contract / DeFi 패턴
 ├── ai/            # LLM / MCP agent 공격
-├── supplychain/   # 패키지/CI/CD
 ├── mobile/        # Android / iOS
 └── cloud/         # AWS / GCP / Azure / SaaS
 ```
@@ -56,12 +55,6 @@ scenarios/
 | Indirect prompt injection via RAG | [ai/indirect_prompt_injection_rag.md](ai/indirect_prompt_injection_rag.md) | Medium–High |
 | Agent memory / conversation exfil | [ai/agent_memory_exfil.md](ai/agent_memory_exfil.md) | High |
 | Multi-turn jailbreak chain | [ai/jailbreak_chain.md](ai/jailbreak_chain.md) | Medium |
-
-### Supply Chain (github security lab, sc-scanner)
-| 시나리오 | 파일 | 심각도 밴드 |
-|----------|------|-------------|
-| Dependency confusion (npm/pypi/maven) | [supplychain/dependency_confusion.md](supplychain/dependency_confusion.md) | High–Critical |
-| GitHub Actions third-party poisoning | [supplychain/github_actions_poisoning.md](supplychain/github_actions_poisoning.md) | Critical |
 
 ### Mobile (android/ios bounty)
 | 시나리오 | 파일 | 심각도 밴드 |
