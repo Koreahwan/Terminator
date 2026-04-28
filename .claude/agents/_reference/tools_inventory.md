@@ -171,7 +171,7 @@ cat ~/PayloadsAllTheThings/"<Vuln Type>"/README.md | head -100
 
 ## Knowledge Search (MCP + CLI)
 
-### knowledge-fts MCP (265K+ documents, 6 tables)
+### knowledge-fts MCP (240K+ documents, 8 FTS tables)
 ```
 # Load MCP tools first
 ToolSearch("knowledge-fts")
@@ -185,14 +185,14 @@ exploit_search("<service version or CVE>")
 # Search past CTF writeups
 challenge_search("<similar challenge>")
 
-# Full-text search across all 6 tables with cross-table ranking
+# Full-text search across all indexed tables with cross-table ranking
 search_all("<query>")
 
 # Get specific document content
 get_technique_content("<path>")
 ```
 
-**Tables**: techniques, external_techniques, exploitdb (47K), nuclei (12K), poc_github (8K), trickest_cve (155K)
+**Tables**: techniques (typed internal docs), external_techniques, exploitdb (47K), nuclei (12K), poc_github (18K), trickest_cve (155K), web_articles, triage_objections
 
 **Search tips**:
 - Abbreviations auto-expand: UAF, IDOR, SSRF, RCE, BOF, XSS, CSRF, LFI, RFI, LPE, ROP, BOLA, JWT, etc.
@@ -221,7 +221,7 @@ mcp__graphrag-security__knowledge_global
 ```
 
 ### Query Best Practices
-- **Use `smart_search` as default** — auto-relaxes queries when exact AND match returns 0 results
+- **Use `routed_search(role, query, phase, program)` as default** — use broad `smart_search` only when routed results are thin
 - **2-3 keywords max** — `"QNAP buffer overflow"` not `"QNAP QTS wfm2_save_file buffer overflow strcpy CVE-2024"`
 - **Generic vuln type first** — `"NAS command injection"` > `"QNAP wfm2_save_file strcpy overflow"`
 - **Abbreviations auto-expand** — uaf, bof, sqli, ssrf, toctou, xxe, ssti, idor, rce, lpe, cmdinjection, etc.

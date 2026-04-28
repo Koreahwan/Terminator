@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Knowledge FTS5 MCP Server — BM25 search over 265K+ security documents.
+"""Knowledge FTS5 MCP Server — BM25 search over security documents.
 
 Tables indexed:
   - techniques:          internal knowledge/techniques/ + knowledge/challenges/
@@ -9,6 +9,7 @@ Tables indexed:
   - poc_github:          8K+ CVE PoC repos
   - trickest_cve:        155K+ CVE entries with products, CWE, PoC URLs
   - web_articles:        Crawled security writeups and blog posts
+  - triage_objections:   Local rejection/KILL reasons and triage feedback
 """
 import os
 import re as _re
@@ -72,6 +73,36 @@ def _fmt_snippet(text: str, max_chars: int = 200) -> str:
     return text[:max_chars]
 
 
+def _fts_query_variants(query: str) -> list[str]:
+    """Build safe FTS5 query variants for routed searches.
+
+    `escape_fts5()` expands acronyms such as IDOR to their long form. That is
+    useful for broad recall, but in a multi-term query it can accidentally drop
+    the acronym token itself. Keep a literal-token AND variant as a fallback so
+    route-specific searches do not miss documents titled with the acronym.
+    """
+    from knowledge_indexer import escape_fts5
+
+    variants: list[str] = []
+    escaped = escape_fts5(query)
+    if escaped.strip():
+        variants.append(escaped)
+
+    words = _re.findall(r"[\w][\w\-]*[\w]|[\w]+", query)
+    if words:
+        literal = " ".join(f'"{w}"' for w in words)
+        if literal.strip():
+            variants.append(literal)
+
+    deduped = []
+    seen = set()
+    for variant in variants:
+        if variant not in seen:
+            deduped.append(variant)
+            seen.add(variant)
+    return deduped
+
+
 def _snippet_search(query: str, table: str, category: str = "", limit: int = 5) -> list[dict]:
     """Search with FTS5 snippet() for token-efficient results.
 
@@ -79,8 +110,8 @@ def _snippet_search(query: str, table: str, category: str = "", limit: int = 5) 
     instead of full 'content' field. Saves 80%+ tokens per result.
     """
     from knowledge_indexer import escape_fts5
-    escaped = escape_fts5(query)
-    if not escaped.strip():
+    variants = _fts_query_variants(query)
+    if not variants:
         return []
 
     weights = _indexer.BM25_WEIGHTS.get(table, ())
@@ -95,24 +126,287 @@ def _snippet_search(query: str, table: str, category: str = "", limit: int = 5) 
         fetch_limit = limit * 3
         # snippet(table, col_idx=-1, open, close, ellipsis, max_tokens)
         snippet_expr = f"snippet({table}, -1, '>>>', '<<<', '...', 64)"
-        if category:
-            cat_escaped = escape_fts5(category)
-            sql = (f"SELECT *, {snippet_expr} as snippet, {rank_expr} as rank "
-                   f"FROM {table} WHERE {table} MATCH ? AND category MATCH ? "
-                   f"ORDER BY rank LIMIT ?")
-            cur = conn.execute(sql, (escaped, cat_escaped, fetch_limit))
-        else:
-            sql = (f"SELECT *, {snippet_expr} as snippet, {rank_expr} as rank "
-                   f"FROM {table} WHERE {table} MATCH ? ORDER BY rank LIMIT ?")
-            cur = conn.execute(sql, (escaped, fetch_limit))
-        results = [dict(row) for row in cur.fetchall()]
-        results = _indexer._dedup_results(results)[:limit]
+        results = []
+        for variant in variants:
+            if category:
+                cat_escaped = escape_fts5(category)
+                sql = (f"SELECT *, {snippet_expr} as snippet, {rank_expr} as rank "
+                       f"FROM {table} WHERE {table} MATCH ? AND category MATCH ? "
+                       f"ORDER BY rank LIMIT ?")
+                cur = conn.execute(sql, (variant, cat_escaped, fetch_limit))
+            else:
+                sql = (f"SELECT *, {snippet_expr} as snippet, {rank_expr} as rank "
+                       f"FROM {table} WHERE {table} MATCH ? ORDER BY rank LIMIT ?")
+                cur = conn.execute(sql, (variant, fetch_limit))
+            results.extend(dict(row) for row in cur.fetchall())
+            results = _indexer._dedup_results(results)
+            if len(results) >= limit:
+                break
+        results = results[:limit]
     except Exception as e:
         print(f"Snippet search error: {e}", file=_import_sys().stderr)
         results = []
     finally:
         conn.close()
     return results
+
+
+def _triage_snippet_search(query: str, program: str = "", limit: int = 10) -> list[dict]:
+    """Search triage_objections, optionally filtering the program column."""
+    from knowledge_indexer import escape_fts5
+    variants = _fts_query_variants(query)
+    if not variants:
+        return []
+
+    conn = _indexer._connect()
+    try:
+        fetch_limit = limit * 3
+        snippet_expr = "snippet(triage_objections, -1, '>>>', '<<<', '...', 64)"
+        rank_expr = "bm25(triage_objections, 10.0, 1.0, 3.0, 3.0, 5.0, 2.0)"
+        results = []
+        for variant in variants:
+            if program:
+                sql = (
+                    f"SELECT *, {snippet_expr} as snippet, {rank_expr} as rank "
+                    "FROM triage_objections "
+                    "WHERE triage_objections MATCH ? AND lower(program) = ? "
+                    "ORDER BY rank LIMIT ?"
+                )
+                cur = conn.execute(sql, (variant, program.lower(), fetch_limit))
+            else:
+                sql = (
+                    f"SELECT *, {snippet_expr} as snippet, {rank_expr} as rank "
+                    "FROM triage_objections WHERE triage_objections MATCH ? "
+                    "ORDER BY rank LIMIT ?"
+                )
+                cur = conn.execute(sql, (variant, fetch_limit))
+            results.extend(dict(row) for row in cur.fetchall())
+            results = _indexer._dedup_results(results)
+            if len(results) >= limit:
+                break
+        return results[:limit]
+    except Exception as e:
+        print(f"Triage search error: {e}", file=_import_sys().stderr)
+        return []
+    finally:
+        conn.close()
+
+
+def _filtered_snippet_search(
+    query: str,
+    table: str,
+    *,
+    sources: list[str] | None = None,
+    categories: list[str] | None = None,
+    limit: int = 5,
+) -> list[dict]:
+    """Snippet search with post-filtering for routing profiles.
+
+    FTS5 stores source/source_repo/category fields differently per table. Pull a
+    wider candidate set and filter in Python so routing remains robust across
+    old DB builds and UNINDEXED columns.
+    """
+    variants = _fts_query_variants(query)
+    if not variants:
+        return []
+
+    sources_l = {s.lower() for s in (sources or [])}
+    categories_l = {c.lower() for c in (categories or [])}
+    weights = _indexer.BM25_WEIGHTS.get(table, ())
+    rank_expr = f"bm25({table}, {', '.join(str(w) for w in weights)})" if weights else "rank"
+    snippet_expr = f"snippet({table}, -1, '>>>', '<<<', '...', 64)"
+
+    conn = _indexer._connect()
+    try:
+        rows = []
+        for variant in variants:
+            where = [f"{table} MATCH ?"]
+            params: list[str | int] = [variant]
+
+            source_col = "source_repo" if table == "external_techniques" else "source"
+            if sources_l:
+                placeholders = ", ".join("?" for _ in sources_l)
+                where.append(f"lower({source_col}) IN ({placeholders})")
+                params.extend(sorted(sources_l))
+            if categories_l:
+                placeholders = ", ".join("?" for _ in categories_l)
+                where.append(f"lower(category) IN ({placeholders})")
+                params.extend(sorted(categories_l))
+
+            params.append(max(limit * 6, 20))
+            sql = (
+                f"SELECT *, {snippet_expr} as snippet, {rank_expr} as rank "
+                f"FROM {table} WHERE {' AND '.join(where)} ORDER BY rank LIMIT ?"
+            )
+            cur = conn.execute(sql, params)
+            rows.extend(dict(row) for row in cur.fetchall())
+            rows = _indexer._dedup_results(rows)
+            if len(rows) >= limit:
+                break
+    except Exception as e:
+        print(f"Filtered search error: {e}", file=_import_sys().stderr)
+        rows = []
+    finally:
+        conn.close()
+
+    return _indexer._dedup_results(rows)[:limit]
+
+
+ROUTING_PROFILES = {
+    "target-evaluator": {
+        "priority": [
+            "program rules and scope facts",
+            "triage_objections and accepted/rejected history",
+            "decision records and prior submissions",
+        ],
+        "avoid": ["raw exploit/CVE noise unless a known duplicate check is needed"],
+        "sections": [
+            {"label": "Triage Memory", "kind": "triage", "limit": 3},
+            {"label": "Decisions/Submissions", "kind": "internal", "sources": ["decisions", "submissions", "knowledge_root"], "limit": 3},
+            {"label": "Technique Context", "kind": "internal", "sources": ["techniques", "scenarios"], "limit": 2},
+        ],
+    },
+    "scout": {
+        "priority": ["attack-surface scenarios", "technique references", "known CVE/exploit signals"],
+        "avoid": ["submission style examples during discovery"],
+        "sections": [
+            {"label": "Scenarios/Protocol Checklists", "kind": "internal", "sources": ["scenarios", "protocol_vulns_index"], "limit": 3},
+            {"label": "Techniques", "kind": "internal", "sources": ["techniques"], "limit": 2},
+            {"label": "Known Exploits", "kind": "exploit", "limit": 3},
+        ],
+    },
+    "analyst": {
+        "priority": ["scenario checklists", "protocol-specific vulnerability classes", "external technique references"],
+        "avoid": ["report templates and prior submissions until a candidate exists"],
+        "sections": [
+            {"label": "Scenarios/Protocol Checklists", "kind": "internal", "sources": ["scenarios", "protocol_vulns_index"], "limit": 4},
+            {"label": "Internal Techniques", "kind": "internal", "sources": ["techniques"], "limit": 2},
+            {"label": "External Techniques", "kind": "external", "limit": 2},
+        ],
+    },
+    "ai-recon": {
+        "priority": ["OWASP/Agentic LLM refs", "local AI attack scenarios", "llm-wiki agent knowledge"],
+        "avoid": ["generic CVE noise unless the target exposes a concrete vulnerable component"],
+        "sections": [
+            {"label": "AI Internal Knowledge", "kind": "internal", "sources": ["techniques", "scenarios"], "categories": ["ai", "llm"], "limit": 4},
+            {"label": "LLM Wiki / Agent Knowledge", "kind": "external", "sources": ["llm-wiki", "llm-wiki-nvk"], "limit": 4},
+            {"label": "AI Detection/PoC Signals", "kind": "exploit", "limit": 2},
+        ],
+    },
+    "exploiter": {
+        "priority": ["known PoCs and CVEs", "bypass alternatives", "evidence-tier patterns"],
+        "avoid": ["past submissions as exploit proof"],
+        "sections": [
+            {"label": "Known Exploits", "kind": "exploit", "limit": 4},
+            {"label": "Exploit Techniques", "kind": "internal", "sources": ["techniques", "scenarios", "protocol_vulns_index"], "limit": 3},
+        ],
+    },
+    "reporter": {
+        "priority": ["submission quality rules", "platform formats", "successful/failed report patterns"],
+        "avoid": ["new vulnerability research and broad CVE search"],
+        "sections": [
+            {"label": "Submission Examples", "kind": "internal", "sources": ["submissions"], "limit": 3},
+            {"label": "Report Quality/Platform Rules", "kind": "internal", "sources": ["techniques"], "limit": 3},
+            {"label": "Triage Objections", "kind": "triage", "limit": 2},
+        ],
+    },
+    "critic": {
+        "priority": ["triage objections", "decision records", "submission history"],
+        "avoid": ["broad technique expansion unless checking a specific claim"],
+        "sections": [
+            {"label": "Triage Objections", "kind": "triage", "limit": 4},
+            {"label": "Decisions/Submissions", "kind": "internal", "sources": ["decisions", "submissions"], "limit": 3},
+            {"label": "Claim Check References", "kind": "internal", "sources": ["techniques", "protocol_vulns_index"], "limit": 2},
+        ],
+    },
+    "triager-sim": {
+        "priority": ["same-program rejection memory", "common failure patterns", "submission history"],
+        "avoid": ["inventing new attack paths while judging evidence"],
+        "sections": [
+            {"label": "Triage Objections", "kind": "triage", "limit": 5},
+            {"label": "Submission/Decision Memory", "kind": "internal", "sources": ["submissions", "decisions"], "limit": 3},
+        ],
+    },
+}
+
+ROLE_ALIASES = {
+    "target_evaluator": "target-evaluator",
+    "target-discovery": "scout",
+    "recon-scanner": "scout",
+    "web-tester": "analyst",
+    "mobile-analyst": "analyst",
+    "defi-auditor": "analyst",
+    "source-auditor": "analyst",
+    "patch-hunter": "analyst",
+    "submission-review": "critic",
+}
+
+
+def _profile_for_role(role: str) -> tuple[str, dict]:
+    normalized = (role or "analyst").strip().lower().replace("_", "-")
+    normalized = ROLE_ALIASES.get(normalized, normalized)
+    return normalized, ROUTING_PROFILES.get(normalized, ROUTING_PROFILES["analyst"])
+
+
+def _row_title(row: dict) -> str:
+    return (row.get("title") or row.get("name") or row.get("description") or row.get("cve_id") or "untitled")
+
+
+def _format_route_row(row: dict) -> str:
+    source_table = row.get("_source_table", "")
+    source = row.get("source") or row.get("source_repo") or source_table
+    category = row.get("category") or row.get("program") or row.get("platform") or ""
+    path = row.get("file_path") or row.get("github_url") or row.get("source_url") or ""
+    snippet = row.get("snippet") or row.get("kill_reason") or _fmt_snippet(row.get("content", ""))
+    parts = [f"[{source or source_table}] {_row_title(row)[:120]}"]
+    meta = []
+    if category:
+        meta.append(f"cat={category}")
+    if snippet:
+        meta.append(f"match={snippet[:180]}")
+    if path:
+        meta.append(f"path={path}")
+    if meta:
+        parts.append(" | ".join(meta))
+    return " — ".join(parts)
+
+
+def _run_route_section(section: dict, query: str, program: str, limit: int) -> list[dict]:
+    kind = section["kind"]
+    section_limit = min(section.get("limit", limit), limit)
+    if kind == "triage":
+        rows = _triage_snippet_search(query, program=program, limit=section_limit)
+        for row in rows:
+            row["_source_table"] = "triage_objections"
+        return rows
+    if kind == "internal":
+        rows = _filtered_snippet_search(
+            query,
+            "techniques",
+            sources=section.get("sources"),
+            categories=section.get("categories"),
+            limit=section_limit,
+        )
+        for row in rows:
+            row["_source_table"] = "techniques"
+        return rows
+    if kind == "external":
+        rows = _filtered_snippet_search(
+            query,
+            "external_techniques",
+            sources=section.get("sources"),
+            categories=section.get("categories"),
+            limit=section_limit,
+        )
+        for row in rows:
+            row["_source_table"] = "external_techniques"
+        return rows
+    if kind == "exploit":
+        rows = _indexer.search_exploits(query, limit=section_limit)
+        for row in rows:
+            row.pop("content", None)
+        return rows
+    return []
 
 
 def _import_sys():
@@ -433,9 +727,9 @@ def triage_search(query: str, program: str = "", limit: int = 10) -> str:
         limit:   Max results (default 10)
     """
     if program:
-        results = _cached_snippet_search(query, table="triage_objections", category=program, limit=limit)
+        results = _triage_snippet_search(query, program=program, limit=limit)
     else:
-        results = _cached_snippet_search(query, table="triage_objections", limit=limit)
+        results = _triage_snippet_search(query, limit=limit)
 
     if not results:
         return f"No triage objections for '{query}'" + (f" (program={program})" if program else "") + "."
@@ -467,13 +761,65 @@ def triage_search(query: str, program: str = "", limit: int = 10) -> str:
 
 
 @mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, idempotentHint=True))
+def routed_search(role: str, query: str, phase: str = "", program: str = "", limit: int = 8) -> str:
+    """Role-aware knowledge retrieval that avoids mixing incompatible memory types.
+
+    Use this as the DEFAULT pipeline lookup before falling back to smart_search.
+    It routes the same query through a role-specific profile:
+    - discovery roles emphasize scenarios, protocol checklists, techniques, CVEs
+    - reporting/review roles emphasize submissions, decisions, triage objections
+    - AI roles emphasize AI/LLM references and llm-wiki sources
+
+    Args:
+        role: Agent role, e.g. scout, analyst, ai-recon, reporter, critic, triager-sim.
+        query: 2-4 keyword search query.
+        phase: Optional pipeline phase label for auditability.
+        program: Optional bounty program name for same-program triage memory.
+        limit: Max rows per routed section cap (default 8).
+    """
+    normalized_role, profile = _profile_for_role(role)
+    lines = [
+        f"## Routed Knowledge Search: {normalized_role}",
+        f"Query: {query}",
+    ]
+    if phase:
+        lines.append(f"Phase: {phase}")
+    if program:
+        lines.append(f"Program filter: {program}")
+    lines.append("")
+    lines.append("Priority sources:")
+    for item in profile["priority"]:
+        lines.append(f"- {item}")
+    lines.append("Avoid:")
+    for item in profile["avoid"]:
+        lines.append(f"- {item}")
+
+    any_results = False
+    for section in profile["sections"]:
+        rows = _run_route_section(section, query, program, limit)
+        lines.append("")
+        lines.append(f"### {section['label']}")
+        if not rows:
+            lines.append("(no routed matches)")
+            continue
+        any_results = True
+        for i, row in enumerate(rows, 1):
+            lines.append(f"{i}. {_format_route_row(row)}")
+
+    if not any_results:
+        lines.append("")
+        lines.append("Fallback: use smart_search with a shorter 2-3 keyword query.")
+    return "\n".join(lines)
+
+
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, idempotentHint=True))
 def search_all(query: str, limit: int = 10) -> str:
-    """Search ALL 6 knowledge tables simultaneously for the broadest coverage.
+    """Search all indexed knowledge tables simultaneously for broad coverage.
 
     Queries techniques, external_techniques, exploitdb, nuclei, poc_github,
-    and trickest_cve tables at once, with cross-table normalized BM25 ranking.
-    Each result is labelled with its source table. Use this as the
-    'I need everything about X' tool.
+    trickest_cve, web_articles, and triage_objections tables at once, with
+    cross-table normalized BM25 ranking. Each result is labelled with its
+    source table. Use this as the 'I need everything about X' tool.
 
     Use this when you need:
     - Comprehensive coverage across internal docs + external repos + exploit DBs
@@ -516,6 +862,9 @@ def search_all(query: str, limit: int = 10) -> str:
         elif source_table == "web_articles":
             title = r.get("title", "untitled")[:100]
             ident = f"web:{r.get('domain', '?')}"
+        elif source_table == "triage_objections":
+            title = r.get("title", "untitled")
+            ident = f"triage:{r.get('program', '?')}"
         else:
             title = r.get("title", "untitled")
             ident = "internal"
@@ -537,6 +886,16 @@ def search_all(query: str, limit: int = 10) -> str:
             snippet = r.get("snippet", _fmt_snippet(r.get("content", "")))
             if snippet:
                 detail_parts.append(f"match: {snippet}")
+        elif source_table == "triage_objections":
+            program = r.get("program", "")
+            reason = r.get("kill_reason", "")
+            file_path = r.get("file_path", "")
+            if program:
+                detail_parts.append(f"program={program}")
+            if reason:
+                detail_parts.append(f"reason={reason[:120]}")
+            if file_path:
+                detail_parts.append(f"path={file_path}")
         elif source_table == "nuclei":
             sev = r.get("severity", "")
             if sev:
@@ -577,7 +936,7 @@ def search_all(query: str, limit: int = 10) -> str:
 
 @mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, idempotentHint=True))
 def smart_search(query: str, limit: int = 10) -> str:
-    """Search all knowledge tables with automatic query relaxation.
+    """Broad fallback search across all knowledge tables with automatic relaxation.
 
     Unlike search_all which requires all terms to match (AND), smart_search
     progressively relaxes the query if no results are found:
@@ -585,7 +944,8 @@ def smart_search(query: str, limit: int = 10) -> str:
     2. Convert to OR match (any term matches)
     3. Use only the 2-3 most distinctive terms with OR
 
-    This is the RECOMMENDED default search tool for agents. Especially useful for:
+    Prefer routed_search(role, query, ...) for pipeline agents. Use this when
+    routed_search returns too little or when you explicitly want broad recall:
     - Verbose natural language queries ("QNAP buffer overflow in wfm2 function")
     - Multi-keyword searches that might be too specific
     - When you're not sure which terms will match
@@ -621,6 +981,9 @@ def smart_search(query: str, limit: int = 10) -> str:
         elif source_table == "web_articles":
             title = r.get("title", "untitled")[:100]
             ident = f"web:{r.get('domain', '?')}"
+        elif source_table == "triage_objections":
+            title = r.get("title", "untitled")
+            ident = f"triage:{r.get('program', '?')}"
         elif source_table == "external_techniques":
             title = r.get("title", "untitled")
             ident = f"ext:{r.get('source_repo', '?')}"
@@ -641,6 +1004,16 @@ def smart_search(query: str, limit: int = 10) -> str:
             tags = r.get("tags", "")
             if tags:
                 detail_parts.append(f"tags={tags[:60]}")
+        elif source_table == "triage_objections":
+            program = r.get("program", "")
+            reason = r.get("kill_reason", "")
+            file_path = r.get("file_path", "")
+            if program:
+                detail_parts.append(f"program={program}")
+            if reason:
+                detail_parts.append(f"reason={reason[:120]}")
+            if file_path:
+                detail_parts.append(f"path={file_path}")
         elif source_table == "exploitdb":
             plat = r.get("platform", "")
             cve = r.get("cve_codes", "")

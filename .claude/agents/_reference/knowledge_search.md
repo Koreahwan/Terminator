@@ -9,6 +9,7 @@ Use `ToolSearch("knowledge-fts")` to load MCP tools. Never `cat knowledge/techni
 ToolSearch("knowledge-fts")
 
 # Available functions (auto-loaded):
+# - routed_search(role, query, phase="", program="")
 # - smart_search(query)
 # - technique_search(vuln_type)
 # - exploit_search(service_or_cve)
@@ -17,32 +18,43 @@ ToolSearch("knowledge-fts")
 
 ## Preferred Search Order
 
-1. **smart_search(query)** — DEFAULT. Auto-relaxes on fail (AND → OR → top-terms)
+1. **routed_search(role, query, phase="", program="")** — DEFAULT for pipeline agents.
+   Keeps incompatible memory types separated by role:
+   - scout/analyst: scenarios, protocol checklists, techniques, exploit signals
+   - ai-recon: AI scenarios, OWASP/Agentic refs, llm-wiki sources
+   - reporter/critic/triager-sim: submissions, decisions, triage objections
+   ```
+   routed_search(role="analyst", query="oracle manipulation twap")
+   routed_search(role="triager-sim", query="severity branch scope", program="walrus")
+   routed_search(role="ai-recon", query="agent memory prompt injection")
+   ```
+
+2. **smart_search(query)** — Broad fallback. Auto-relaxes on fail (AND → OR → top-terms)
    ```
    smart_search("QNAP buffer overflow")
    # Tries: exact match → partial relaxation → top keywords separately
    ```
 
-2. **technique_search(vuln_type)** — Vulnerability abbreviations
+3. **technique_search(vuln_type)** — Vulnerability abbreviations
    ```
    technique_search("UAF")  # expands to Use-After-Free
    technique_search("IDOR")  # expands to Insecure Direct Object Reference
    ```
    Auto-expands: RCE, SSRF, XXE, SSTI, TOCTOU, LFI, Prototype Pollution, etc.
 
-3. **exploit_search(service_or_cve)** — ExploitDB + nuclei + PoC + trickest-cve 155K + web_articles
+4. **exploit_search(service_or_cve)** — ExploitDB + nuclei + PoC + trickest-cve 155K + web_articles
    ```
    exploit_search("CVE-2021-44228")
    exploit_search("Apache Struts RCE")
    ```
 
-4. **challenge_search(name)** — Past CTF/BB solutions
+5. **challenge_search(name)** — Past CTF/BB solutions
    ```
    challenge_search("ret2libc")
    challenge_search("HeapExploit")
    ```
 
-5. **OR syntax** — Combine related terms
+6. **OR syntax** — Combine related terms
    ```
    smart_search("ret2libc OR ret2csu OR ret2syscall")
    technique_search("UAF OR heap spray")
@@ -51,6 +63,9 @@ ToolSearch("knowledge-fts")
 ## Query Rules
 
 - **2-3 keywords max** — Brevity increases recall
+- Use **role-aware routing first** unless you explicitly need every table.
+- Do not use submissions/report examples during discovery unless checking duplicates or expected triage outcome.
+- Do not use CVE/PoC results as report evidence unless the target component/version is verified in scope.
 - ✅ `"QNAP buffer overflow"`
 - ❌ `"QNAP QTS wfm2_save_file buffer overflow strcpy"`
 - ✅ `"ret2libc"` or `"ret2libc OR ret2csu"`

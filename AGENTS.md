@@ -16,7 +16,7 @@
 - `cd web && pip install -r requirements.txt && uvicorn app:app --reload --port 3000` — 대시보드 로컬 실행.
 - `pytest bridge/tests -q` — 정책 단위 테스트 실행.
 - `python3 tests/benchmarks/benchmark.py --all` — 벤치마크 전체 실행.
-- `python3 tools/knowledge_indexer.py build` — `knowledge/knowledge.db` 재생성 (7 tables, 280K+ docs).
+- `python3 tools/knowledge_indexer.py build` — `knowledge/knowledge.db` 재생성 (8 FTS tables, ~240K docs; 현재 수치는 `python3 tools/knowledge_indexer.py stats` 기준).
 - `python3 tools/knowledge_indexer.py smart-search "query"` — 프로그레시브 쿼리 완화 검색 (AND→OR→top-terms).
 - `python3 tools/knowledge_fetcher.py fetch <url>` — 웹 기사를 `web_articles` 테이블에 추가.
 - `python3 tools/knowledge_fetcher.py bulk knowledge/sources/blogs.md` — URL 목록 일괄 수집.

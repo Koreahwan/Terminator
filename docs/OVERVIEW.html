@@ -583,7 +583,7 @@
         <a class="card" href="#mcp"><div class="label">MCP Servers</div><div class="value" data-live="mcp">—</div><div class="note" data-live="mcp-note">.mcp.json</div></a>
         <a class="card" href="#toolchain"><div class="label">Tools</div><div class="value" data-live="tools">—</div><div class="note">tools/*.py · tools/*.sh</div></a>
         <a class="card" href="#hooks"><div class="label">Runtime Hooks</div><div class="value" data-live="hooks">—</div><div class="note">.claude/hooks/</div></a>
-        <a class="card" href="#knowledge"><div class="label">Knowledge DB</div><div class="value">280K+</div><div class="note">SQLite FTS5 + BM25</div></a>
+        <a class="card" href="#knowledge"><div class="label">Knowledge DB</div><div class="value">240K+</div><div class="note">SQLite FTS5 + BM25</div></a>
         <div class="card"><div class="label">Untracked</div><div class="value" data-live="untracked">—</div><div class="note">git working tree</div></div>
       </div>
     </section>
@@ -603,7 +603,7 @@ flowchart LR
   COD --> COORD[("coordination/<br/>handoffs · checkpoints · artifacts")]
   CLA --> COORD
   COORD --> OUT["reports/ · targets/ · docs/submissions.json"]
-  DISP --> KB[("knowledge-fts<br/>280K+ docs")]
+  DISP --> KB[("knowledge-fts<br/>240K+ docs")]
   DISP --> DB[("terminator-db :5433<br/>neo4j")]
   DISP -. hooks .-> HK["safe payload · observation mask · completion checks"]
   classDef ext fill:#f0f9ff,stroke:#0891b2,color:#0c4a6e;
@@ -858,7 +858,7 @@ flowchart LR
       <table>
         <thead><tr><th>서버</th><th>용도</th></tr></thead>
         <tbody>
-          <tr><td><b>knowledge-fts</b></td><td>280K+ 문서 BM25 검색 · smart_search 완화 · 33 동의어 · web_articles · 크로스 테이블 랭킹</td></tr>
+          <tr><td><b>knowledge-fts</b></td><td>240K+ 문서 BM25 검색 · routed_search 역할 라우팅 · smart_search 완화 · 8 FTS tables · 크로스 테이블 랭킹</td></tr>
           <tr><td><b>graphrag-security</b></td><td>보안 지식 그래프: exploit 조회, 유사 findings, drift 탐지</td></tr>
           <tr><td><b>semgrep-mcp · codeql-mcp · nuclei-mcp</b></td><td>정적/semantic/template 기반 분석</td></tr>
           <tr><td><b>playwright · promptfoo</b></td><td>브라우저 자동화, LLM red-team/eval</td></tr>
@@ -993,13 +993,14 @@ flowchart LR
       <table>
         <thead><tr><th>소스</th><th>문서 수</th><th>내용</th></tr></thead>
         <tbody>
-          <tr><td>Internal techniques</td><td>82</td><td>공격 패턴, historical writeup</td></tr>
-          <tr><td>External repos (47)</td><td>12,896</td><td>HackTricks · GTFOBins · PayloadsAllTheThings · how2heap · OWASP · SecLists …</td></tr>
-          <tr><td>ExploitDB</td><td>46,960</td><td>Exploit 설명, 플랫폼, CVE</td></tr>
-          <tr><td>Nuclei templates</td><td>14,871</td><td>심각도 포함 탐지 템플릿</td></tr>
-          <tr><td>PoC-in-GitHub</td><td>18,235</td><td>CVE PoC 레포</td></tr>
-          <tr><td>trickest-cve</td><td>155,121</td><td>CVE 상세, CWE, PoC 링크</td></tr>
-          <tr><td>Web articles</td><td>30+</td><td>크롤된 블로그 · writeup · OWASP cheatsheet</td></tr>
+          <tr><td>Typed internal docs</td><td>583</td><td>techniques · scenarios · decisions · submissions · protocol-vulns</td></tr>
+          <tr><td>External technique repos</td><td>6,214</td><td>HackTricks · PayloadsAllTheThings · llm-wiki · 기타 참조</td></tr>
+          <tr><td>ExploitDB</td><td>46,968</td><td>Exploit 설명, 플랫폼, CVE</td></tr>
+          <tr><td>Nuclei templates</td><td>12,632</td><td>심각도 포함 탐지 템플릿</td></tr>
+          <tr><td>PoC-in-GitHub</td><td>18,741</td><td>CVE PoC 레포</td></tr>
+          <tr><td>trickest-cve</td><td>155,741</td><td>CVE 상세, CWE, PoC 링크</td></tr>
+          <tr><td>Web articles</td><td>1</td><td>크롤된 블로그 · writeup · OWASP cheatsheet</td></tr>
+          <tr><td>Triage objections</td><td>11</td><td>거절 사유 · kill reason · 프로그램별 postmortem</td></tr>
         </tbody>
       </table>
     </section>

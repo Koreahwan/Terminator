@@ -6,6 +6,14 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+GRAPHRAG_BIN=""
+
+if command -v graphrag &>/dev/null; then
+    GRAPHRAG_BIN="$(command -v graphrag)"
+elif [[ -x "$PROJECT_ROOT/.venv/bin/graphrag" ]]; then
+    GRAPHRAG_BIN="$PROJECT_ROOT/.venv/bin/graphrag"
+fi
 
 if [[ $# -lt 1 ]]; then
     echo "Usage: $0 <file_path> [type]" >&2
@@ -46,13 +54,13 @@ TARGET_FILE="$INPUT_DIR/incr_${BASENAME_NOEXT}.txt"
 echo "[incremental_index] Prepared: $TARGET_FILE (type=$DOC_TYPE)"
 
 # Run graphrag update
-if ! command -v graphrag &>/dev/null; then
-    echo "[incremental_index] WARNING: graphrag not found in PATH, skipping index update" >&2
+if [[ -z "$GRAPHRAG_BIN" ]]; then
+    echo "[incremental_index] WARNING: graphrag not found in PATH or repo .venv, skipping index update" >&2
     exit 0
 fi
 
-echo "[incremental_index] Running: graphrag update --root $SCRIPT_DIR"
-if ! graphrag update --root "$SCRIPT_DIR" 2>&1; then
+echo "[incremental_index] Running: $GRAPHRAG_BIN update --root $SCRIPT_DIR"
+if ! "$GRAPHRAG_BIN" update --root "$SCRIPT_DIR" 2>&1; then
     echo "[incremental_index] WARNING: graphrag update failed" >&2
     exit 1
 fi

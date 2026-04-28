@@ -13,6 +13,20 @@ COORD_CLI="$CODE_ROOT/tools/coordination_cli.py"
 CONTEXT_DIGEST="$CODE_ROOT/tools/context_digest.py"
 GRAPHRAG_ROOT="$CODE_ROOT/tools/graphrag-security"
 TIMEOUT=15
+GRAPHRAG_BIN=""
+
+if command -v graphrag &>/dev/null; then
+    GRAPHRAG_BIN="$(command -v graphrag)"
+elif [[ -x "$CODE_ROOT/.venv/bin/graphrag" ]]; then
+    GRAPHRAG_BIN="$CODE_ROOT/.venv/bin/graphrag"
+fi
+
+has_graphrag_index() {
+    [[ -d "$GRAPHRAG_ROOT/output" ]] || return 1
+    for parquet in entities relationships community_reports text_units; do
+        [[ -f "$GRAPHRAG_ROOT/output/${parquet}.parquet" ]] || return 1
+    done
+}
 
 # Read stdin JSON
 INPUT=$(cat)
@@ -70,9 +84,34 @@ SKILL_BLOCK="$(echo "$SKILL_JSON" | jq -r '.skills // [] | map("- " + .name + " 
 DOC_JSON="$(python3 "$COORD_CLI" relevant-instructions --session "$SESSION_ID" --query "$COMBINED" --limit 4 2>/dev/null || echo '{"documents": []}')"
 DOC_BLOCK="$(echo "$DOC_JSON" | jq -r '.documents // [] | map("- " + .type + ": " + .path) | join("\n")' 2>/dev/null || true)"
 GRAPH_SECTION="(GraphRAG query skipped)"
+ROUTE_BLOCK="Use mcp__knowledge-fts__routed_search(role=\"$SUBAGENT_TYPE\", query=\"<2-4 keywords>\") before broad smart_search."
 
-if [[ -n "$QUERY" && "${COORD_SKIP_GRAPHRAG:-0}" != "1" ]] && command -v graphrag &>/dev/null && [[ -d "$GRAPHRAG_ROOT" ]]; then
-    RESULT=$(timeout "$TIMEOUT" graphrag query \
+case "$SUBAGENT_TYPE" in
+    target-evaluator|target_evaluator)
+        ROUTE_BLOCK="Use routed_search(role=\"target-evaluator\", query=\"<program vuln class>\", program=\"<program>\"). Prioritize rules, triage_objections, decisions, submissions; avoid broad CVE noise unless checking duplicates."
+        ;;
+    scout|recon-scanner|target-discovery)
+        ROUTE_BLOCK="Use routed_search(role=\"scout\", query=\"<surface vuln class>\"). Prioritize scenarios, protocol-vulns-index, techniques, known exploit signals; avoid submission style examples during discovery."
+        ;;
+    analyst|web-tester|mobile-analyst|defi-auditor|source-auditor|patch-hunter)
+        ROUTE_BLOCK="Use routed_search(role=\"analyst\", query=\"<candidate vuln class>\"). Prioritize scenarios, protocol checklists, internal/external techniques; avoid report templates until a candidate exists."
+        ;;
+    ai-recon)
+        ROUTE_BLOCK="Use routed_search(role=\"ai-recon\", query=\"<agent/LLM attack class>\"). Prioritize AI scenarios, OWASP/Agentic LLM refs, llm-wiki sources; avoid generic CVE noise unless a concrete component is in scope."
+        ;;
+    exploiter)
+        ROUTE_BLOCK="Use routed_search(role=\"exploiter\", query=\"<exploit primitive or failure>\"). Prioritize known PoCs/CVEs, bypass alternatives, evidence-tier patterns; avoid prior submissions as proof."
+        ;;
+    reporter)
+        ROUTE_BLOCK="Use routed_search(role=\"reporter\", query=\"<finding class platform>\"). Prioritize submissions, report quality, platform formats, triage objections; avoid new vulnerability research."
+        ;;
+    critic|triager-sim|submission-review)
+        ROUTE_BLOCK="Use routed_search(role=\"$SUBAGENT_TYPE\", query=\"<finding class>\", program=\"<program>\"). Prioritize same-program triage objections, decisions, submissions; avoid inventing new attack paths while judging evidence."
+        ;;
+esac
+
+if [[ -n "$QUERY" && "${COORD_SKIP_GRAPHRAG:-0}" != "1" && -n "$GRAPHRAG_BIN" && -d "$GRAPHRAG_ROOT" ]] && has_graphrag_index; then
+    RESULT=$(timeout "$TIMEOUT" "$GRAPHRAG_BIN" query \
         --root "$GRAPHRAG_ROOT" \
         --method local \
         --query "$QUERY" 2>/dev/null) || true
@@ -90,6 +129,9 @@ fi
 
 COMBINED_RESULT=$(cat <<EOF
 [AUTO-INJECTED KNOWLEDGE - $SUBAGENT_TYPE]
+[KNOWLEDGE ROUTING]
+$ROUTE_BLOCK
+
 $GRAPH_SECTION
 
 [RELEVANT SKILLS]

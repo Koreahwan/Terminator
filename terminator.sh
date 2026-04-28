@@ -954,7 +954,7 @@ Do NOT redo work that already has artifacts.
   the target name to avoid collisions with concurrent sessions.
 
 SAFETY: Authorized target only. Safe payloads only.
-Search knowledge-fts MCP before each agent spawn.
+Search knowledge-fts MCP with routed_search(role, query, phase, program) before each agent spawn; use broad smart_search only as fallback.
 All artifacts save to __TARGET_DIR__/. Reports save to __REPORT_DIR__/.
 PROMPT_TEMPLATE
 

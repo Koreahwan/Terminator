@@ -153,6 +153,24 @@ def phase1(stats: dict) -> None:
     else:
         print(f"  [WARN] index.md not found: {index_file}")
 
+    # --- additional internal knowledge stores ---
+    extra_dirs = [
+        ("scenarios", "attack_scenario"),
+        ("submissions", "submission_history"),
+        ("decisions", "decision_record"),
+        ("triage_objections", "triage_objection"),
+        ("sources", "source_list"),
+    ]
+    for subdir, doc_type in extra_dirs:
+        base = PROJECT_ROOT / "knowledge" / subdir
+        if not base.exists():
+            print(f"  [WARN] {subdir} dir not found: {base}")
+            continue
+        md_files = list(base.rglob("*.md"))
+        for f in md_files:
+            process_file(f, doc_type, stats)
+        print(f"  {subdir}: {len(md_files)} files")
+
     # --- targets/*/report.md and targets/*/submission/report.md ---
     targets_dir = PROJECT_ROOT / "targets"
     if targets_dir.exists():

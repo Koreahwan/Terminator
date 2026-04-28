@@ -379,7 +379,7 @@ Then use:
 - Orchestrator may include [KNOWLEDGE CONTEXT] in your HANDOFF — review it before duplicating searches
 
 ### Query Best Practices
-- **Use `smart_search` as default** — auto-relaxes queries when exact AND match returns 0 results
+- **Use `routed_search(role, query, phase, program)` as default** — use broad `smart_search` only when routed results are thin
 - **2-3 keywords max** — `"QNAP buffer overflow"` not `"QNAP QTS wfm2_save_file buffer overflow strcpy CVE-2024"`
 - **Generic vuln type first** — `"NAS command injection"` > `"QNAP wfm2_save_file strcpy overflow"`
 - **Abbreviations auto-expand** — uaf, bof, sqli, ssrf, toctou, xxe, ssti, idor, rce, lpe, cmdinjection, etc.
