@@ -12,6 +12,20 @@ TIMEOUT=20
 INPUT="$(cat || true)"
 SESSION_ID="$(echo "$INPUT" | jq -r '.session_id // empty' 2>/dev/null || true)"
 CWD="$(echo "$INPUT" | jq -r '.cwd // "."' 2>/dev/null || echo ".")"
+GRAPHRAG_BIN=""
+
+if command -v graphrag &>/dev/null; then
+    GRAPHRAG_BIN="$(command -v graphrag)"
+elif [[ -x "$PROJECT_ROOT/.venv/bin/graphrag" ]]; then
+    GRAPHRAG_BIN="$PROJECT_ROOT/.venv/bin/graphrag"
+fi
+
+has_graphrag_index() {
+    [[ -d "$GRAPHRAG_ROOT/output" ]] || return 1
+    for parquet in entities relationships community_reports text_units; do
+        [[ -f "$GRAPHRAG_ROOT/output/${parquet}.parquet" ]] || return 1
+    done
+}
 
 if [[ -z "$SESSION_ID" ]]; then
     SESSION_ID="$(python3 "$COORD_CLI" derive-session --cwd "$CWD" 2>/dev/null | jq -r '.session_id' 2>/dev/null || basename "$CWD")"
@@ -33,10 +47,9 @@ INSTRUCTION_COUNT="$(echo "$INSTRUCTION_INDEX" | jq -r '.count // 0' 2>/dev/null
 QUERY="Summarize the top 10 most important security techniques, common failure patterns, and key lessons learned from bug bounty and CTF experience"
 SUMMARY="GraphRAG unavailable or unindexed; using coordination indexes only."
 
-if command -v graphrag &>/dev/null && [[ -d "$GRAPHRAG_ROOT" ]] && [[ -d "$GRAPHRAG_ROOT/output" ]]; then
-    if ls "$GRAPHRAG_ROOT/output/"*.parquet &>/dev/null 2>&1 || \
-       find "$GRAPHRAG_ROOT/output" -name "*.parquet" -type f 2>/dev/null | grep -q .; then
-        RESULT=$(timeout "$TIMEOUT" graphrag query \
+if [[ -n "$GRAPHRAG_BIN" && -d "$GRAPHRAG_ROOT" ]]; then
+    if has_graphrag_index; then
+        RESULT=$(timeout "$TIMEOUT" "$GRAPHRAG_BIN" query \
             --root "$GRAPHRAG_ROOT" \
             --method global \
             --query "$QUERY" 2>/dev/null) || true

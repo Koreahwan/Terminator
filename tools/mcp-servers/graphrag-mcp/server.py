@@ -2,6 +2,7 @@
 """GraphRAG Security MCP server: pandas-based direct parquet search (no LLM calls)."""
 import os
 import re
+import subprocess
 import sys
 
 import pandas as pd

@@ -67,6 +67,12 @@ CREATE VIRTUAL TABLE IF NOT EXISTS triage_objections USING fts5(
     tokenize = 'porter ascii'
 );
 
+CREATE VIRTUAL TABLE IF NOT EXISTS web_articles USING fts5(
+    title, content, category, tags, source_url UNINDEXED,
+    domain, fetch_date UNINDEXED,
+    tokenize = 'porter ascii'
+);
+
 CREATE TABLE IF NOT EXISTS db_metadata (key TEXT PRIMARY KEY, value TEXT);
 """
 
@@ -233,6 +239,33 @@ def escape_fts5(query: str) -> str:
     return " ".join(final)
 
 
+def fts5_query_variants(query: str) -> list[str]:
+    """Return high-recall FTS5 query variants.
+
+    The primary escaped query expands acronym synonyms. A literal-token fallback
+    keeps acronym-bearing multi-term queries such as "idor privilege escalation"
+    from losing documents that use the acronym itself in titles or headings.
+    """
+    variants = []
+    escaped = escape_fts5(query)
+    if escaped.strip():
+        variants.append(escaped)
+
+    words = re.findall(r"[\w][\w\-]*[\w]|[\w]+", query)
+    if words:
+        literal = " ".join(f'"{w}"' for w in words)
+        if literal.strip():
+            variants.append(literal)
+
+    deduped = []
+    seen = set()
+    for variant in variants:
+        if variant not in seen:
+            deduped.append(variant)
+            seen.add(variant)
+    return deduped
+
+
 def parse_nuclei_yaml(text: str) -> dict:
     def extract(pattern: str, txt: str) -> str:
         m = re.search(pattern, txt, re.MULTILINE)
@@ -302,6 +335,7 @@ class KnowledgeIndexer:
         return conn
 
     def build(self):
+        web_articles = self._dump_web_articles()
         if self.db_path.exists():
             self.db_path.unlink()
         conn = self._connect()
@@ -315,6 +349,8 @@ class KnowledgeIndexer:
         n3_nuc = self._index_nuclei(conn)
         n3_poc = self._index_poc_github(conn)
         n3_tri = self._index_tier3_trickest(conn)
+        n3_obj = self._index_triage_objections(conn)
+        n_web = self._restore_web_articles(conn, web_articles)
 
         ts = time.strftime("%Y-%m-%dT%H:%M:%S")
         conn.execute("INSERT OR REPLACE INTO db_metadata VALUES (?, ?)", ("build_timestamp", ts))
@@ -323,7 +359,7 @@ class KnowledgeIndexer:
         conn.commit()
         conn.close()
 
-        total = n1 + n2 + n3_exp + n3_nuc + n3_poc + n3_tri
+        total = n1 + n2 + n3_exp + n3_nuc + n3_poc + n3_tri + n3_obj + n_web
         elapsed = time.time() - t0
         print(f"\n{'='*60}")
         print(f"Build complete: {total:,} rows in {elapsed:.1f}s")
@@ -333,11 +369,41 @@ class KnowledgeIndexer:
         print(f"  nuclei:              {n3_nuc:>8,}")
         print(f"  poc_github:          {n3_poc:>8,}")
         print(f"  trickest_cve:        {n3_tri:>8,}")
+        print(f"  triage_objections:   {n3_obj:>8,}")
+        print(f"  web_articles:        {n_web:>8,}")
         print(f"  DB size: {self.db_path.stat().st_size / (1024*1024):.1f} MB")
 
+    def _dump_web_articles(self) -> list[tuple]:
+        """Preserve fetched web articles across full rebuilds."""
+        if not self.db_path.exists():
+            return []
+        try:
+            conn = sqlite3.connect(str(self.db_path))
+            rows = conn.execute(
+                "SELECT title,content,category,tags,source_url,domain,fetch_date FROM web_articles"
+            ).fetchall()
+            conn.close()
+            return [tuple(r) for r in rows]
+        except sqlite3.OperationalError:
+            return []
+
+    def _restore_web_articles(self, conn: sqlite3.Connection, rows: list[tuple]) -> int:
+        if not rows:
+            return 0
+        conn.executemany(
+            "INSERT INTO web_articles (title,content,category,tags,source_url,domain,fetch_date) "
+            "VALUES (?,?,?,?,?,?,?)",
+            rows,
+        )
+        print(f"[Web] Restored web_articles — {len(rows)} docs")
+        return len(rows)
+
     def update_internal(self):
-        """Fast incremental re-index of Tier 1 only (knowledge/techniques + challenges + triage_objections).
-        Drops and rebuilds techniques + triage_objections tables. <1 second."""
+        """Incremental re-index of internal knowledge and triage objections.
+
+        Drops and rebuilds the techniques table for local knowledge docs, plus
+        the dedicated triage_objections table used by Gate pre-checks.
+        """
         if not self.db_path.exists():
             print("DB not found. Run 'build' first.")
             return
@@ -372,22 +438,22 @@ class KnowledgeIndexer:
 
     def _index_tier1(self, conn: sqlite3.Connection) -> int:
         count = 0
-        for subdir, source in [("techniques", "techniques"), ("challenges", "challenges")]:
+        configs = [
+            ("techniques", "techniques", ["*.md"]),
+            ("challenges", "challenges", ["*.md"]),
+            ("scenarios", "scenarios", ["**/*.md"]),
+            ("submissions", "submissions", ["*.md"]),
+            ("decisions", "decisions", ["*.md"]),
+            ("sources", "sources", ["*.md"]),
+            ("protocol-vulns-index", "protocol_vulns_index", ["**/*.md"]),
+        ]
+
+        for subdir, source, patterns in configs:
             dirpath = PROJECT_ROOT / "knowledge" / subdir
             if not dirpath.is_dir():
                 print(f"[Tier 1] Skipping {dirpath} (not found)")
                 continue
-            rows = []
-            for f in sorted(dirpath.glob("*.md")):
-                text = read_file(f)
-                if not text.strip():
-                    continue
-                title = extract_md_title(text) or f.stem
-                category = category_from_filename(f.name)
-                tags = extract_md_tags(text)
-                vuln = ""
-                platform = ""
-                rows.append((title, text, category, tags, vuln, platform, str(f), source))
+            rows = self._collect_internal_docs(dirpath, source, patterns)
             if rows:
                 conn.executemany(
                     "INSERT INTO techniques (title,content,category,tags,vulnerability,platform,file_path,source) "
@@ -395,7 +461,55 @@ class KnowledgeIndexer:
                 )
                 count += len(rows)
                 print(f"[Tier 1] Indexed {dirpath.name}/ — {len(rows)} docs")
+
+        root_rows = []
+        for f in sorted((PROJECT_ROOT / "knowledge").glob("*.md")):
+            text = read_file(f)
+            if not text.strip():
+                continue
+            title = extract_md_title(text) or f.stem
+            root_rows.append((title, text, "knowledge-root", extract_md_tags(text), "", "", str(f), "knowledge_root"))
+        if root_rows:
+            conn.executemany(
+                "INSERT INTO techniques (title,content,category,tags,vulnerability,platform,file_path,source) "
+                "VALUES (?,?,?,?,?,?,?,?)", root_rows
+            )
+            count += len(root_rows)
+            print(f"[Tier 1] Indexed knowledge root — {len(root_rows)} docs")
         return count
+
+    def _collect_internal_docs(self, dirpath: Path, source: str, patterns: list[str]) -> list[tuple]:
+        rows = []
+        seen: set[Path] = set()
+        for pattern in patterns:
+            for f in sorted(dirpath.glob(pattern)):
+                if f.is_dir() or f in seen:
+                    continue
+                seen.add(f)
+                text = read_file(f)
+                if not text.strip():
+                    continue
+                title = extract_md_title(text) or f.stem
+                category = self._internal_category(f, source)
+                tags = extract_md_tags(text)
+                rows.append((title, text, category, tags, "", "", str(f), source))
+        return rows
+
+    def _internal_category(self, path: Path, source: str) -> str:
+        try:
+            rel = path.relative_to(PROJECT_ROOT / "knowledge")
+        except ValueError:
+            return category_from_filename(path.name)
+        parts = rel.parts
+        if source == "scenarios" and len(parts) >= 2:
+            return parts[1]
+        if source == "protocol_vulns_index":
+            if len(parts) >= 3 and parts[1] == "categories":
+                return parts[2]
+            return "protocol-vulns"
+        if source in {"submissions", "decisions", "sources"}:
+            return source
+        return category_from_filename(path.name)
 
     def _index_triage_objections(self, conn: sqlite3.Connection) -> int:
         """Index knowledge/triage_objections/ into FTS5 for Gate pre-checks."""
@@ -412,7 +526,8 @@ class KnowledgeIndexer:
             category = category_from_filename(f.name)
             tags = extract_md_tags(text)
             # Extract program name from filename (e.g., "paradex_gate1_kill.md" → "paradex")
-            program = f.stem.split("_")[0] if "_" in f.stem else f.stem
+            stem_parts = [p for p in re.split(r"[-_]+", f.stem) if p]
+            program = stem_parts[0] if stem_parts else f.stem
             # Extract kill reason from first non-heading paragraph
             kill_reason = ""
             for line in text.split("\n"):
@@ -694,6 +809,18 @@ class KnowledgeIndexer:
              "category_fn": lambda f: "kernel-privesc",
              "extractor": _md_default},
             # === NEW: AI Security ===
+            {"name": "llm-wiki", "path": "~/tools/llm-wiki",
+             "patterns": ["**/*.md", "**/*.mdx"],
+             "category_fn": lambda f: "llm-security",
+             "extractor": _section_split},
+            {"name": "llm-wiki-nvk", "path": "~/tools/llm-wiki-nvk",
+             "patterns": ["**/*.md", "**/*.mdx"],
+             "category_fn": lambda f: "agent-knowledge-wiki",
+             "extractor": _section_split},
+            {"name": "llm-wiki-home", "path": "~/llm-wiki",
+             "patterns": ["**/*.md", "**/*.mdx"],
+             "category_fn": lambda f: "llm-security",
+             "extractor": _section_split},
             {"name": "prompt-injection-defenses", "path": "~/tools/prompt-injection-defenses",
              "patterns": ["**/*.md"],
              "category_fn": lambda f: "ai-security",
@@ -997,8 +1124,8 @@ class KnowledgeIndexer:
                category: str = "", limit: int = 5) -> list[dict]:
         if table not in self.VALID_TABLES:
             raise ValueError(f"Unknown table: {table}. Valid: {self.VALID_TABLES}")
-        escaped = escape_fts5(query)
-        if not escaped.strip():
+        variants = fts5_query_variants(query)
+        if not variants:
             return []
         conn = self._connect()
         try:
@@ -1011,18 +1138,23 @@ class KnowledgeIndexer:
                 rank_expr = f"bm25({table}, {weight_args})"
             else:
                 rank_expr = "rank"
-            if category:
-                cat_escaped = escape_fts5(category)
-                sql = (f"SELECT *, {rank_expr} as rank FROM {table} "
-                       f"WHERE {table} MATCH ? AND category MATCH ? "
-                       f"ORDER BY rank LIMIT ?")
-                cur = conn.execute(sql, (escaped, cat_escaped, fetch_limit))
-            else:
-                sql = (f"SELECT *, {rank_expr} as rank FROM {table} "
-                       f"WHERE {table} MATCH ? ORDER BY rank LIMIT ?")
-                cur = conn.execute(sql, (escaped, fetch_limit))
-            results = [dict(row) for row in cur.fetchall()]
-            results = self._dedup_results(results)[:limit]
+            results = []
+            for variant in variants:
+                if category:
+                    cat_escaped = escape_fts5(category)
+                    sql = (f"SELECT *, {rank_expr} as rank FROM {table} "
+                           f"WHERE {table} MATCH ? AND category MATCH ? "
+                           f"ORDER BY rank LIMIT ?")
+                    cur = conn.execute(sql, (variant, cat_escaped, fetch_limit))
+                else:
+                    sql = (f"SELECT *, {rank_expr} as rank FROM {table} "
+                           f"WHERE {table} MATCH ? ORDER BY rank LIMIT ?")
+                    cur = conn.execute(sql, (variant, fetch_limit))
+                results.extend(dict(row) for row in cur.fetchall())
+                results = self._dedup_results(results)
+                if len(results) >= limit:
+                    break
+            results = results[:limit]
         except sqlite3.OperationalError as e:
             print(f"Search error: {e}", file=sys.stderr)
             results = []
@@ -1038,8 +1170,22 @@ class KnowledgeIndexer:
             "nuclei": 1.0,
             "poc_github": 1.0,
             "trickest_cve": 0.6,
+            "web_articles": 1.2,
+            "triage_objections": 1.1,
         }
-        tables = list(TABLE_WEIGHTS.keys())
+        conn = self._connect()
+        try:
+            existing_tables = {
+                r[0] for r in conn.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE '%_content' "
+                    "AND name NOT LIKE '%_docsize' AND name NOT LIKE '%_config' "
+                    "AND name NOT LIKE '%_data' AND name NOT LIKE '%_idx' "
+                    "AND name != 'db_metadata'"
+                ).fetchall()
+            }
+        finally:
+            conn.close()
+        tables = [t for t in TABLE_WEIGHTS if t in existing_tables]
         all_results = []
         for table in tables:
             results = self.search(query, table=table, limit=limit)
@@ -1153,8 +1299,9 @@ class KnowledgeIndexer:
             "nuclei": 1.0,
             "poc_github": 1.0,
             "trickest_cve": 0.6,
+            "web_articles": 1.2,
+            "triage_objections": 1.1,
         }
-        # Also include web_articles if table exists
         conn = self._connect()
         try:
             tables = [r[0] for r in conn.execute(
@@ -1165,14 +1312,14 @@ class KnowledgeIndexer:
             ).fetchall()]
         finally:
             conn.close()
-        if "web_articles" in tables and "web_articles" not in TABLE_WEIGHTS:
-            TABLE_WEIGHTS["web_articles"] = 1.2
 
         all_results = []
         best_level = "no_results"
         level_priority = {"exact": 0, "or": 1, "top_terms": 2, "no_results": 3}
 
         for table in TABLE_WEIGHTS:
+            if table not in tables:
+                continue
             if table not in self.VALID_TABLES:
                 continue
             try:
@@ -1349,7 +1496,8 @@ def main():
     sp_search.add_argument("--table", "-t", default="techniques",
                            choices=["techniques", "external_techniques",
                                     "exploitdb", "nuclei", "poc_github",
-                                    "trickest_cve"])
+                                    "trickest_cve", "web_articles",
+                                    "triage_objections"])
     sp_search.add_argument("--category", "-c", default="")
     sp_search.add_argument("--limit", "-n", type=int, default=5)
     sp_search.add_argument("--verbose", "-v", action="store_true")

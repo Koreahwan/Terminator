@@ -1,11 +1,29 @@
 tools:
+- tool_id: knowledge-fts-routed-search
+  name: Knowledge FTS Routed Search
+  kind: query
+  entrypoint: mcp:knowledge-fts:routed_search
+  description: Role-aware knowledge retrieval that keeps rules, memory, submissions,
+    triage objections, techniques, exploit databases, and llm-wiki sources from
+    being mixed indiscriminately. Preferred default for pipeline agents before
+    broad smart_search.
+  read_only: true
+  timeout: 30
+  parallel_class: independent
+  tags:
+  - knowledge
+  - search
+  - routing
+  - bm25
+  agent_roles:
+  - all
 - tool_id: knowledge-fts-smart-search
   name: Knowledge FTS Smart Search
   kind: query
   entrypoint: mcp:knowledge-fts:smart_search
-  description: Progressive query relaxation search across 280K+ knowledge docs. Auto-relaxes
-    AND→OR→top-terms when exact match fails. PREFERRED default — use this first for
-    any knowledge lookup. 2-3 keywords max.
+  description: Progressive query relaxation search across 240K+ knowledge docs. Auto-relaxes
+    AND→OR→top-terms when exact match fails. Broad fallback after routed_search.
+    2-3 keywords max.
   read_only: true
   timeout: 30
   parallel_class: independent
@@ -21,7 +39,7 @@ tools:
   kind: query
   entrypoint: mcp:knowledge-fts:exploit_search
   description: Search ExploitDB 47K + Nuclei 12K + PoC-in-GitHub 8K + Trickest-CVE
-    155K + web_articles 3.4K. Use CVE number or service name. Check existing PoC existence
+    155K + web_articles. Use CVE number or service name. Check existing PoC existence
     before writing from scratch.
   read_only: true
   timeout: 30

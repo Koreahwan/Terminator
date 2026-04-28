@@ -1,7 +1,7 @@
 #!/bin/bash
 # knowledge_db_update.sh — PostToolUse hook
 # Triggers fast internal DB rebuild when knowledge docs are modified.
-# Only rebuilds Tier 1 (techniques + challenges), <1 second.
+# Rebuilds Tier 1 internal knowledge + triage objections.
 
 set -euo pipefail
 
@@ -14,9 +14,9 @@ if [[ ! -f "$DB_PATH" ]]; then
     exit 0
 fi
 
-# Check if the tool input references knowledge/ paths
+# Check if the tool input references indexed knowledge/ paths
 INPUT="${CLAUDE_TOOL_INPUT:-}"
-if echo "$INPUT" | grep -qE 'knowledge/(techniques|challenges)/'; then
+if echo "$INPUT" | grep -qE 'knowledge/(techniques|challenges|scenarios|submissions|decisions|sources|protocol-vulns-index|triage_objections)/|knowledge/(index|README|external_repos|VERIFICATION_AUDIT_[^/]+)\.md'; then
     python3 "$PROJECT_ROOT/tools/knowledge_indexer.py" update-internal >/dev/null 2>&1 &
 fi
 

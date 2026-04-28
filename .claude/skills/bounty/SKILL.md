@@ -32,7 +32,7 @@ Subagent spawn uses `Task` or `Agent` tool depending on Claude build, but `subag
    - **Hard NO-GO (v6)**: 3+ audits, 2+ reputable audits, 100+ reports, 3yr+, source inaccessible
    - NO-GO → stop immediately, evaluate another target
 3. **Run `oos-check` skill** — full program OOS scan
-4. Use target-evaluator's `suggested_searches` for knowledge-fts → inject `[KNOWLEDGE CONTEXT]` into HANDOFF
+4. Use target-evaluator's `suggested_searches` with `routed_search(role="<next-agent>", query="<search>", phase="<phase>", program="<program>")` → inject `[KNOWLEDGE CONTEXT]` into HANDOFF. Use broad `smart_search` only when routed_search misses.
 
 ### Phase 0.1: Program Fetch (v12.4 MANDATORY)
 ```bash
