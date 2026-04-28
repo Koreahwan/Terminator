@@ -8,7 +8,7 @@ PID_FILE="$PID_DIR/overview_server.pid"
 LOG_FILE="$PID_DIR/overview_server.log"
 HOST="${OVERVIEW_HOST:-127.0.0.1}"
 PORT="${OVERVIEW_PORT:-8450}"
-HEALTH_URL="http://${HOST}:${PORT}/OVERVIEW.html"
+HEALTH_URL="http://${HOST}:${PORT}/api/health"
 
 require_cmd() {
   if ! command -v "$1" >/dev/null 2>&1; then
@@ -18,13 +18,9 @@ require_cmd() {
 }
 
 probe_dashboard() {
-  local body
-
-  if ! body="$(curl --silent --show-error --fail --max-time 5 "$HEALTH_URL" 2>/dev/null)"; then
+  if ! curl --silent --show-error --fail --max-time 5 "$HEALTH_URL" >/dev/null 2>&1; then
     return 1
   fi
-
-  grep -q "Terminator — Project Overview" <<<"$body"
 }
 
 read_pid() {
@@ -51,7 +47,11 @@ start_dashboard() {
   mkdir -p "$PID_DIR"
   cd "$ROOT_DIR"
 
-  nohup python3 "$ROOT_DIR/docs/overview_server.py" >"$LOG_FILE" 2>&1 &
+  if command -v setsid >/dev/null 2>&1; then
+    setsid python3 "$ROOT_DIR/docs/overview_server.py" </dev/null >"$LOG_FILE" 2>&1 &
+  else
+    nohup python3 "$ROOT_DIR/docs/overview_server.py" </dev/null >"$LOG_FILE" 2>&1 &
+  fi
   echo "$!" > "$PID_FILE"
 }
 

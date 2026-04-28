@@ -20,6 +20,8 @@ import subprocess
 import sys
 import threading
 import time
+from datetime import date, datetime
+from decimal import Decimal
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -337,15 +339,25 @@ class Handler(BaseHTTPRequestHandler):
         origin = self.headers.get("Origin", "")
         return origin if origin in self._ALLOWED_ORIGINS else self._ALLOWED_ORIGINS.__iter__().__next__()
 
+    def _json_default(self, value):
+        if isinstance(value, (datetime, date)):
+            return value.isoformat()
+        if isinstance(value, Decimal):
+            return float(value)
+        raise TypeError(f"Object of type {type(value).__name__} is not JSON serializable")
+
     def _send_json(self, payload: dict, status: int = 200) -> None:
-        body = json.dumps(payload, ensure_ascii=False, indent=2).encode("utf-8")
-        self.send_response(status)
-        self.send_header("Content-Type", "application/json; charset=utf-8")
-        self.send_header("Content-Length", str(len(body)))
-        self.send_header("Cache-Control", "no-store")
-        self.send_header("Access-Control-Allow-Origin", self._cors_origin())
-        self.end_headers()
-        self.wfile.write(body)
+        body = json.dumps(payload, ensure_ascii=False, indent=2, default=self._json_default).encode("utf-8")
+        try:
+            self.send_response(status)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("Access-Control-Allow-Origin", self._cors_origin())
+            self.end_headers()
+            self.wfile.write(body)
+        except (BrokenPipeError, ConnectionResetError):
+            pass
 
     def _send_file(self, path: Path, content_type: str) -> None:
         data = path.read_bytes()
@@ -412,44 +424,47 @@ class Handler(BaseHTTPRequestHandler):
     def _get_assessments(self):
         conn = self._get_db_conn()
         if not conn:
-            return {"error": "Database unavailable"}
+            return {"assessments": [], "error": "Database unavailable"}
         try:
             cur = conn.cursor()
             cur.execute("SELECT id, target, pipeline, status, phase, template, created_at FROM assessments ORDER BY created_at DESC LIMIT 50")
             cols = [d[0] for d in cur.description]
             rows = [dict(zip(cols, r)) for r in cur.fetchall()]
-            conn.close()
             return {"assessments": rows}
         except Exception as e:
-            return {"error": str(e)}
+            return {"assessments": [], "error": str(e)}
+        finally:
+            conn.close()
 
     def _get_findings(self):
         conn = self._get_db_conn()
         if not conn:
-            return {"error": "Database unavailable"}
+            return {"findings": [], "error": "Database unavailable"}
         try:
             cur = conn.cursor()
             cur.execute("SELECT id, target, title, severity, status, cvss_score, evidence_tier, created_at FROM findings ORDER BY created_at DESC LIMIT 50")
             cols = [d[0] for d in cur.description]
             rows = [dict(zip(cols, r)) for r in cur.fetchall()]
-            conn.close()
             return {"findings": rows}
         except Exception as e:
-            return {"error": str(e)}
+            return {"findings": [], "error": str(e)}
+        finally:
+            conn.close()
 
     def _get_timeline(self):
         conn = self._get_db_conn()
         if not conn:
-            return {"error": "Database unavailable"}
+            return {"events": [], "error": "Database unavailable"}
         try:
             cur = conn.cursor()
             cur.execute("SELECT id, assessment_id, phase, event_type, severity, title, agent_role, created_at FROM timeline_events ORDER BY created_at DESC LIMIT 100")
             cols = [d[0] for d in cur.description]
             rows = [dict(zip(cols, r)) for r in cur.fetchall()]
-            conn.close()
             return {"events": rows}
         except Exception as e:
-            return {"error": str(e)}
+            return {"events": [], "error": str(e)}
+        finally:
+            conn.close()
 
     def _get_tool_health(self):
         try:
@@ -464,6 +479,9 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
         path = self.path.split("?", 1)[0]
         _touch_activity()
+        if path == "/api/health":
+            self._send_json({"ok": True, "service": "overview"})
+            return
         if path == "/api/assessments":
             self._send_json(self._get_assessments())
             return
